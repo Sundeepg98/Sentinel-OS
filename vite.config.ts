@@ -17,21 +17,28 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // Group 3D and heavy visualization libraries
-            if (id.includes('three') || id.includes('react-force-graph') || id.includes('d3-force')) {
-              return 'visualization-vendor';
+            // Three.js is the largest dependency (~1MB), isolate it completely
+            if (id.includes('three')) {
+              return 'three-vendor';
             }
+            // Group other visualization tools
+            if (id.includes('react-force-graph') || id.includes('d3-force')) {
+              return 'graph-vendor';
+            }
+            // Group markdown processing
             if (id.includes('react-markdown') || id.includes('remark') || id.includes('unified')) {
               return 'markdown-vendor';
             }
+            // Group core UI frameworks
             if (id.includes('lucide-react') || id.includes('framer-motion')) {
               return 'ui-vendor';
             }
+            // Everything else goes to a standard vendor chunk
             return 'vendor';
           }
         },
       },
     },
-    chunkSizeWarningLimit: 1000, // Reasonable limit for a high-intelligence dashboard
+    chunkSizeWarningLimit: 800, // 800kB is a healthy limit for granular chunks
   },
 })
