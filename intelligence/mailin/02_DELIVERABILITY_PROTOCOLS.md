@@ -1,53 +1,49 @@
 ---
-label: Deliverability & Protocol Infra
+label: Deliverability Protocols
 type: map
-icon: Network
+icon: Shield
 data:
-  - id: auth_protocols
-    title: Advanced Auth Protocols
-    tech: MTA-STS + TLS-RPT
+  - id: security_protocols
+    title: MTA-STS & TLS-RPT
+    tech: Advanced Security Standards
     bottleneck: MITM Downgrade Attacks
-    scenario: Ensuring email servers utilize TLS and receiving failure telemetry.
+    scenario: Forcing encrypted connections and receiving connection failure telemetry.
     code: |
-      # MTA-STS Policy Example
+      # MTA-STS Policy Served via HTTPS
       version: STSv1
       mode: enforce
       mx: mail.mailin.ai
       max_age: 604800
-  - id: rate_limiting
-    title: ISP Rate Limiting
-    tech: Dynamic Throttling
-    bottleneck: 4xx SMTP Errors
-    scenario: Navigating Google's ML-driven filters vs. Microsoft's rigid connection limits.
+  - id: brand_auth
+    title: BIMI & VMC
+    tech: Brand Indicators
+    bottleneck: Recipient Engagement
+    scenario: Using Verified Mark Certificates to display brand logos in inboxes.
     code: |
-      # Distributed Backpressure Strategy
+      # BIMI DNS Record
+      default._bimi TXT "v=BIMI1; l=https://mailin.ai/logo.svg; a=https://mailin.ai/vmc.pem"
+  - id: backpressure
+    title: Distributed Backpressure
+    tech: Leaky Bucket / Sliding Window
+    bottleneck: ISP Connection Limits
+    scenario: Throttling traffic to Microsoft (binary limits) vs. Google (ML-driven dynamic limits).
+    code: |
+      # Backpressure Strategies
       - Leaky Bucket (Fixed output rate)
-      - Sliding Window (Redis counters)
+      - Redis Sliding Window (Real-time counters)
       - Exponential Backoff (Retry jitter)
-  - id: feedback_loops
-    title: Feedback Loops (FBL)
-    tech: Real-time Telemetry
-    bottleneck: Spam Complaint Anomalies
-    scenario: Microsoft/Yahoo transmitting diagnostic reports to suppress sending instantly.
-    code: |
-      # Real-time Suppression
-      if (complaint_anomaly_detected) {
-        suppress_recipient()
-        adjust_ip_routing()
-      }
 ---
 
 # Advanced Deliverability Architecture
 
-Achieving sustained inbox placement at a scale of 500 million emails/month requires adapting dynamically to opaque ISP algorithms.
+Achieving sustained inbox placement requires adapting dynamically to the opaque algorithms of major ISPs.
 
-## Security Standards
-Beyond SPF/DKIM, Mailin implements:
-*   **MTA-STS**: Forces TLS connections.
-*   **TLS-RPT**: Diagnostic telemetry for connection failures.
-*   **BIMI**: Displays verified brand logos using Verified Mark Certificates.
+## Feedback Loops (FBL)
+Specialized telemetry mechanism between ISPs (Microsoft, Yahoo) and Mailin. Reports recipient "spam" marks in near real-time.
+- **Real-time Suppression**: Automatically halts traffic to recipients to prevent IP blacklisting.
+- **Reputation Input**: reports act as dynamic inputs for broader reputation management algorithms.
 
 ## Throttling Algorithms
-*   **Google Workspace:** Machine-learning driven, evaluates reputation in real-time.
-*   **Microsoft O365:** Strict binary approach, rigid connection limits.
-*   **Yahoo Mail:** Aggressive concurrent connection limits (as few as 5 simultaneous sockets).
+- **Google Workspace**: ML-driven dynamic rate limiting evaluating sender reputation in real-time.
+- **Microsoft Office 365**: Strict binary approaches with rigid connection limits.
+- **Yahoo Mail**: Aggressive concurrent limits (as few as 5 simultaneous sockets per IP).
