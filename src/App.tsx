@@ -8,10 +8,13 @@ import { Tracker } from './views/Tracker';
 import { MarkdownView } from './views/MarkdownView';
 import { DeepSearch } from './components/DeepSearch';
 import { InsightPanel } from './components/InsightPanel';
+import { ArchitectArena } from './views/ArchitectArena';
 import { useDossier } from './hooks/useDossier';
 import type { CompanyDossier } from './types';
-import { Loader2, AlertCircle, Network } from 'lucide-react';
+import { Loader2, AlertCircle, Network, Swords } from 'lucide-react';
 import { Suspense, lazy } from 'react';
+import { useLocalStorage } from './hooks/useLocalStorage';
+import { cn } from './lib/utils';
 
 const KnowledgeGraph = lazy(() => import('./components/KnowledgeGraph').then(module => ({ default: module.KnowledgeGraph })));
 
@@ -34,6 +37,8 @@ function App() {
   const dossierData = useDossier();
   const [activeModuleId, setActiveModuleId] = useState<string>('');
   const [isGraphOpen, setIsGraphOpen] = useState(false);
+  const [arenaMode, setArenaMode] = useLocalStorage('arena_mode_active', false);
+  const [pinnedIds] = useLocalStorage<string[]>('architect_arena_selection', []);
 
   useEffect(() => {
     if (dossierData.dossier?.modules && dossierData.dossier.modules.length > 0) {
@@ -45,8 +50,8 @@ function App() {
 
   return (
     <DossierContext.Provider value={{ ...dossierData }}>
-      <div className="flex h-screen font-sans text-neutral-200 overflow-hidden selection:bg-cyan-500/30 selection:text-cyan-100">
-        <Sidebar activeModuleId={activeModuleId} setActiveModuleId={setActiveModuleId} />
+      <div className="flex h-screen font-sans text-neutral-200 overflow-hidden selection:bg-cyan-500/30 selection:text-cyan-100 bg-[#050505]">
+        <Sidebar activeModuleId={activeModuleId} setActiveModuleId={(id) => { setActiveModuleId(id); setArenaMode(false); }} />
 
         <main className="flex-1 overflow-y-auto relative flex flex-col">
           <div className="sticky top-0 z-30 w-full px-8 py-4 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/[0.05]">
@@ -68,15 +73,30 @@ function App() {
               >
                 <Network size={16} />
               </button>
+
+              <div className="h-4 w-px bg-white/10 mx-1" />
+
+              <button 
+                onClick={() => setArenaMode(!arenaMode)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border shadow-sm",
+                  arenaMode 
+                    ? "bg-indigo-500 border-indigo-400 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]" 
+                    : "bg-white/[0.03] border-white/[0.08] text-neutral-400 hover:text-white"
+                )}
+              >
+                <Swords size={14} />
+                Arena {pinnedIds.length > 0 && `(${pinnedIds.length})`}
+              </button>
             </div>
-            <DeepSearch onSelect={setActiveModuleId} />
+            <DeepSearch onSelect={(id) => { setActiveModuleId(id); setArenaMode(false); }} />
           </div>
           
           <Suspense fallback={null}>
             <KnowledgeGraph 
               isOpen={isGraphOpen} 
               onClose={() => setIsGraphOpen(false)} 
-              onSelectModule={setActiveModuleId}
+              onSelectModule={(id) => { setActiveModuleId(id); setArenaMode(false); }}
             />
           </Suspense>
           
@@ -88,18 +108,20 @@ function App() {
             }}
           ></div>
           
-          <div className="flex-1 w-full max-w-6xl mx-auto p-6 md:p-10 pb-24 md:pb-12 relative z-10 flex flex-col justify-center">
+          <div className="flex-1 w-full max-w-6xl mx-auto p-6 md:p-10 pb-24 md:pb-12 relative z-10 flex flex-col">
             {dossierData.loading ? (
-              <div className="flex flex-col items-center justify-center gap-4 animate-in fade-in duration-700">
+              <div className="flex flex-col items-center justify-center flex-1 gap-4 animate-in fade-in duration-700">
                 <Loader2 className="w-10 h-10 text-cyan-500 animate-spin" />
                 <p className="text-neutral-500 font-mono text-sm tracking-widest uppercase">Harvesting GitHub Content...</p>
               </div>
             ) : !dossierData.dossier?.modules ? (
-              <div className="flex flex-col items-center justify-center gap-4 bg-rose-500/5 border border-rose-500/10 p-10 rounded-2xl max-w-md mx-auto">
+              <div className="flex flex-col items-center justify-center flex-1 gap-4 bg-rose-500/5 border border-rose-500/10 p-10 rounded-2xl max-w-md mx-auto my-auto">
                 <AlertCircle className="w-10 h-10 text-rose-500" />
                 <h3 className="text-white font-semibold">Backend Connection Failed</h3>
                 <p className="text-neutral-500 text-sm text-center">Could not harvest technical profile from the sentinel server. Check if the Node.js backend is running on port 3002.</p>
               </div>
+            ) : arenaMode ? (
+              <ArchitectArena />
             ) : (
               <div className="flex gap-10 items-start">
                 <div className="flex-1 min-w-0">

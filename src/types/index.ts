@@ -22,3 +22,7 @@ export interface Task {
   text: string;
   done: boolean;
 }
+
+export interface ArenaSelection {
+  pinnedModuleIds: string[]; // ["mailin/01_...", "turing/02_..."]
+}
