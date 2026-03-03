@@ -11,68 +11,73 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Dynamic local source configuration
-const LOCAL_SOURCES = {
-  mailin: {
-    basePath: path.join(__dirname, '..', 'mailin-data'), 
-    folder: 'content'
-  },
-  turing: {
-    basePath: path.join(__dirname, '..', 'turing-data'),
-    folder: 'content'
-  }
-};
+const INTELLIGENCE_DIR = path.join(__dirname, '..', 'intelligence');
 
 /**
- * Local Harvester: Scans directories and converts MD files to Modules
+ * 1. Company Discovery: Scans /intelligence for sub-folders
+ */
+app.get('/api/companies', async (req, res) => {
+  try {
+    const entries = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
+    const companies = entries
+      .filter(dirent => dirent.isDirectory())
+      .map(dirent => ({
+        id: dirent.name,
+        name: dirent.name.toUpperCase()
+      }));
+    res.json(companies);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to discover companies' });
+  }
+});
+
+/**
+ * 2. Harvester: Scans specific company folder for MD files
  */
 app.get('/api/dossier/:companyId', async (req, res) => {
   const { companyId } = req.params;
-  const source = LOCAL_SOURCES[companyId];
-
-  if (!source) {
-    return res.status(404).json({ error: 'Company source not found' });
-  }
+  const companyDir = path.join(INTELLIGENCE_DIR, companyId);
 
   try {
-    const targetDir = path.join(source.basePath, source.folder);
-    
-    try {
-      await fs.access(targetDir);
-    } catch {
-      return res.status(404).json({ error: `Directory not found: ${targetDir}` });
-    }
-
-    const files = await fs.readdir(targetDir);
+    await fs.access(companyDir);
+    const files = await fs.readdir(companyDir);
     const mdFiles = files.filter(f => f.endsWith('.md'));
 
     const modules = await Promise.all(mdFiles.map(async (fileName) => {
-      const filePath = path.join(targetDir, fileName);
-      const fileContent = await fs.readFile(filePath, 'utf-8');
-      const { data, content } = matter(fileContent);
-      
-      const moduleType = data.type || 'markdown';
+      try {
+        const filePath = path.join(companyDir, fileName);
+        const fileContent = await fs.readFile(filePath, 'utf-8');
+        const { data, content } = matter(fileContent);
+        
+        const moduleType = data.type || 'markdown';
 
-      return {
-        id: fileName.replace('.md', '').toLowerCase(),
-        label: data.label || fileName.replace('.md', '').replace(/_/g, ' '),
-        type: moduleType,
-        icon: data.icon || (moduleType === 'playbook' ? 'SearchCode' : 'FileText'),
-        data: data.data || parseMarkdownToModuleData(moduleType, content)
-      };
+        return {
+          id: fileName.replace('.md', '').toLowerCase(),
+          label: data.label || fileName.replace('.md', '').replace(/_/g, ' '),
+          type: moduleType,
+          icon: data.icon || (moduleType === 'playbook' ? 'SearchCode' : 'FileText'),
+          data: data.data || parseMarkdownToModuleData(moduleType, content)
+        };
+      } catch (e) {
+        console.error(`Skipping malformed file: ${fileName}`, e.message);
+        return null;
+      }
     }));
+
+    // Filter out any failed parses
+    const validModules = modules.filter(m => m !== null);
 
     res.json({
       id: companyId,
       name: companyId.toUpperCase(),
+      // Dynamic role determination (could be moved to a company-config.json per folder)
       targetRole: companyId === 'mailin' ? 'L6 Staff Infrastructure Engineer' : 'Infrastructure & Pulumi Architect',
       brandColor: companyId === 'mailin' ? 'cyan' : 'indigo',
-      modules: modules.sort((a, b) => a.id.localeCompare(b.id))
+      modules: validModules.sort((a, b) => a.id.localeCompare(b.id))
     });
 
   } catch (error) {
-    console.error('Local Harvest Error:', error.message);
-    res.status(500).json({ error: 'Failed to harvest content locally' });
+    res.status(404).json({ error: 'Company not found' });
   }
 });
 
@@ -85,9 +90,7 @@ function parseMarkdownToModuleData(type, content) {
   }
 
   if (type === 'playbook') {
-    // Robust parsing: Split by headers and match sections
     const sections = content.split(/\n###?\s+/);
-    
     let q = 'Question content missing';
     let trap = 'Trap content missing';
     let why = 'Context missing';
@@ -108,5 +111,5 @@ function parseMarkdownToModuleData(type, content) {
 }
 
 app.listen(PORT, () => {
-  console.log(`Sentinel Harvester v3 active on port ${PORT}`);
+  console.log(`Sentinel Autonomous Harvester active on port ${PORT}`);
 });

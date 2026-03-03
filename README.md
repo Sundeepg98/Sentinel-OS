@@ -1,73 +1,45 @@
-# React + TypeScript + Vite
+# Sentinel-OS 🛡️
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sentinel-OS is a high-density, command-center style dashboard designed for **Technical Interview Intelligence**. It turns your raw technical notes into a premium, interactive "Operating System" for career preparation.
 
-Currently, two official plugins are available:
+![Project Preview](.playwright-mcp/page-2026-03-03T07-38-40-906Z.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 The Staff Engineer Workflow
+Sentinel-OS is built on a "Pluggable Intelligence" architecture. You don't edit UI code to add technical prep; you manage it via the file system.
 
-## React Compiler
+1. **Drop a Markdown file** into `/intelligence/[company-name]/`.
+2. **Tag it** with a module type (`playbook`, `map`, `list`, `markdown`) in the YAML frontmatter.
+3. **The Harvester** (Node.js backend) automatically discovers, parses, and renders it in the UI.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠️ Tech Stack
+- **Frontend**: React + TypeScript + Tailwind CSS v4 (Modern native CSS config).
+- **Backend**: Node.js Harvester with `gray-matter` for technical metadata extraction.
+- **Visuals**: Framer Motion for glassmorphic transitions and Lucide for iconography.
+- **Automation**: Playwright MCP for integrated E2E testing and visual verification.
 
-## Expanding the ESLint configuration
+## 📁 Repository Structure
+- `/src`: The glassmorphic technical shell (React).
+- `/server`: The Sentinel Harvester (Node.js API).
+- `/intelligence`: Your technical database (Plain Markdown).
+  - `/mailin`: Deliverability, Networking, and low-level Node.js internals.
+  - `/turing`: Cloud Infrastructure, Pulumi patterns, and System Design.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🚦 Getting Started
+1. Install dependencies:
+   ```bash
+   npm install && cd server && npm install
+   ```
+2. Start the Full-Stack Environment:
+   ```bash
+   npm run dev
+   ```
+   *Starts both Vite (5173) and the Harvester (3001) concurrently.*
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🧩 Module Types
+- `markdown`: Standard documentation with premium typography.
+- `map`: Visual interactive cards for system design and infra patterns.
+- `playbook`: High-density "Trap vs. Optimal" diagnostic drills.
+- `checklist`: Company-scoped readiness trackers with persistent state.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+---
+*Maintained by Sundeep | Optimized for L6+ Infrastructure & Systems Engineering Preps.*
