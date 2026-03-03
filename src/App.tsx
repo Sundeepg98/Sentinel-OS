@@ -7,6 +7,7 @@ import { Diagnostics } from './views/Diagnostics';
 import { Tracker } from './views/Tracker';
 import { MarkdownView } from './views/MarkdownView';
 import { DeepSearch } from './components/DeepSearch';
+import { InsightPanel } from './components/InsightPanel';
 import { useDossier } from './hooks/useDossier';
 import type { CompanyDossier } from './types';
 import { Loader2, AlertCircle } from 'lucide-react';
@@ -80,13 +81,21 @@ function App() {
                 <p className="text-neutral-500 text-sm text-center">Could not harvest technical profile from the sentinel server. Check if the Node.js backend is running on port 3001.</p>
               </div>
             ) : (
-              <div className="flex-1">
-                {activeModule?.type === 'grid' && <Dashboard />}
-                {activeModule?.type === 'list' && <Internals />}
-                {activeModule?.type === 'map' && <SystemDesign />}
-                {activeModule?.type === 'playbook' && <Diagnostics />}
-                {activeModule?.type === 'checklist' && <Tracker />}
-                {activeModule?.type === 'markdown' && <MarkdownView data={activeModule.data} label={activeModule.label} />}
+              <div className="flex gap-10 items-start">
+                <div className="flex-1 min-w-0">
+                  {activeModule?.type === 'grid' && <Dashboard />}
+                  {activeModule?.type === 'list' && <Internals />}
+                  {activeModule?.type === 'map' && <SystemDesign />}
+                  {activeModule?.type === 'playbook' && <Diagnostics />}
+                  {activeModule?.type === 'checklist' && <Tracker />}
+                  {activeModule?.type === 'markdown' && <MarkdownView data={activeModule.data} label={activeModule.label} />}
+                </div>
+                {activeModuleId && (
+                  <InsightPanel 
+                    fullId={dossierData.dossier?.modules.find(m => m.id === activeModuleId)?.fullId || ''} 
+                    brandColor={dossierData.dossier?.brandColor || 'cyan'}
+                  />
+                )}
               </div>
             )}
           </div>

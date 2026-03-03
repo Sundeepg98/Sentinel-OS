@@ -15,6 +15,8 @@
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "gray-matter": "^4.0.3"
+    "flexsearch": "^0.8.212",
+    "gray-matter": "^4.0.3",
+    "natural": "^8.1.1"
   }
 }
