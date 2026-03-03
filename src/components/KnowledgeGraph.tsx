@@ -1,25 +1,11 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import ForceGraph3D from 'react-force-graph-3d';
 import { useDossierContext } from '../App';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Network, X, Maximize2, Minimize2, Zap, Cpu } from 'lucide-react';
 import * as THREE from 'three';
 import SpriteText from 'three-spritetext';
-
-interface GraphNode {
-  id: string;
-  label: string;
-  group: 'module' | 'concept';
-  company: string;
-  val: number;
-  readiness?: number;
-}
-
-interface GraphLink {
-  source: string;
-  target: string;
-  keyword?: string;
-}
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 interface KnowledgeGraphProps {
   isOpen: boolean;
@@ -32,21 +18,51 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   const graphRef = useRef<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-  const [graphData, setGraphData] = useState<{ nodes: GraphNode[], links: GraphLink[] }>({ nodes: [], links: [] });
+  const [graphData, setGraphData] = useState<{ nodes: any[], links: any[] }>({ nodes: [], links: [] });
+  const [hoveredNode, setHoveredNode] = useState<any | null>(null);
+  const [highlightNodes, setHighlightNodes] = useState(new Set());
+  const [highlightLinks, setHighlightLinks] = useState(new Set());
   const hasInitialZoomed = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Reset zoom lock only when explicitly closed
+  // Reset state when closing
   useEffect(() => {
-    if (!isOpen) hasInitialZoomed.current = false;
+    if (!isOpen) {
+      hasInitialZoomed.current = false;
+      setHoveredNode(null);
+      setHighlightNodes(new Set());
+      setHighlightLinks(new Set());
+    }
   }, [isOpen]);
 
-  // Load real graph data from backend
+  // Load and cross-link data for neighborhood discovery
   useEffect(() => {
     if (isOpen) {
       fetch('/api/intelligence/graph')
         .then(res => res.json())
-        .then(data => setGraphData(data))
+        .then(data => {
+          // Pre-calculate neighborhoods for instant highlighting
+          const nodesById = Object.fromEntries(data.nodes.map((n: any) => [n.id, { ...n, neighbors: [], links: [] }]));
+          
+          data.links.forEach((link: any) => {
+            const a = nodesById[link.source];
+            const b = nodesById[link.target];
+            if (a && b) {
+              a.neighbors.push(b);
+              b.neighbors.push(a);
+              a.links.push(link);
+              b.links.push(link);
+            }
+          });
+
+          // Degree-based sizing
+          const weightedNodes = Object.values(nodesById).map((n: any) => ({
+            ...n,
+            weight: n.group === 'module' ? 10 : Math.min(Math.max(n.neighbors.length || 1, 2), 8)
+          }));
+
+          setGraphData({ nodes: weightedNodes, links: data.links });
+        })
         .catch(err => console.error('Graph fetch failed', err));
     }
   }, [isOpen]);
@@ -72,9 +88,39 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     return () => window.removeEventListener('resize', handleResize);
   }, [isOpen, isFullscreen]);
 
-  // Final High-Justice Camera Strategy
+  // Final High-Justice Camera Strategy & Post-Processing
   useEffect(() => {
     if (isOpen && graphData.nodes.length > 0 && graphRef.current && !hasInitialZoomed.current) {
+      
+      // --- CLASSY STUDIO LIGHTING ---
+      const scene = graphRef.current.scene();
+      // Remove harsh default lights
+      scene.children = scene.children.filter((c: any) => !(c instanceof THREE.Light));
+      
+      scene.add(new THREE.AmbientLight(0xffffff, 0.4)); // Soft base
+      const keyLight = new THREE.DirectionalLight(0xffffff, 2.5); // Sharp reflections on frosted glass
+      keyLight.position.set(100, 200, 100);
+      scene.add(keyLight);
+      const rimLight = new THREE.DirectionalLight(0x818cf8, 1.5); // Cool background rim
+      rimLight.position.set(-100, -50, -100);
+      scene.add(rimLight);
+
+      // --- UNREAL BLOOM PASS ---
+      try {
+        const composer = graphRef.current.postProcessingComposer();
+        if (composer && !composer.passes.some((p: any) => p instanceof UnrealBloomPass)) {
+          const bloomPass = new UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            0.6,  // strength (subtle, classy glow)
+            0.2,  // radius (tight optical flare)
+            0.9   // threshold (only highly emissive materials bloom, text stays crisp)
+          );
+          composer.addPass(bloomPass);
+        }
+      } catch (e) {
+        console.warn('Bloom pass not supported in this environment');
+      }
+
       // 1. One-time setup: Snap to the mathematical 'Sweet Spot' for this graph density
       setTimeout(() => {
         if (graphRef.current) {
@@ -95,55 +141,78 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     }
   }, [isOpen, graphData]);
 
-  // Premium Node Rendering
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+
+  const handleNodeHover = useCallback((node: any) => {
+    const newHighlightNodes = new Set();
+    const newHighlightLinks = new Set();
+
+    if (node && graphRef.current) {
+      // 1. Highlight Neighborhood
+      newHighlightNodes.add(node);
+      node.neighbors.forEach((neighbor: any) => newHighlightNodes.add(neighbor));
+      node.links.forEach((link: any) => newHighlightLinks.add(link));
+
+      // 2. Position Tooltip
+      const coords = graphRef.current.graph2ScreenCoords(node.x, node.y, node.z);
+      setTooltipPos({ x: coords.x, y: coords.y });
+      
+      const connections = node.neighbors.map((n: any) => n.label).slice(0, 3);
+      setHoveredNode({ ...node, connections });
+    } else {
+      setHoveredNode(null);
+    }
+
+    setHighlightNodes(newHighlightNodes);
+    setHighlightLinks(newHighlightLinks);
+  }, []);
+
+  // Premium 'Classy' Node Rendering with True Optical Bloom
   const nodeThreeObject = useCallback((node: any) => {
     const group = new THREE.Group();
     
-    const size = node.group === 'module' ? 6 : 3;
+    const isHighlighted = highlightNodes.has(node) || highlightNodes.size === 0;
+    const size = node.weight || 3;
     const isMastered = node.readiness === 1;
     const baseColor = node.company === 'mailin' ? '#06b6d4' : node.company === 'turing' ? '#6366f1' : '#737373';
     const activeColor = isMastered ? '#10b981' : baseColor;
 
-    // 1. Core Sphere (Glossy)
+    // 1. Core Sphere (Frosted Glass / Classy)
     const geometry = new THREE.SphereGeometry(size, 32, 32);
     const material = new THREE.MeshPhysicalMaterial({
       color: activeColor,
-      metalness: 0.8,
-      roughness: 0.2,
+      metalness: 0.9,
+      roughness: 0.1,
       clearcoat: 1.0,
       clearcoatRoughness: 0.1,
+      transmission: 0.2, // Semi-transparent glass effect
+      thickness: 1,
       transparent: true,
-      opacity: isMastered ? 1 : 0.85,
+      opacity: isHighlighted ? (isMastered ? 1 : 0.85) : 0.15, // Dim unrelated
+      emissive: isHighlighted && node.group === 'module' ? activeColor : '#000000',
+      emissiveIntensity: isHighlighted && node.group === 'module' ? 0.5 : 0 // Triggers the UnrealBloomPass mathematically
     });
     const sphere = new THREE.Mesh(geometry, material);
     group.add(sphere);
 
-    // 2. Neon Glow Aura (Only for modules)
-    if (node.group === 'module') {
-      const auraGeo = new THREE.SphereGeometry(size * 1.5, 32, 32);
-      const auraMat = new THREE.MeshBasicMaterial({
-        color: activeColor,
-        transparent: true,
-        opacity: isMastered ? 0.15 : 0.05,
-        blending: THREE.AdditiveBlending
-      });
-      group.add(new THREE.Mesh(auraGeo, auraMat));
+    // Removed the fake 2D aura meshes; the UnrealBloomPass now handles the optical glow dynamically
+
+    // 3. Selective Typography (Classy: only show if relevant)
+    if (isHighlighted || node.group === 'module') {
+      const sprite = new SpriteText(node.label);
+      sprite.color = '#ffffff';
+      sprite.textHeight = size * 0.7;
+      sprite.fontWeight = '500';
+      sprite.fontFace = 'Inter, sans-serif';
+      sprite.position.y = size + 4;
+      sprite.backgroundColor = 'rgba(0, 0, 0, 0.4)';
+      sprite.padding = [2, 4];
+      sprite.borderRadius = 2;
+      group.add(sprite);
     }
 
-    // 3. Crisp 3D Text Label
-    const sprite = new SpriteText(node.label);
-    sprite.color = '#ffffff';
-    sprite.textHeight = size * 0.8;
-    sprite.fontWeight = 'bold';
-    sprite.fontFace = 'Inter, sans-serif';
-    sprite.position.y = size + 3; // Float above the node
-    sprite.backgroundColor = 'rgba(0, 0, 0, 0.6)';
-    sprite.padding = 2;
-    sprite.borderRadius = 4;
-    group.add(sprite);
-
     return group;
-  }, []);
+  }, [highlightNodes]);
 
   const handleNodeClick = useCallback((node: any) => {
     if (node.group === 'module') {
@@ -230,23 +299,69 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
             height={dimensions.height}
             graphData={graphData}
             nodeThreeObject={nodeThreeObject}
-            // Advanced Link Physics & Aesthetics
-            linkColor={() => 'rgba(255,255,255,0.1)'}
-            linkWidth={1}
-            linkResolution={6}
-            // Data Flow Particles
-            linkDirectionalParticles={(link: any) => link.source.group === 'module' ? 3 : 1}
-            linkDirectionalParticleWidth={2}
-            linkDirectionalParticleColor={(link: any) => link.source.company === 'mailin' ? '#22d3ee' : '#818cf8'}
+            // Brilliant Link Neighborhood Highlighting
+            linkCurvature={0.2}
+            linkColor={(link: any) => highlightLinks.has(link) ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.05)'}
+            linkWidth={(link: any) => highlightLinks.has(link) ? 2 : 0.5}
+            linkResolution={8}
+            // Data Flow Particles: Brilliant focus
+            linkDirectionalParticles={(link: any) => (highlightLinks.has(link) || highlightLinks.size === 0) ? 3 : 0}
+            linkDirectionalParticleWidth={(link: any) => highlightLinks.has(link) ? 3 : 1.5}
+            linkDirectionalParticleColor={(link: any) => {
+              const source = typeof link.source === 'string' ? link.source : link.source.id;
+              return source.includes('mailin') ? '#22d3ee' : '#818cf8';
+            }}
             linkDirectionalParticleSpeed={0.005}
             // Environment
             backgroundColor="rgba(0,0,0,0)"
-            enableNodeDrag={false} // Disable drag to prevent physics recalculation
+            enableNodeDrag={false}
             onNodeClick={handleNodeClick}
             // Static Layout Engine
             warmupTicks={100}
             cooldownTicks={0}
+            onNodeHover={handleNodeHover}
           />
+
+          {/* Semantic Hover Overlay */}
+          <AnimatePresence>
+            {hoveredNode && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="absolute z-[100] pointer-events-none"
+                style={{
+                  left: tooltipPos.x + 15,
+                  top: tooltipPos.y + 15,
+                }}
+              >
+                <div className="bg-black/80 backdrop-blur-xl border border-white/10 p-4 rounded-xl shadow-2xl min-w-[250px]">
+                  <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">
+                    {hoveredNode.group === 'module' ? 'Architectural Domain' : 'Technical Concept'}
+                  </div>
+                  <div className="text-white font-semibold text-sm mb-3">
+                    {hoveredNode.label}
+                  </div>
+                  
+                  {hoveredNode.connections && hoveredNode.connections.length > 0 && (
+                    <div>
+                      <div className="text-[9px] font-bold text-neutral-500 uppercase tracking-widest mb-2 border-t border-white/10 pt-2">
+                        Connected Sub-Systems
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {hoveredNode.connections.map((c: string, idx: number) => (
+                          <div key={idx} className="text-[10px] px-2 py-1 rounded bg-white/5 border border-white/5 text-neutral-300">
+                            {c}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
           
           {/* Professional Legend Overlay */}
           <div className="absolute bottom-6 left-6 flex flex-col gap-4 pointer-events-none">
