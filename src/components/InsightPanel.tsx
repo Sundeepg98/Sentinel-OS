@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Brain, Link as LinkIcon, Sparkles, Hash, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Brain, Link as LinkIcon, Sparkles, Hash, Loader2, ChevronDown, ChevronUp, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
 
@@ -17,6 +17,12 @@ interface DrillData {
   idealResponse: string;
 }
 
+interface EvalData {
+  score: string;
+  feedback: string;
+  followUp: string;
+}
+
 interface InsightPanelProps {
   fullId: string;
   brandColor?: string;
@@ -30,10 +36,17 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   const [drillRevealed, setDrillRevealed] = useState(false);
   const [selectedModel, setSelectedModel] = useState<'gemini-2.5-flash' | 'gemini-2.5-pro'>('gemini-2.5-flash');
 
+  // Conversational state
+  const [userAnswer, setUserAnswer] = useState('');
+  const [evalData, setEvalData] = useState<EvalData | null>(null);
+  const [evalLoading, setEvalLoading] = useState(false);
+
   useEffect(() => {
     async function fetchInsights() {
       setLoading(true);
       setDrill(null);
+      setEvalData(null);
+      setUserAnswer('');
       setDrillRevealed(false);
       try {
         const response = await fetch(`/api/intelligence/insights?fileId=${encodeURIComponent(fullId)}`);
@@ -53,6 +66,8 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
 
   const generateDrill = async () => {
     setDrillLoading(true);
+    setEvalData(null);
+    setUserAnswer('');
     try {
       const response = await fetch('/api/intelligence/drill', {
         method: 'POST',
@@ -69,6 +84,33 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
       console.error('Drill generation failed', e);
     } finally {
       setDrillLoading(false);
+    }
+  };
+
+  const submitAnswer = async () => {
+    if (!drill || !userAnswer.trim()) return;
+    setEvalLoading(true);
+    try {
+      const response = await fetch('/api/intelligence/evaluate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          question: drill.question, 
+          idealResponse: drill.idealResponse, 
+          userAnswer,
+          model: selectedModel 
+        })
+      });
+      const json = await response.json();
+      if (json.error) {
+        alert(json.error);
+      } else {
+        setEvalData(json);
+      }
+    } catch (e) {
+      console.error('Evaluation failed', e);
+    } finally {
+      setEvalLoading(false);
     }
   };
 
@@ -114,9 +156,50 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
               "{drill.question}"
             </div>
             
+            {!evalData ? (
+              <div className="space-y-3">
+                <textarea 
+                  placeholder="Draft your architectural response..."
+                  value={userAnswer}
+                  onChange={(e) => setUserAnswer(e.target.value)}
+                  className="w-full bg-white/[0.02] border border-white/[0.05] rounded-lg p-3 text-[12px] text-white placeholder:text-neutral-600 min-h-[100px] outline-none focus:border-indigo-500/50 transition-colors resize-none"
+                />
+                <button 
+                  onClick={submitAnswer}
+                  disabled={evalLoading || !userAnswer.trim()}
+                  className="w-full flex items-center justify-center gap-2 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-[12px] font-semibold transition-all disabled:opacity-50"
+                >
+                  {evalLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send size={14} />}
+                  Submit for Evaluation
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4 pt-2 border-t border-white/[0.05] animate-in slide-in-from-bottom-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] uppercase tracking-widest text-neutral-500 font-bold">Evaluation</span>
+                  <span className="text-[14px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">{evalData.score}</span>
+                </div>
+                <div className="text-[12px] text-neutral-300 leading-relaxed bg-white/[0.02] p-3 rounded-lg border border-white/[0.05]">
+                  {evalData.feedback}
+                </div>
+                {evalData.followUp && (
+                  <div className="text-[12px] text-indigo-300 italic border-l-2 border-indigo-500/50 pl-3">
+                    <span className="font-bold text-indigo-400 block mb-1">Follow-up:</span>
+                    {evalData.followUp}
+                  </div>
+                )}
+                <button 
+                  onClick={() => { setEvalData(null); setUserAnswer(''); }}
+                  className="w-full py-1.5 text-[11px] text-neutral-500 hover:text-white transition-colors"
+                >
+                  Try another answer
+                </button>
+              </div>
+            )}
+
             <button 
               onClick={() => setDrillRevealed(!drillRevealed)}
-              className="w-full flex items-center justify-between py-2 px-3 bg-white/[0.03] border border-white/[0.05] rounded-md text-[11px] text-neutral-400 hover:text-neutral-200 transition-colors"
+              className="w-full flex items-center justify-between py-2 px-3 bg-white/[0.03] border border-white/[0.05] rounded-md text-[11px] text-neutral-400 hover:text-neutral-200 transition-colors mt-2"
             >
               <span>{drillRevealed ? 'Hide Evaluation Criteria' : 'Reveal Ideal Response'}</span>
               {drillRevealed ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
