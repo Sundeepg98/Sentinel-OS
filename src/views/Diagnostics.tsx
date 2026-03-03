@@ -106,7 +106,7 @@ export const Diagnostics: React.FC = () => {
       {studyMode && (
         <div className="bg-indigo-500/5 border border-indigo-500/20 p-4 rounded-xl text-indigo-200/80 text-sm flex items-start gap-3">
           <BrainCircuit className="w-5 h-5 shrink-0 text-indigo-400" />
-          <p className="leading-relaxed"><strong>Active Recall Mode:</strong> Test your diagnostic skills. Try to identify the 'Trap Response' and articulate the 'Optimal Staff Response' before revealing the answers.</p>
+          <div className="leading-relaxed"><strong>Active Recall Mode:</strong> Test your diagnostic skills. Try to identify the 'Trap Response' and articulate the 'Optimal Staff Response' before revealing the answers.</div>
         </div>
       )}
 

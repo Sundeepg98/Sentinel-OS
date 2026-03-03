@@ -72,19 +72,26 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     return () => window.removeEventListener('resize', handleResize);
   }, [isOpen, isFullscreen]);
 
-  // Ultimate Camera Control: Cinematic Framing
+  // Final High-Justice Camera Strategy
   useEffect(() => {
     if (isOpen && graphData.nodes.length > 0 && graphRef.current && !hasInitialZoomed.current) {
-      // 1. Brief pause to let initial render settle
-      const timer = setTimeout(() => {
+      // 1. One-time setup: Snap to the mathematical 'Sweet Spot' for this graph density
+      setTimeout(() => {
         if (graphRef.current) {
-          // 2. Smoothly zoom to fit with 150px margin
-          graphRef.current.zoomToFit(1200, 150);
-          // 3. Permanently lock the auto-zoom
+          // Set explicit Z distance for perfect density view
+          graphRef.current.cameraPosition({ z: 180 }, undefined, 800);
+          
+          // 2. Configure the 'Coolness' constraints via the underlying Three.js controls
+          const controls = graphRef.current.controls();
+          if (controls) {
+            controls.minDistance = 80;  // Prevent clipping through nodes
+            controls.maxDistance = 450; // Prevent zooming into the void
+            controls.enableDamping = true; // High-end 'weighted' feel
+            controls.dampingFactor = 0.05;
+          }
           hasInitialZoomed.current = true;
         }
-      }, 300);
-      return () => clearTimeout(timer);
+      }, 400);
     }
   }, [isOpen, graphData]);
 
@@ -236,16 +243,9 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
             backgroundColor="rgba(0,0,0,0)"
             enableNodeDrag={false} // Disable drag to prevent physics recalculation
             onNodeClick={handleNodeClick}
-            // The UX Fix: Pre-calculate layout, freeze physics, and frame once.
+            // Static Layout Engine
             warmupTicks={100}
             cooldownTicks={0}
-            onEngineStop={() => {
-              // This now fires instantly after warmup, before the first frame.
-              if (graphRef.current && !hasInitialZoomed.current) {
-                graphRef.current.zoomToFit(0, 150); // Instant 0ms snap
-                hasInitialZoomed.current = true;
-              }
-            }}
           />
           
           {/* Professional Legend Overlay */}
