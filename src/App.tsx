@@ -13,7 +13,7 @@ import type { CompanyDossier } from './types';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 interface DossierContextType {
-  dossier: CompanyDossier;
+  dossier: CompanyDossier | null;
   setCompany: (id: string) => void;
   allCompanies: { id: string; name: string }[];
   loading: boolean;
@@ -32,10 +32,10 @@ function App() {
   const [activeModuleId, setActiveModuleId] = useState<string>('');
 
   useEffect(() => {
-    if (dossierData.dossier?.modules?.length > 0) {
+    if (dossierData.dossier?.modules && dossierData.dossier.modules.length > 0) {
       setActiveModuleId(dossierData.dossier.modules[0].id);
     }
-  }, [dossierData.dossier?.id]);
+  }, [dossierData.dossier?.id, dossierData.dossier?.modules]);
 
   const activeModule = dossierData.dossier?.modules?.find(m => m.id === activeModuleId);
 
@@ -78,7 +78,7 @@ function App() {
               <div className="flex flex-col items-center justify-center gap-4 bg-rose-500/5 border border-rose-500/10 p-10 rounded-2xl max-w-md mx-auto">
                 <AlertCircle className="w-10 h-10 text-rose-500" />
                 <h3 className="text-white font-semibold">Backend Connection Failed</h3>
-                <p className="text-neutral-500 text-sm text-center">Could not harvest technical profile from the sentinel server. Check if the Node.js backend is running on port 3001.</p>
+                <p className="text-neutral-500 text-sm text-center">Could not harvest technical profile from the sentinel server. Check if the Node.js backend is running on port 3002.</p>
               </div>
             ) : (
               <div className="flex gap-10 items-start">
@@ -93,7 +93,6 @@ function App() {
                 {activeModuleId && (
                   <InsightPanel 
                     fullId={dossierData.dossier?.modules.find(m => m.id === activeModuleId)?.fullId || ''} 
-                    brandColor={dossierData.dossier?.brandColor || 'cyan'}
                   />
                 )}
               </div>

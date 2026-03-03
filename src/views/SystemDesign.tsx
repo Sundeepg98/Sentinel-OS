@@ -7,6 +7,8 @@ import { cn } from '../lib/utils';
 
 export const SystemDesign: React.FC = () => {
   const { dossier } = useDossierContext();
+  
+  if (!dossier) return null;
   const activeModule = dossier.modules.find(m => m.type === 'map');
   
   if (!activeModule) return null;

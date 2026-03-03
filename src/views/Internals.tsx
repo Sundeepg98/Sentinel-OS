@@ -5,6 +5,8 @@ import { useDossierContext } from '../App';
 
 export const Internals: React.FC = () => {
   const { dossier } = useDossierContext();
+  
+  if (!dossier) return null;
   const activeModule = dossier.modules.find(m => m.type === 'list'); 
   
   if (!activeModule) return null;

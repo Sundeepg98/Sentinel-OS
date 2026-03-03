@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, X, Command, Cpu, Network, SearchCode } from 'lucide-react';
+import { Search, X, Command, SearchCode } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDossierContext } from '../App';
 
@@ -32,7 +32,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
   }, []);
 
   const results = useMemo(() => {
-    if (query.length < 2) return [];
+    if (query.length < 2 || !dossier) return [];
     
     const searchItems: SearchResult[] = [];
     const q = query.toLowerCase();

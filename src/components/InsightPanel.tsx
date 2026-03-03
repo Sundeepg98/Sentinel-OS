@@ -19,10 +19,10 @@ interface DrillData {
 
 interface InsightPanelProps {
   fullId: string;
-  brandColor: string;
+  brandColor?: string;
 }
 
-export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId, brandColor }) => {
+export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   const [data, setData] = useState<InsightData | null>(null);
   const [loading, setLoading] = useState(false);
   const [drill, setDrill] = useState<DrillData | null>(null);

@@ -5,6 +5,8 @@ import { useDossierContext } from '../App';
 
 export const Diagnostics: React.FC = () => {
   const { dossier } = useDossierContext();
+  
+  if (!dossier) return null;
   const activeModule = dossier.modules.find(m => m.type === 'playbook');
   
   if (!activeModule) return null;

@@ -8,6 +8,8 @@ import { cn } from '../lib/utils';
 
 export const Tracker: React.FC = () => {
   const { dossier } = useDossierContext();
+  
+  if (!dossier) return null;
   const activeModule = dossier.modules.find(m => m.type === 'checklist');
   
   if (!activeModule) return null;

@@ -2,6 +2,7 @@ export type ModuleType = 'grid' | 'list' | 'map' | 'playbook' | 'checklist' | 'm
 
 export interface Module {
   id: string;
+  fullId?: string; // Optional property for semantic indexing
   label: string;
   type: ModuleType;
   icon: string; // Lucide icon name

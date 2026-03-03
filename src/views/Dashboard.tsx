@@ -3,10 +3,13 @@ import { Terminal, ShieldAlert, CheckSquare, XCircle } from 'lucide-react';
 import { StatusCard } from '../components/ui/StatusCard';
 import { motion } from 'framer-motion';
 import { useDossierContext } from '../App';
+import { cn } from '../lib/utils';
 
 export const Dashboard: React.FC = () => {
   const { dossier } = useDossierContext();
-  const activeModule = dossier.modules.find(m => m.type === 'grid'); // Fallback or specific ID logic
+  
+  if (!dossier) return null;
+  const activeModule = dossier.modules.find(m => m.type === 'grid'); 
   
   if (!activeModule) return null;
   const { kpis, failCriteria, goldenRule } = activeModule.data;
@@ -74,6 +77,3 @@ export const Dashboard: React.FC = () => {
     </motion.div>
   );
 };
-
-// Re-importing cn utility since it was used in template
-import { cn } from '../lib/utils';
