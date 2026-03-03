@@ -31,7 +31,7 @@ export const Dashboard: React.FC = () => {
             </div>
             {activeModule.label}
           </h2>
-          <p className="text-neutral-500 text-sm mt-2 ml-12">{dossier.name} Operational Parameters.</p>
+          <div className="text-neutral-500 text-sm mt-2 ml-12">{dossier.name} Operational Parameters.</div>
         </div>
 
         <button 

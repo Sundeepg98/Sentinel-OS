@@ -72,18 +72,19 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     return () => window.removeEventListener('resize', handleResize);
   }, [isOpen, isFullscreen]);
 
-  // Instant perfect framing on load
+  // Ultimate Camera Control: Cinematic Framing
   useEffect(() => {
     if (isOpen && graphData.nodes.length > 0 && graphRef.current && !hasInitialZoomed.current) {
-      // Use explicit cameraPosition instead of aggressive zoomToFit to respect user UX
-      setTimeout(() => {
+      // 1. Brief pause to let initial render settle
+      const timer = setTimeout(() => {
         if (graphRef.current) {
-          // Set a comfortable, static Z distance. 
-          // 0ms transition means it happens instantly without animation rubber-banding.
-          graphRef.current.cameraPosition({ z: 200 }, undefined, 0);
+          // 2. Smoothly zoom to fit with 150px margin
+          graphRef.current.zoomToFit(1200, 150);
+          // 3. Permanently lock the auto-zoom
           hasInitialZoomed.current = true;
         }
-      }, 50); 
+      }, 300);
+      return () => clearTimeout(timer);
     }
   }, [isOpen, graphData]);
 
