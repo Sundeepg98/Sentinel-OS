@@ -8,10 +8,12 @@ import { Tracker } from './views/Tracker';
 import { MarkdownView } from './views/MarkdownView';
 import { DeepSearch } from './components/DeepSearch';
 import { InsightPanel } from './components/InsightPanel';
-import { KnowledgeGraph } from './components/KnowledgeGraph';
 import { useDossier } from './hooks/useDossier';
 import type { CompanyDossier } from './types';
 import { Loader2, AlertCircle, Network } from 'lucide-react';
+import { Suspense, lazy } from 'react';
+
+const KnowledgeGraph = lazy(() => import('./components/KnowledgeGraph').then(module => ({ default: module.KnowledgeGraph })));
 
 interface DossierContextType {
   dossier: CompanyDossier | null;
@@ -70,11 +72,13 @@ function App() {
             <DeepSearch onSelect={setActiveModuleId} />
           </div>
           
-          <KnowledgeGraph 
-            isOpen={isGraphOpen} 
-            onClose={() => setIsGraphOpen(false)} 
-            onSelectModule={setActiveModuleId}
-          />
+          <Suspense fallback={null}>
+            <KnowledgeGraph 
+              isOpen={isGraphOpen} 
+              onClose={() => setIsGraphOpen(false)} 
+              onSelectModule={setActiveModuleId}
+            />
+          </Suspense>
           
           <div 
             className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" 

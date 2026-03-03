@@ -17,6 +17,10 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
+            // Group 3D and heavy visualization libraries
+            if (id.includes('three') || id.includes('react-force-graph') || id.includes('d3-force')) {
+              return 'visualization-vendor';
+            }
             if (id.includes('react-markdown') || id.includes('remark') || id.includes('unified')) {
               return 'markdown-vendor';
             }
@@ -28,6 +32,6 @@ export default defineConfig({
         },
       },
     },
-    chunkSizeWarningLimit: 800, // Increase slightly for the rich technical modules
+    chunkSizeWarningLimit: 1000, // Reasonable limit for a high-intelligence dashboard
   },
 })
