@@ -1,5 +1,5 @@
 ---
-label: Distributed Systems & K8s
+label: Distributed Infrastructure
 type: map
 icon: Layers
 data:
@@ -7,40 +7,45 @@ data:
     title: Exactly-Once Processing
     tech: Idempotency Keys + Optimistic Locking
     bottleneck: Duplicate Dispatches
-    scenario: Ensuring state integrity across high-concurrency microservices.
+    scenario: Network partitions causing redelivery in brokers (Kafka/RabbitMQ).
     code: |
       # Atomic execution flow
-      - Generate cryptographically unique keys
-      - Database status check (Optimistic Locking)
-      - Leaf Service execution
-  - id: grpc_lb
+      if (redis.setnx(idempotency_key, "locked", ttl=24h)) {
+        dispatch_email()
+      } else {
+        skip_duplicate()
+      }
+  - id: grpc_kubernetes
     title: gRPC Load Balancing
     tech: K8s Headless Services + mTLS
-    bottleneck: Persistent L4 Sticky Connections
-    scenario: gRPC multiplexing requests over a single socket, causing backend pod hotspots.
+    bottleneck: Sticky L4 TCP Connections
+    scenario: persistent HTTP/2 sockets causing pod hotspots in Kubernetes.
     code: |
       # Layer 7 (Request-Level) Balancing
-      - Use Kubernetes Headless Services (clusterIP: None)
-      - round_robin load balancing policy
-      - Configure MAX_CONNECTION_AGE
+      - Use Headless Services (clusterIP: None)
+      - Round-robin client-side balancing
+      - Tuning MAX_CONNECTION_AGE
   - id: zero_trust
-    title: Zero-Trust Orchestration
+    title: Zero-Trust Security
     tech: Linkerd / Envoy Sidecars
     bottleneck: Perimeter-based Trust
-    scenario: Identifying workloads intrinsically via mutual TLS rather than IP perimeters.
+    scenario: enforcing workload identity via mTLS sidecar proxies.
     code: |
       # Service Mesh Benefits
       - Transparent L7 load balancing
       - EWMA latency-aware routing
-      - Automatic mTLS enforcement
+      - Automated mTLS encryption
 ---
 
-# Microservices Orchestration & gRPC
+# Microservices Orchestration & Architecture
 
-Maintaining state integrity across a highly concurrent distributed infrastructure requires rigorous architectural patterns.
+Mailin relies on modern distributed patterns to process half a billion emails monthly with absolute consistency.
 
-## Exactly-Once Processing
-Achieving this mandates solving reliable message delivery and guaranteed singular processing. Mailin uses at-least-once delivery (Kafka/RabbitMQ) paired with destination-side idempotency.
+## Message Integrity
+- **leaf Services**: Specialized microservices interfacing with single data systems (PostgreSQL) to enforce exactly-once guarantees.
+- **Orchestrator Services**: Coordinate overarching workflows (scheduling, formatting) without managing state consistency.
 
-## The gRPC Conundrum
-Default Kubernetes ClusterIP (Layer 4) load balancing fails for gRPC because it establishes long-lived TCP connections. Requests are stuck on a single pod. Mailin resolves this by shifting to Layer 7 (Request-level) balancing via Headless Services or Service Meshes.
+## Internal Communication
+Relies heavily on **gRPC** over HTTP/2.
+- **Binary Serialization**: uses Protocol Buffers (protobuf) to reduce memory overhead and parsing latency compared to REST/JSON.
+- **Sidecar Proxies**: use Linkerd to perform request-level load balancing across the pod array transparently.
