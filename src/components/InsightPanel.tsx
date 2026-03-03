@@ -28,6 +28,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId, brandColor }
   const [drill, setDrill] = useState<DrillData | null>(null);
   const [drillLoading, setDrillLoading] = useState(false);
   const [drillRevealed, setDrillRevealed] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<'gemini-2.5-flash' | 'gemini-2.5-pro'>('gemini-2.5-flash');
 
   useEffect(() => {
     async function fetchInsights() {
@@ -56,7 +57,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId, brandColor }
       const response = await fetch('/api/intelligence/drill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileId: fullId })
+        body: JSON.stringify({ fileId: fullId, model: selectedModel })
       });
       const json = await response.json();
       if (json.error) {
@@ -82,14 +83,20 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId, brandColor }
           <div className="flex items-center gap-2 text-indigo-400 font-bold uppercase text-[10px] tracking-widest">
             <Sparkles className="w-3.5 h-3.5" /> AI Deep Drill
           </div>
-          {drill && (
+          <div className="flex gap-1 bg-white/[0.03] p-0.5 rounded-md border border-white/5">
             <button 
-              onClick={() => setDrill(null)}
-              className="text-[9px] text-neutral-600 hover:text-neutral-400 uppercase tracking-widest"
+              onClick={() => setSelectedModel('gemini-2.5-flash')}
+              className={cn("px-1.5 py-0.5 rounded text-[8px] font-bold uppercase transition-all", selectedModel === 'gemini-2.5-flash' ? "bg-indigo-500 text-white" : "text-neutral-600 hover:text-neutral-400")}
             >
-              Reset
+              Flash
             </button>
-          )}
+            <button 
+              onClick={() => setSelectedModel('gemini-2.5-pro')}
+              className={cn("px-1.5 py-0.5 rounded text-[8px] font-bold uppercase transition-all", selectedModel === 'gemini-2.5-pro' ? "bg-indigo-500 text-white" : "text-neutral-600 hover:text-neutral-400")}
+            >
+              Pro
+            </button>
+          </div>
         </div>
 
         {!drill ? (

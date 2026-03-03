@@ -5,14 +5,11 @@ const path = require('path');
 const matter = require('gray-matter');
 const { Index } = require('flexsearch');
 const natural = require('natural');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-require('dotenv').config();
+const axios = require('axios');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
-const PORT = process.env.PORT || 3001;
-
-// Initialize Gemini (Free Tier available via Google AI Studio)
-const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+const PORT = process.env.PORT || 3002;
 
 app.use(cors());
 app.use(express.json());
@@ -24,16 +21,13 @@ app.use(express.static(FRONTEND_DIST));
 const searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
 let knowledgeGraph = { concepts: {}, files: {} };
 
-/**
- * Heuristic Intelligence: Keyword Extractor
- */
 function extractKeywords(text) {
   const tokenizer = new natural.WordTokenizer();
   const words = tokenizer.tokenize(text.toLowerCase());
   const stopWords = new Set(['the', 'this', 'that', 'with', 'from', 'using', 'into', 'your', 'will', 'then', 'when', 'what']);
   const counts = {};
   words.filter(w => w.length > 3 && !stopWords.has(w)).forEach(w => counts[w] = (counts[w] || 0) + 1);
-  return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => entry = e[0]);
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
 }
 
 async function syncIntelligence() {
@@ -64,32 +58,39 @@ async function syncIntelligence() {
 syncIntelligence();
 
 /**
- * AI Intelligence: Gemini Drill Generation
+ * AI Deep Drill - DIRECT REST VERSION (Resilient)
  */
 app.post('/api/intelligence/drill', async (req, res) => {
-  const { fileId } = req.body;
+  const { fileId, model = 'gemini-2.5-flash' } = req.body;
   const fileData = knowledgeGraph.files[fileId];
-
-  if (!genAI) return res.json({ error: 'GEMINI_API_KEY not configured. Add it to server/.env to enable AI Drills.' });
+  const key = process.env.GEMINI_API_KEY;
+  
+  if (!key) return res.json({ error: 'GEMINI_API_KEY missing.' });
   if (!fileData) return res.status(404).json({ error: 'Content not found' });
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const prompt = `You are a Staff Engineer interviewer. Based on the following technical notes, generate ONE challenging "Deep Drill" interview question that tests architectural trade-offs or low-level internals. 
+    const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${key}`;
     
-    Context:
-    ${fileData.content.slice(0, 2000)}
-    
-    Respond in JSON format:
-    { "question": "the question", "idealResponse": "points to cover in response" }`;
+    const payload = {
+      contents: [{
+        parts: [{
+          text: `You are a Staff Engineer interviewer. Based on the technical notes below, generate ONE challenging interview question. 
+          
+          Respond STRICTLY in JSON: { "question": "...", "idealResponse": "..." }
+          
+          Notes: ${fileData.content.slice(0, 3000)}`
+        }]
+      }]
+    };
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    // Extract JSON from potential markdown blocks
+    const response = await axios.post(url, payload);
+    const text = response.data.candidates[0].content.parts[0].text;
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     res.json(JSON.parse(jsonMatch[jsonMatch.length - 1]));
   } catch (error) {
-    res.status(500).json({ error: 'AI Generation failed' });
+    const msg = error.response ? JSON.stringify(error.response.data) : error.message;
+    console.error('REST API ERROR:', msg);
+    res.status(500).json({ error: 'AI Generation failed: ' + msg });
   }
 });
 
@@ -146,5 +147,7 @@ function parseMarkdownToModuleData(type, content) {
   return content;
 }
 
-app.get('*', (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
-app.listen(PORT, () => console.log(`Sentinel Intelligence Engine active on port ${PORT}`));
+app.get(/(.*)/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
+app.listen(PORT, () => {
+  console.log(`Sentinel Intelligence Engine ACTIVE on port ${PORT}`);
+});
