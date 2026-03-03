@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import ForceGraph3D from 'react-force-graph-3d';
 import { useDossierContext } from '../App';
 import { motion } from 'framer-motion';
@@ -7,21 +7,40 @@ import { Network, X, Maximize2, Minimize2 } from 'lucide-react';
 interface GraphNode {
   id: string;
   label: string;
-  group: 'company' | 'module' | 'concept';
+  group: 'module' | 'concept';
+  company: string;
   val: number;
 }
 
 interface GraphLink {
   source: string;
   target: string;
+  keyword?: string;
 }
 
-export const KnowledgeGraph: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
-  const { allCompanies, dossier } = useDossierContext();
+interface KnowledgeGraphProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSelectModule: (moduleId: string) => void;
+}
+
+export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose, onSelectModule }) => {
+  const { setCompany } = useDossierContext();
   const graphRef = useRef<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const [graphData, setGraphData] = useState<{ nodes: GraphNode[], links: GraphLink[] }>({ nodes: [], links: [] });
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Load real graph data from backend
+  useEffect(() => {
+    if (isOpen) {
+      fetch('/api/intelligence/graph')
+        .then(res => res.json())
+        .then(data => setGraphData(data))
+        .catch(err => console.error('Graph fetch failed', err));
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && containerRef.current) {
@@ -44,44 +63,33 @@ export const KnowledgeGraph: React.FC<{ isOpen: boolean; onClose: () => void }> 
     return () => window.removeEventListener('resize', handleResize);
   }, [isOpen, isFullscreen]);
 
-  const { nodes, links } = useMemo(() => {
-    const gNodes: GraphNode[] = [];
-    const gLinks: GraphLink[] = [];
-    const conceptSet = new Set<string>();
-
-    if (!dossier) return { nodes: [], links: [] };
-
-    // 1. Core Company Nodes
-    allCompanies.forEach(c => {
-      gNodes.push({ id: c.id, label: c.name, group: 'company', val: 20 });
-    });
-
-    // 2. Module Nodes
-    dossier.modules.forEach(mod => {
-      const modId = mod.fullId || mod.id;
-      gNodes.push({ id: modId, label: mod.label, group: 'module', val: 10 });
-      gLinks.push({ source: dossier.id, target: modId });
-
-      // 3. Extracted Concepts
-      const concepts = (mod as any).keywords || ['Infrastructure', 'Scale', 'Performance', 'Security'];
+  const handleNodeClick = (node: any) => {
+    if (node.group === 'module') {
+      const [companyId, fileName] = node.id.split('/');
+      const moduleId = fileName.replace('.md', '');
       
-      concepts.slice(0, 3).forEach((c: string) => {
-        const conceptId = `c_${c.toLowerCase()}`;
-        if (!conceptSet.has(conceptId)) {
-          conceptSet.add(conceptId);
-          gNodes.push({ id: conceptId, label: c, group: 'concept', val: 4 });
-        }
-        gLinks.push({ source: modId, target: conceptId });
-      });
-    });
-
-    return { nodes: gNodes, links: gLinks };
-  }, [dossier, allCompanies]);
+      setCompany(companyId);
+      // Brief delay to allow context switch
+      setTimeout(() => {
+        onSelectModule(moduleId);
+        onClose();
+      }, 100);
+    } else {
+      // For concepts, just focus the camera
+      const distance = 100;
+      const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
+      graphRef.current.cameraPosition(
+        { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
+        node,
+        2000
+      );
+    }
+  };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 font-sans">
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -104,8 +112,8 @@ export const KnowledgeGraph: React.FC<{ isOpen: boolean; onClose: () => void }> 
               <Network className="w-5 h-5 text-indigo-400" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white tracking-wide">3D Semantic Map</h2>
-              <p className="text-[10px] text-neutral-500 uppercase tracking-widest mt-0.5">Architectural Relationships</p>
+              <h2 className="text-lg font-semibold text-white tracking-wide">3D Semantic nervous System</h2>
+              <p className="text-[10px] text-neutral-500 uppercase tracking-widest mt-0.5">Live Architectural Relationships</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -129,12 +137,12 @@ export const KnowledgeGraph: React.FC<{ isOpen: boolean; onClose: () => void }> 
             ref={graphRef}
             width={dimensions.width}
             height={dimensions.height}
-            graphData={{ nodes, links }}
-            nodeLabel="label"
+            graphData={graphData}
+            nodeLabel={(node: any) => `${node.label} (${node.company})`}
             nodeColor={(node: any) => {
-              if (node.group === 'company') return '#818cf8';
-              if (node.group === 'module') return '#22d3ee';
-              return '#a3a3a3';
+              if (node.company === 'mailin') return '#22d3ee'; // Cyan
+              if (node.company === 'turing') return '#818cf8'; // Indigo
+              return '#a3a3a3'; // Global Concept
             }}
             nodeVal={(node: any) => node.val}
             nodeResolution={32}
@@ -145,31 +153,21 @@ export const KnowledgeGraph: React.FC<{ isOpen: boolean; onClose: () => void }> 
             linkDirectionalParticleColor={() => '#6366f1'}
             backgroundColor="#050505"
             enableNodeDrag={false}
-            onNodeClick={(node: any) => {
-              // Aim at node from outside it
-              const distance = 100;
-              const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
-
-              graphRef.current.cameraPosition(
-                { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio }, // new position
-                node, // lookAt ({ x, y, z })
-                3000  // ms transition duration
-              );
-            }}
+            onNodeClick={handleNodeClick}
           />
           
           <div className="absolute bottom-6 left-6 flex flex-col gap-3 pointer-events-none bg-black/50 p-4 rounded-xl border border-white/[0.05] backdrop-blur-md">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.8)]"></div>
-              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Dossier Root</span>
+              <div className="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></div>
+              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Mailin Module</span>
             </div>
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></div>
-              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Technical Module</span>
+              <div className="w-3 h-3 rounded-full bg-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.8)]"></div>
+              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Turing Module</span>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 rounded-full bg-neutral-400"></div>
-              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Semantic Concept</span>
+              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Shared Concept (Link)</span>
             </div>
           </div>
         </div>

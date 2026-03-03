@@ -70,7 +70,11 @@ function App() {
             <DeepSearch onSelect={setActiveModuleId} />
           </div>
           
-          <KnowledgeGraph isOpen={isGraphOpen} onClose={() => setIsGraphOpen(false)} />
+          <KnowledgeGraph 
+            isOpen={isGraphOpen} 
+            onClose={() => setIsGraphOpen(false)} 
+            onSelectModule={setActiveModuleId}
+          />
           
           <div 
             className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" 

@@ -140,6 +140,46 @@ app.post('/api/intelligence/evaluate', async (req, res) => {
   }
 });
 
+app.get('/api/intelligence/graph', (req, res) => {
+  const nodes = [];
+  const links = [];
+  const conceptToFiles = knowledgeGraph.concepts;
+  
+  // 1. Create File Nodes
+  Object.entries(knowledgeGraph.files).forEach(([id, data]) => {
+    nodes.push({ 
+      id, 
+      label: data.label, 
+      group: 'module', 
+      company: data.company,
+      val: 15 
+    });
+  });
+
+  // 2. Create Concept Nodes & Links
+  Object.entries(conceptToFiles).forEach(([concept, files]) => {
+    if (files.length > 1) { // Only show concepts that link at least 2 files (Synthesis nodes)
+      nodes.push({ 
+        id: `concept:${concept}`, 
+        label: concept, 
+        group: 'concept', 
+        company: 'global',
+        val: 8 
+      });
+
+      files.forEach(f => {
+        links.push({ 
+          source: f.fileId, 
+          target: `concept:${concept}`,
+          keyword: concept 
+        });
+      });
+    }
+  });
+
+  res.json({ nodes, links });
+});
+
 app.get('/api/intelligence/search', (req, res) => {
   const { q } = req.query;
   if (!q) return res.json([]);
