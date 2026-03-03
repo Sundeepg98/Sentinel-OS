@@ -1,3 +1,12 @@
+# Environment and Secrets
+.env
+*.env
+*.env.local
+
+# Database
+*.db
+*.db-journal
+
 # Logs
 logs
 *.log
