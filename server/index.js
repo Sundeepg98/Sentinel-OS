@@ -6,10 +6,24 @@ const matter = require('gray-matter');
 const { Index } = require('flexsearch');
 const natural = require('natural');
 const axios = require('axios');
+const sqlite3 = require('sqlite3').verbose();
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3002;
+
+// Initialize SQLite Persistence Engine
+const dbFile = path.join(__dirname, 'sentinel.db');
+const db = new sqlite3.Database(dbFile, (err) => {
+  if (err) console.error('SQLite initialization failed:', err);
+  else {
+    db.run(`CREATE TABLE IF NOT EXISTS user_state (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+  }
+});
 
 app.use(cors());
 app.use(express.json());
@@ -94,6 +108,53 @@ app.post('/api/intelligence/drill', async (req, res) => {
   }
 });
 
+/**
+ * AI Deep Drill - EVALUATION ENGINE
+ */
+app.post('/api/intelligence/evaluate', async (req, res) => {
+  const { question, idealResponse, userAnswer, model = 'gemini-2.5-flash' } = req.body;
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return res.status(401).json({ error: 'Missing API Key' });
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${key}`;
+    const payload = {
+      contents: [{
+        parts: [{
+          text: `You are a strict Staff Engineer interviewer evaluating a candidate's answer.
+          
+Question: ${question}
+Ideal Criteria: ${idealResponse}
+Candidate Answer: "${userAnswer}"
+
+Evaluate their technical depth. Respond STRICTLY in JSON format:
+{
+  "score": "8/10",
+  "feedback": "constructive critique",
+  "followUp": "A challenging follow-up question."
+}`
+        }]
+      }]
+    };
+
+    const response = await axios.post(url, payload);
+    const text = response.data.candidates[0].content.parts[0].text;
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    res.json(JSON.parse(jsonMatch[jsonMatch.length - 1]));
+  } catch (error) {
+    res.status(500).json({ error: 'Evaluation failed' });
+  }
+});
+
+app.get('/api/intelligence/search', (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.json([]);
+  
+  const results = searchIndex.search(q, { limit: 10 });
+  const detailedResults = results.map(id => ({ id, ...knowledgeGraph.files[id] }));
+  res.json(detailedResults);
+});
+
 app.get('/api/intelligence/insights', (req, res) => {
   const { fileId } = req.query;
   const fileData = knowledgeGraph.files[fileId];
@@ -146,6 +207,25 @@ function parseMarkdownToModuleData(type, content) {
   }
   return content;
 }
+
+app.get('/api/state/:key', (req, res) => {
+  const { key } = req.params;
+  db.get("SELECT value FROM user_state WHERE key = ?", [key], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ value: row ? JSON.parse(row.value) : null });
+  });
+});
+
+app.post('/api/state/:key', (req, res) => {
+  const { key } = req.params;
+  const value = JSON.stringify(req.body.value);
+  db.run(`INSERT INTO user_state (key, value) VALUES (?, ?) 
+          ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`, 
+          [key, value], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
 
 app.get(/(.*)/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
 app.listen(PORT, () => {

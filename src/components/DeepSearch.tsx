@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, X, Command, SearchCode } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDossierContext } from '../App';
 
 interface SearchResult {
-  title: string;
-  type: string;
-  moduleId: string;
-  snippet: string;
+  id: string; // "company/module.md"
+  label: string;
+  company: string;
+  snippet?: string;
 }
 
 interface DeepSearchProps {
@@ -17,7 +17,9 @@ interface DeepSearchProps {
 export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const { dossier } = useDossierContext();
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const { setCompany } = useDossierContext();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -31,44 +33,41 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const results = useMemo(() => {
-    if (query.length < 2 || !dossier) return [];
-    
-    const searchItems: SearchResult[] = [];
-    const q = query.toLowerCase();
+  useEffect(() => {
+    if (query.length < 2) {
+      setResults([]);
+      return;
+    }
 
-    dossier.modules.forEach(mod => {
-      if (mod.type === 'list') {
-        mod.data.forEach((section: any) => {
-          section.items.forEach((item: any) => {
-            if (item.title.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q)) {
-              searchItems.push({ title: item.title, type: mod.label, moduleId: mod.id, snippet: item.desc });
-            }
-          });
-        });
-      } else if (mod.type === 'map') {
-        mod.data.forEach((item: any) => {
-          if (item.title.toLowerCase().includes(q) || item.scenario.toLowerCase().includes(q)) {
-            searchItems.push({ title: item.title, type: mod.label, moduleId: mod.id, snippet: item.scenario });
-          }
-        });
-      } else if (mod.type === 'playbook') {
-        mod.data.forEach((item: any) => {
-          if (item.q.toLowerCase().includes(q) || item.optimal.toLowerCase().includes(q)) {
-            searchItems.push({ title: item.q, type: mod.label, moduleId: mod.id, snippet: item.optimal });
-          }
-        });
-      } else if (mod.type === 'checklist') {
-        mod.data.forEach((item: any) => {
-          if (item.text.toLowerCase().includes(q)) {
-            searchItems.push({ title: 'Task', type: mod.label, moduleId: mod.id, snippet: item.text });
-          }
-        });
+    const fetchResults = async () => {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`/api/intelligence/search?q=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        setResults(data);
+      } catch (err) {
+        console.error('Search failed', err);
+      } finally {
+        setIsSearching(false);
       }
-    });
+    };
 
-    return searchItems.slice(0, 8);
-  }, [query, dossier]);
+    const debounce = setTimeout(fetchResults, 300);
+    return () => clearTimeout(debounce);
+  }, [query]);
+
+  const handleSelect = (res: SearchResult) => {
+    const [companyId, fileName] = res.id.split('/');
+    const moduleId = fileName.replace('.md', '');
+    
+    setCompany(companyId);
+    // Slight delay to allow company state to update before selecting module
+    setTimeout(() => {
+      onSelect(moduleId);
+    }, 100);
+    
+    setIsOpen(false);
+  };
 
   return (
     <>
@@ -77,7 +76,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
         className="flex items-center gap-3 px-4 py-2 bg-[#0a0a0a] border border-white/[0.08] rounded-lg text-neutral-400 text-sm hover:border-white/[0.15] hover:text-neutral-300 transition-all w-full max-w-xs shadow-sm"
       >
         <Search size={16} />
-        <span className="flex-1 text-left">Deep Search...</span>
+        <span className="flex-1 text-left">Global Search...</span>
         <div className="flex items-center gap-1 opacity-50 font-mono text-[10px] bg-white/[0.05] px-1.5 py-0.5 rounded border border-white/[0.05]">
           <Command size={10} />
           <span>K</span>
@@ -105,7 +104,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
                 <Search className="text-neutral-400" size={20} />
                 <input 
                   autoFocus
-                  placeholder="Search for mechanics, patterns, or playbooks..."
+                  placeholder="Search globally across all company profiles..."
                   className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-neutral-600 text-[15px]"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -121,10 +120,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
                     {results.map((res, i) => (
                       <button
                         key={i}
-                        onClick={() => {
-                          onSelect(res.moduleId);
-                          setIsOpen(false);
-                        }}
+                        onClick={() => handleSelect(res)}
                         className="w-full text-left p-3 rounded-lg hover:bg-white/[0.03] group transition-colors flex items-start gap-4 border border-transparent hover:border-white/[0.05]"
                       >
                         <div className="mt-1 p-2 bg-[#0a0a0a] border border-white/[0.08] rounded-md text-neutral-500 group-hover:text-cyan-400 group-hover:border-cyan-500/30 transition-colors shadow-sm">
@@ -132,12 +128,12 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
-                            <h4 className="font-medium text-neutral-200 truncate text-[14px]">{res.title}</h4>
-                            <span className="text-[10px] uppercase tracking-widest font-mono text-neutral-500 bg-[#0a0a0a] px-2 py-0.5 rounded border border-white/[0.05]">
-                              {res.type}
+                            <h4 className="font-medium text-neutral-200 truncate text-[14px]">{res.label}</h4>
+                            <span className="text-[10px] uppercase tracking-widest font-mono text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                              {res.company}
                             </span>
                           </div>
-                          <p className="text-[13px] text-neutral-500 line-clamp-1 leading-relaxed">{res.snippet}</p>
+                          <p className="text-[12px] text-neutral-500 line-clamp-1 leading-relaxed">{res.id}</p>
                         </div>
                       </button>
                     ))}
@@ -145,10 +141,10 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
                 ) : (
                   <div className="p-10 text-center flex flex-col items-center justify-center gap-3">
                     <div className="w-12 h-12 rounded-full bg-white/[0.02] flex items-center justify-center border border-white/[0.05]">
-                      <Search className="w-5 h-5 text-neutral-600" />
+                      <Search className={isSearching ? "w-5 h-5 text-cyan-500 animate-pulse" : "w-5 h-5 text-neutral-600"} />
                     </div>
                     <p className="text-neutral-500 text-[14px]">
-                      {query.length < 2 ? 'Start typing to search across the dossier...' : 'No results found for this query.'}
+                      {query.length < 2 ? 'Start typing to search across all dossiers...' : (isSearching ? 'Searching...' : 'No results found for this query.')}
                     </p>
                   </div>
                 )}

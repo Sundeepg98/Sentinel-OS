@@ -6,14 +6,38 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
-      console.error(error);
       return initialValue;
     }
   });
 
+  // Sync from cloud on mount
+  useEffect(() => {
+    fetch(`/api/state/${key}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.value !== null && data.value !== undefined) {
+          setStoredValue(data.value);
+          window.localStorage.setItem(key, JSON.stringify(data.value));
+        }
+      })
+      .catch(console.error);
+  }, [key]);
+
+  // Sync to local and cloud on change
   useEffect(() => {
     try {
       window.localStorage.setItem(key, JSON.stringify(storedValue));
+      
+      // Debounce the cloud write slightly
+      const timeoutId = setTimeout(() => {
+        fetch(`/api/state/${key}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: storedValue })
+        }).catch(console.error);
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
     } catch (error) {
       console.error(error);
     }
