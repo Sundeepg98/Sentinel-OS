@@ -33,7 +33,13 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [graphData, setGraphData] = useState<{ nodes: GraphNode[], links: GraphLink[] }>({ nodes: [], links: [] });
+  const [hasInitialZoomed, setHasInitialZoomed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Reset zoom lock when closing/opening
+  useEffect(() => {
+    if (!isOpen) setHasInitialZoomed(false);
+  }, [isOpen]);
 
   // Load real graph data from backend
   useEffect(() => {
@@ -218,9 +224,10 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
             d3AlphaDecay={0.02}
             d3VelocityDecay={0.1}
             onEngineStop={() => {
-              if (graphRef.current) {
+              if (graphRef.current && !hasInitialZoomed) {
                 // Wait for physics to settle, then smoothly frame the entire graph with a 20% margin
                 graphRef.current.zoomToFit(1500, 150);
+                setHasInitialZoomed(true);
               }
             }}
           />
