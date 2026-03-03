@@ -1,0 +1,86 @@
+/* Copy Button Styles */
+.copy-code-btn {
+    /* Ensure button is visible and clickable */
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 10;
+    
+    /* Default positioning */
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    
+    /* Ensure minimum size for testing */
+    min-width: 32px;
+    min-height: 32px;
+    
+    /* Transition for feedback */
+    transition: all 0.2s ease;
+}
+
+/* Ensure pre elements can contain the absolute positioned button */
+pre {
+    position: relative !important;
+    /* Add padding to prevent button from overlapping code */
+    padding-right: 50px !important;
+}
+
+/* Hide button by default, show on hover (optional) */
+@media (hover: hover) {
+    .copy-code-btn {
+        opacity: 0.7;
+    }
+    
+    pre:hover .copy-code-btn {
+        opacity: 1;
+    }
+}
+
+/* Always show button on touch devices and during tests */
+@media (hover: none), (prefers-reduced-motion: reduce) {
+    .copy-code-btn {
+        opacity: 1 !important;
+    }
+}
+
+/* Test mode - always show buttons */
+body.test-mode .copy-code-btn {
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Success state */
+.copy-code-btn.btn-success {
+    opacity: 1 !important;
+}
+
+/* Error state */
+.copy-code-btn.btn-danger {
+    opacity: 1 !important;
+}
+
+/* Ensure buttons don't interfere with code selection */
+.copy-code-btn {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+}
+
+/* Fix for small code blocks */
+pre:has(.copy-code-btn) {
+    min-height: 50px;
+}
+
+/* Dark theme support */
+[data-theme="dark"] .copy-code-btn {
+    color: #e0e0e0;
+    border-color: #4a4a4a;
+}
+
+[data-theme="dark"] .copy-code-btn:hover {
+    background-color: #3a3a3a;
+    border-color: #5a5a5a;
+}

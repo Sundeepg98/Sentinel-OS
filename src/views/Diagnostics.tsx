@@ -1,9 +1,15 @@
 import React from 'react';
 import { SearchCode, ShieldAlert, CheckCircle2 } from 'lucide-react';
-import { DIAGNOSTICS_PLAYBOOK } from '../data/diagnostics';
 import { motion } from 'framer-motion';
+import { useDossierContext } from '../App';
 
 export const Diagnostics: React.FC = () => {
+  const { dossier } = useDossierContext();
+  const activeModule = dossier.modules.find(m => m.type === 'playbook');
+  
+  if (!activeModule) return null;
+  const items = activeModule.data;
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -15,12 +21,12 @@ export const Diagnostics: React.FC = () => {
           <div className="p-2 bg-white/[0.03] rounded-lg border border-white/[0.05]">
             <SearchCode className="w-5 h-5 text-neutral-400" />
           </div>
-          Diagnostics Playbook
+          {activeModule.label}
         </h2>
       </div>
 
       <div className="space-y-8">
-        {DIAGNOSTICS_PLAYBOOK.map((item, idx) => (
+        {items.map((item: any, idx: number) => (
           <div key={idx} className="bg-[#0d0d0d] border border-white/[0.05] rounded-xl overflow-hidden shadow-2xl">
             <div className="p-6 bg-white/[0.02] border-b border-white/[0.05]">
               <h3 className="text-lg font-medium text-white flex gap-3 leading-relaxed">

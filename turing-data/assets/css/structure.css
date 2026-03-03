@@ -1,0 +1,407 @@
+/* ===================================
+   Interview Guide Structure CSS
+   Based on Markdown Structure Analysis
+   With Dark Mode Support
+   =================================== */
+
+/* Dark Mode Support for Structure Elements */
+[data-theme="dark"] {
+    /* Override Bootstrap defaults */
+    --bs-body-bg: var(--bg-primary);
+    --bs-body-color: var(--text-primary);
+}
+
+/* 1. CORE LAYOUT STRUCTURE */
+/* ------------------------ */
+
+/* Sidebar Navigation */
+.sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    padding: 48px 0 0;
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+}
+
+.sidebar-sticky {
+    position: sticky;
+    top: 48px;
+    height: calc(100vh - 48px);
+    padding-top: .5rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+/* Main Content Area */
+main {
+    padding-top: 48px;
+}
+
+@media (min-width: 768px) {
+    main {
+        padding-left: 240px;
+    }
+}
+
+/* 2. SECTION STRUCTURE */
+/* -------------------- */
+
+/* Major Sections (matches ## in markdown) */
+.major-section {
+    margin-bottom: 4rem;
+    padding-bottom: 2rem;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.major-section > h2 {
+    color: #2c3e50;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 3px solid #007bff;
+}
+
+/* Subsections (matches ### in markdown) */
+.subsection {
+    margin-bottom: 3rem;
+}
+
+.subsection > h3 {
+    color: #34495e;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+}
+
+/* 3. QUESTION STRUCTURE */
+/* --------------------- */
+
+/* Question Container */
+.question-container {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.08);
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+/* Question Header */
+.question-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem;
+}
+
+.question-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+/* Question Body */
+.question-body {
+    padding: 2rem;
+}
+
+/* 4. CONTENT PATTERNS */
+/* ------------------- */
+
+/* Answer Block (matches **Your Answer**: pattern) */
+.answer-block {
+    background-color: #f8f9fa;
+    border-left: 4px solid #007bff;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.answer-block > p:first-child {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* Key Points Block (matches **Why It Matters**: pattern) */
+.key-points {
+    background-color: #e7f3ff;
+    border-left: 4px solid #2196F3;
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.key-points h5 {
+    color: #1976D2;
+    margin-bottom: 0.75rem;
+}
+
+/* Experience Block (matches **Your Experience**: pattern) */
+.experience-block {
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.experience-block strong {
+    color: #856404;
+}
+
+/* Code Block Structure */
+.code-container {
+    position: relative;
+    margin: 1.5rem 0;
+}
+
+.code-container pre {
+    background-color: #282c34;
+    color: #abb2bf;
+    padding: 1.5rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 0;
+}
+
+.code-container .copy-button {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.code-container:hover .copy-button {
+    opacity: 1;
+}
+
+/* 5. SPECIAL SECTIONS */
+/* ------------------- */
+
+/* STAR Stories Structure */
+.star-story {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.star-story h3 {
+    color: #155724;
+    margin-bottom: 1.5rem;
+}
+
+.star-story .situation,
+.star-story .task,
+.star-story .action,
+.star-story .result {
+    margin-bottom: 1rem;
+}
+
+.star-story strong {
+    color: #155724;
+    display: inline-block;
+    min-width: 80px;
+}
+
+/* Quick Reference Cards */
+.quick-ref-card {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.quick-ref-card h4 {
+    color: #495057;
+    margin-bottom: 1rem;
+}
+
+/* Command Reference */
+.command-block {
+    background: #263238;
+    color: #aed581;
+    padding: 1rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    margin: 0.5rem 0;
+}
+
+/* 6. LISTS AND NESTED CONTENT */
+/* --------------------------- */
+
+/* Nested Lists (common in markdown) */
+.content-list {
+    margin: 1rem 0;
+    padding-left: 1.5rem;
+}
+
+.content-list li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+}
+
+.content-list li strong {
+    color: #2c3e50;
+}
+
+/* Nested Code/Lists Pattern */
+.nested-content {
+    margin-left: 2rem;
+    margin-top: 1rem;
+}
+
+/* 7. NAVIGATION PATTERNS */
+/* ---------------------- */
+
+/* Section Navigation */
+.section-nav {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,.08);
+}
+
+.section-nav h5 {
+    color: #495057;
+    margin-bottom: 1rem;
+}
+
+.section-nav .nav-link {
+    color: #6c757d;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.section-nav .nav-link:hover {
+    background: #f8f9fa;
+    color: #007bff;
+}
+
+.section-nav .nav-link.active {
+    background: #007bff;
+    color: white;
+}
+
+/* 8. ALERTS AND CALLOUTS */
+/* ---------------------- */
+
+/* Common Mistake Pattern */
+.mistake-alert {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    padding: 1rem;
+    margin: 1.5rem 0;
+}
+
+.mistake-alert strong {
+    color: #721c24;
+}
+
+/* Tips Pattern */
+.tip-box {
+    background: #d1ecf1;
+    border: 1px solid #bee5eb;
+    border-radius: 4px;
+    padding: 1rem;
+    margin: 1.5rem 0;
+}
+
+.tip-box strong {
+    color: #0c5460;
+}
+
+/* 9. RESPONSIVE PATTERNS */
+/* --------------------- */
+
+@media (max-width: 768px) {
+    .sidebar {
+        position: static;
+        height: auto;
+        padding-top: 1rem;
+    }
+    
+    main {
+        padding-left: 0;
+    }
+    
+    .question-container {
+        margin-bottom: 1.5rem;
+    }
+    
+    .code-container pre {
+        font-size: 0.875rem;
+        padding: 1rem;
+    }
+}
+
+/* 10. UTILITY CLASSES */
+/* ------------------- */
+
+/* Text Utilities */
+.text-question {
+    color: #667eea;
+    font-weight: 600;
+}
+
+.text-concept {
+    color: #2196F3;
+    font-weight: 600;
+}
+
+.text-experience {
+    color: #ffc107;
+    font-style: italic;
+}
+
+/* Spacing Utilities */
+.section-spacing {
+    margin-bottom: 3rem;
+}
+
+.subsection-spacing {
+    margin-bottom: 2rem;
+}
+
+/* Badge Utilities for Categories */
+.badge-core {
+    background-color: #28a745;
+}
+
+.badge-advanced {
+    background-color: #6c757d;
+}
+
+.badge-typescript {
+    background-color: #007bff;
+}
+
+.badge-testing {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.badge-cicd {
+    background-color: #17a2b8;
+}
+
+/* Print Styles */
+@media print {
+    .sidebar {
+        display: none;
+    }
+    
+    main {
+        padding-left: 0;
+    }
+    
+    .question-container {
+        page-break-inside: avoid;
+    }
+    
+    .code-container pre {
+        background: #f8f9fa !important;
+        color: #212529 !important;
+        border: 1px solid #dee2e6;
+    }
+}

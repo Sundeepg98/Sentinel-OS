@@ -1,0 +1,2919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Complete Turing Interview Guide - All 18 Questions with Dynamic Loading">
+    <title>Ultimate Interview Guide - Pulumi/TypeScript DevOps</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    
+    <!-- Prism CSS for Code Highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" id="prism-theme-light">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" id="prism-theme-dark" disabled>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="assets/css/structure.css">
+    <link rel="stylesheet" href="assets/css/copy-button-styles.css">
+    
+    <!-- Animate.css for animations -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    
+    <style>
+        /* CSS Variables for Theming */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --bg-tertiary: #e9ecef;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --text-inverse: #ffffff;
+            --border-color: #dee2e6;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --code-bg: #282c34;
+            --navbar-bg: #212529;
+            --sidebar-bg: #ffffff;
+            --card-bg: #ffffff;
+            --progress-bg: #ffffff;
+            --link-color: #007bff;
+            --link-hover: #0056b3;
+            --gradient-start: #667eea;
+            --gradient-end: #764ba2;
+            --success-bg: #d4edda;
+            --success-border: #c3e6cb;
+            --info-bg: #d1ecf1;
+            --info-border: #bee5eb;
+            --warning-bg: #fff3cd;
+            --warning-border: #ffeeba;
+            --danger-bg: #f8d7da;
+            --danger-border: #f5c6cb;
+        }
+        
+        /* Apply theme to body and html */
+        html, body {
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --bg-tertiary: #3a3a3a;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-inverse: #1a1a1a;
+            --border-color: #4a4a4a;
+            --shadow-color: rgba(0, 0, 0, 0.3);
+            --code-bg: #1e1e1e;
+            --navbar-bg: #0d0d0d;
+            --sidebar-bg: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --progress-bg: #2d2d2d;
+            --link-color: #66b3ff;
+            --link-hover: #3399ff;
+            --gradient-start: #7c88f2;
+            --gradient-end: #8f5eb8;
+            --success-bg: #1c3a1f;
+            --success-border: #2d5a32;
+            --info-bg: #1c3644;
+            --info-border: #2d5666;
+            --warning-bg: #3a2f1a;
+            --warning-border: #5a4a2d;
+            --danger-bg: #3a1c1f;
+            --danger-border: #5a2d32;
+        }
+
+        /* Smooth transitions for theme switching */
+        * {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+        
+        .section-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+        }
+        
+        /* Responsive font size for title when sidebar is visible */
+        @media (max-width: 1400px) {
+            .col-lg-10 .section-header h1.display-4 {
+                font-size: 2.5rem !important;
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            .col-md-9 .section-header h1.display-4 {
+                font-size: 2.2rem !important;
+            }
+        }
+        
+        @media (max-width: 992px) {
+            .section-header h1.display-4 {
+                font-size: 2rem !important;
+            }
+        }
+        
+        .sidebar {
+            background: var(--sidebar-bg);
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+            height: calc(100vh - 56px);
+            overflow-y: auto;
+        }
+        
+        .sidebar-hidden {
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+        
+        .question-card {
+            transition: all 0.3s ease;
+            margin-bottom: 2rem;
+        }
+        
+        .question-card .card {
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+        }
+        
+        .question-card .card-header {
+            background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
+            border-color: var(--border-color);
+        }
+        
+        .question-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .copy-code {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .position-relative:hover .copy-code {
+            opacity: 1;
+        }
+        
+        .star-story {
+            background: linear-gradient(135deg, var(--success-bg) 0%, var(--success-border) 100%);
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            color: var(--text-primary);
+        }
+        
+        .progress-sticky {
+            position: sticky;
+            top: 56px;
+            z-index: 100;
+            background: var(--progress-bg);
+            padding: 1rem 0;
+            box-shadow: 0 2px 4px var(--shadow-color);
+        }
+        
+        .nav-link.active {
+            background-color: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+        
+        pre {
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        
+        .red-flag {
+            background-color: var(--danger-bg);
+            border-left: 4px solid var(--danger-border);
+            padding: 1rem;
+            margin: 0.5rem 0;
+        }
+        
+        .checklist-item {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .checklist-item:last-child {
+            border-bottom: none;
+        }
+        
+        mark.search-highlight {
+            background-color: #ffeb3b;
+            color: #000;
+            padding: 0 2px;
+            border-radius: 3px;
+            font-weight: 500;
+            box-shadow: 0 0 0 1px rgba(255, 235, 59, 0.5);
+        }
+        
+        mark.search-highlight.current-match {
+            background-color: #ff9800;
+            color: #fff;
+            box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.5);
+        }
+        
+        .search-info {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(33, 37, 41, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            display: none;
+            z-index: 1050;
+            font-size: 14px;
+        }
+        
+        /* Additional theme-aware styles */
+        .card {
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+        
+        .card-header {
+            color: var(--text-inverse) !important;
+        }
+        
+        .nav-link {
+            color: var(--text-secondary);
+        }
+        
+        .nav-link:hover {
+            color: var(--text-primary);
+        }
+        
+        .btn-outline-secondary {
+            color: var(--text-secondary);
+            border-color: var(--border-color);
+        }
+        
+        .btn-outline-secondary:hover {
+            background-color: var(--bg-tertiary);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+        
+        /* Navbar styles for better theme support */
+        .navbar {
+            background-color: var(--navbar-bg) !important;
+            transition: background-color 0.3s ease;
+        }
+        
+        /* Search input styles */
+        #searchBox {
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #212529;
+        }
+        
+        #searchBox:focus {
+            background-color: rgba(255, 255, 255, 1);
+            border-color: #80bdff;
+            color: #212529;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        
+        #searchBox::placeholder {
+            color: #6c757d;
+        }
+        
+        /* Dark theme search input */
+        [data-theme="dark"] #searchBox {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+        
+        [data-theme="dark"] #searchBox:focus {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.4);
+            color: white;
+            box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+        }
+        
+        [data-theme="dark"] #searchBox::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        pre {
+            background-color: var(--code-bg) !important;
+        }
+        
+        /* Ensure all elements use CSS variables */
+        .navbar {
+            background-color: var(--navbar-bg) !important;
+        }
+        
+        .sidebar {
+            background-color: var(--sidebar-bg) !important;
+        }
+        
+        .card {
+            background-color: var(--card-bg) !important;
+            color: var(--text-primary) !important;
+        }
+        
+        .progress-sticky {
+            background-color: var(--progress-bg) !important;
+        }
+        
+        /* Fix specific elements for dark mode */
+        [data-theme="dark"] .navbar {
+            background-color: var(--navbar-bg) !important;
+        }
+        
+        [data-theme="dark"] body {
+            background-color: var(--bg-primary) !important;
+            color: var(--text-primary) !important;
+        }
+        
+        [data-theme="dark"] .sidebar {
+            background-color: var(--sidebar-bg) !important;
+            color: var(--text-primary) !important;
+        }
+        
+        [data-theme="dark"] .card {
+            background-color: var(--card-bg) !important;
+            border-color: var(--border-color) !important;
+        }
+        
+        [data-theme="dark"] .form-control,
+        [data-theme="dark"] .form-check-label {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--border-color);
+        }
+        
+        /* Animated Typing Effect */
+        .typing-effect {
+            overflow: hidden;
+            border-right: .15em solid #764ba2;
+            white-space: normal; /* Changed from nowrap to allow wrapping */
+            margin: 0 auto;
+            letter-spacing: .1em;
+            animation: 
+                typing 3.5s steps(40, end),
+                blink-caret .75s step-end infinite;
+        }
+        
+        /* Fix for main content spacing when sidebar is hidden */
+        #mainContent {
+            padding-top: 20px; /* Add consistent top padding */
+        }
+        
+        /* Ensure header text wraps properly */
+        .section-header h1 {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+        }
+        
+        /* Responsive font sizes for title when sidebar is visible */
+        @media (max-width: 1400px) {
+            .section-header h1 {
+                font-size: 2.5rem !important;
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            .section-header h1 {
+                font-size: 2.2rem !important;
+            }
+        }
+        
+        @media (max-width: 992px) {
+            .section-header h1 {
+                font-size: 2rem !important;
+            }
+        }
+        
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+        
+        @keyframes blink-caret {
+            from, to { border-color: transparent }
+            50% { border-color: #764ba2; }
+        }
+        
+        /* Code Block Animations */
+        .code-animate {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.6s ease forwards;
+        }
+        
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Interactive Quiz Styles */
+        .quiz-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            padding: 2rem;
+            margin: 2rem 0;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .quiz-question {
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+            animation: slideInRight 0.5s ease;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .quiz-option {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid transparent;
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .quiz-option:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateX(10px);
+            border-color: white;
+        }
+        
+        .quiz-option.correct {
+            background: #4CAF50;
+            animation: pulse 0.5s ease;
+        }
+        
+        .quiz-option.incorrect {
+            background: #f44336;
+            animation: shake 0.5s ease;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        
+        /* Progress Animation */
+        .progress-animated {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .progress-animated::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.3),
+                transparent
+            );
+            animation: progress-shine 2s linear infinite;
+        }
+        
+        @keyframes progress-shine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        /* Terminal Simulation */
+        .terminal {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            margin: 1rem 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .terminal-header {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 1rem;
+        }
+        
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .terminal-dot.red { background: #ff5f56; }
+        .terminal-dot.yellow { background: #ffbd2e; }
+        .terminal-dot.green { background: #27c93f; }
+        
+        .terminal-content {
+            color: #0f0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .terminal-cursor {
+            display: inline-block;
+            width: 10px;
+            height: 20px;
+            background: #0f0;
+            animation: terminal-blink 1s infinite;
+        }
+        
+        @keyframes terminal-blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        
+        /* Interactive Code Diff */
+        .code-diff {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: monospace;
+        }
+        
+        .diff-line {
+            padding: 0.25rem 0.5rem;
+            margin: 2px 0;
+            transition: all 0.3s ease;
+        }
+        
+        .diff-add {
+            background: rgba(76, 175, 80, 0.2);
+            border-left: 3px solid #4CAF50;
+        }
+        
+        .diff-remove {
+            background: rgba(244, 67, 54, 0.2);
+            border-left: 3px solid #f44336;
+        }
+        
+        .diff-line:hover {
+            transform: scale(1.02);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Floating Action Buttons */
+        .fab-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+        }
+        
+        .fab {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 30px rgba(0, 0, 0, 0.4);
+        }
+        
+        /* Interactive Tooltips */
+        .tooltip-custom {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+            color: var(--link-color);
+            border-bottom: 1px dotted var(--link-color);
+        }
+        
+        .tooltip-custom::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%) scale(0);
+            background: rgba(33, 37, 41, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            white-space: nowrap;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        
+        .tooltip-custom:hover::after {
+            transform: translateX(-50%) scale(1);
+            opacity: 1;
+        }
+        
+        /* Fix for typing effect inside Bootstrap display classes */
+        .display-4 .typing-effect,
+        .display-3 .typing-effect,
+        .display-2 .typing-effect,
+        .display-1 .typing-effect {
+            display: inline-block;
+            max-width: 100%;
+        }
+        
+        [data-theme="dark"] .nav-link {
+            color: var(--text-secondary) !important;
+        }
+        
+        [data-theme="dark"] .nav-link:hover {
+            color: var(--text-primary) !important;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                z-index: 1000;
+                height: 100vh;
+                top: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top" style="background-color: var(--navbar-bg);">
+        <div class="container-fluid">
+            <button class="btn btn-outline-light btn-sm me-2" id="toggleSidebar">
+                <i class="bi bi-list"></i> Hide Menu
+            </button>
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-code-square"></i> Ultimate Interview Guide
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <div class="input-group input-group-sm me-2" style="min-width: 200px;">
+                            <input type="text" class="form-control" id="searchBox" placeholder="Search..." aria-label="Search">
+                            <button class="btn btn-outline-light" type="button" id="clearSearch" style="display: none;">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                    </li>
+                    <li class="nav-item">
+                        <span class="navbar-text ms-3">
+                            <span id="questionCount">0</span>/18 Questions
+                        </span>
+                    </li>
+                    <li class="nav-item">
+                        <button class="btn btn-outline-light btn-sm ms-2" id="darkModeToggle">
+                            <i class="bi bi-moon-fill"></i>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container-fluid" style="margin-top: 56px;">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="col-md-3 col-lg-2 sidebar d-md-block">
+                <div class="position-sticky pt-3">
+                    <ul class="nav flex-column" id="sidebarNav">
+                        <!-- Populated dynamically -->
+                    </ul>
+                </div>
+            </nav>
+            
+            <!-- Main Content -->
+            <main id="mainContent" class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <!-- Header -->
+                <div class="section-header mt-4">
+                    <h1 class="display-4">Complete Turing Interview Guide</h1>
+                    <p class="lead mb-0">All 18 Questions • Pulumi/TypeScript DevOps Engineer</p>
+                </div>
+                
+                <!-- Progress -->
+                <div class="progress-sticky">
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar bg-success" id="progressBar" style="width: 0%">
+                            Loading...
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Content Container -->
+                <div id="contentContainer">
+                    <!-- Populated dynamically -->
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <!-- Search Info -->
+    <div class="search-info" id="searchInfo">
+        <span id="searchInfoText"></span>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Prism JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+    
+    <!-- Robust Copy Button Handler -->
+    
+    <!-- Embedded Markdown Content -->
+    <script id="markdownContent" type="text/markdown"># Complete Turing Interview Guide - Pulumi/TypeScript DevOps
+
+## Quick Reference
+- **Role**: Cloud Infrastructure Engineer (Pulumi + TypeScript)
+- **Company**: Turing - AI-powered tech services (3M developers, 900+ clients)
+- **Your Edge**: 200+ resources managed, 85% faster deployments, 35% cost reduction
+
+---
+
+## SECTION 1: CORE CONCEPTS EXPLAINED
+
+### 1.1 What is Pulumi?
+**Simple Answer**: Infrastructure as Code using real programming languages (TypeScript, Python, Go) instead of YAML/JSON.
+
+**Why It Matters**: 
+- Type safety catches errors at compile time
+- IDE support with autocomplete
+- Reusable functions and classes
+- Unit testing capabilities
+
+**Example**:
+```typescript
+// Traditional YAML approach vs Pulumi TypeScript
+const bucket = new aws.s3.Bucket("my-bucket", {
+    acl: "private",
+    versioning: { enabled: true }
+});
+
+// Type safety prevents errors
+// bucket.acl = "invalid"; // ❌ TypeScript error!
+```
+
+**Your Experience**: &quot;At Mailmodo, TypeScript&#039;s type safety prevented a production outage when a developer tried to use an invalid instance type - caught at compile time.&quot;
+
+### 1.2 Pulumi Outputs Explained
+**What**: Promises representing values that will only be known after deployment (like resource IDs, ARNs).
+
+**Why Critical**: Cloud providers return these values only after creating resources. Outputs ensure proper sequencing.
+
+**Key Methods**:
+```typescript
+// .apply() - Transform future values
+bucket.id.apply(id =&gt; console.log(`Created: ${id}`));
+
+// pulumi.interpolate - Combine outputs  
+const url = pulumi.interpolate`https://${bucket.websiteEndpoint}`;
+
+// pulumi.all() - Wait for multiple
+pulumi.all([db.endpoint, db.port]).apply(([host, port]) =&gt; 
+    `postgresql://${host}:${port}`
+);
+```
+
+**Common Mistake**: Trying to use `.toString()` on Output - always use `.apply()` instead.
+
+### 1.3 Component Resources (Your Specialty)
+**What**: Custom, reusable cloud resource abstractions - like creating your own &quot;Lego blocks&quot; for infrastructure.
+
+**Why You Built Them**:
+- Reduced 200+ resources to manageable components
+- Enforced company standards automatically
+- Enabled developer self-service
+
+**Your Implementation**:
+```typescript
+export class MicroserviceStack extends pulumi.ComponentResource {
+    // This pattern reduced our deployment code by 40%
+    constructor(name: string, args: MicroserviceArgs) {
+        super(&quot;custom:infra:MicroserviceStack&quot;, name);
+        
+        // All child resources automatically deleted with parent
+        this.lambda = new aws.lambda.Function(`${name}-fn`, {
+            runtime: args.runtime,
+            // ... config
+        }, { parent: this });  // Key: parent relationship
+        
+        // Make outputs available to consumers
+        this.registerOutputs({
+            url: this.lambda.invokeArn
+        });
+    }
+}
+```
+
+---
+
+## SECTION 2: TECHNICAL INTERVIEW QUESTIONS
+
+### Q1: &quot;How do you manage different environments?&quot;
+
+**Your Answer**: 
+&quot;I use Pulumi stacks for environment isolation. Each stack (dev, staging, prod) has its own state file and configuration. Here&#039;s my pattern:&quot;
+
+```typescript
+const config = new pulumi.Config();
+const env = pulumi.getStack(); // dev, staging, prod
+
+const envConfigs = {
+    dev: { instanceType: &quot;t3.micro&quot;, minSize: 1 },
+    prod: { instanceType: &quot;t3.large&quot;, minSize: 3 }
+};
+
+const currentConfig = envConfigs[env];
+```
+
+&quot;This approach helped us maintain consistency while allowing environment-specific optimizations.&quot;
+
+### Q2: &quot;How do you handle secrets?&quot;
+
+**Your Answer**:
+&quot;Three-layer approach for security:&quot;
+
+```typescript
+// 1. Pulumi secrets (encrypted in state)
+const dbPassword = config.requireSecret(&quot;dbPassword&quot;);
+
+// 2. AWS Secrets Manager for rotation
+const rotatingSecret = aws.secretsmanager.getSecret({
+    name: &quot;prod/api/key&quot;
+});
+
+// 3. Environment-specific encryption
+pulumi stack init prod --secrets-provider=awskms://alias/pulumi
+```
+
+### Q3: &quot;Explain your testing strategy&quot;
+
+**Your Answer**:
+&quot;I implement three levels of testing:&quot;
+
+**Unit Tests (Fast, Mocked)**:
+```typescript
+describe(&quot;MicroserviceStack&quot;, () =&gt; {
+    beforeAll(() =&gt; {
+        pulumi.runtime.setMocks({
+            newResource: (args) =&gt; ({
+                id: `${args.name}_id`,
+                state: args.inputs
+            })
+        });
+    });
+
+    it(&quot;creates Lambda with correct memory&quot;, async () =&gt; {
+        const stack = new MicroserviceStack(&quot;test&quot;, {
+            memorySize: 512
+        });
+        const memory = await stack.lambda.memorySize.promise();
+        expect(memory).toBe(512);
+    });
+});
+```
+
+**Integration Tests**: Deploy to temporary stack, verify actual resources work
+**Policy Tests**: Enforce security standards (no public S3, encrypted databases)
+
+### Q4: &quot;How do you debug infrastructure issues?&quot;
+
+**Your Answer**:
+&quot;Systematic approach I&#039;ve developed:&quot;
+
+1. **Enable verbose logging**:
+```bash
+PULUMI_LOG_LEVEL=debug pulumi up
+```
+
+2. **Check state consistency**:
+```bash
+pulumi refresh  # Sync with actual cloud state
+pulumi stack export &gt; state.json  # Inspect full state
+```
+
+3. **Resource-specific debugging**:
+```typescript
+// Wrapper to log all resource outputs
+function debugResource&lt;T extends pulumi.Resource&gt;(resource: T): T {
+    Object.keys(resource).forEach(key =&gt; {
+        if (resource[key] instanceof pulumi.Output) {
+            resource[key].apply(val =&gt; 
+                console.log(`${key}: ${JSON.stringify(val)}`)
+            );
+        }
+    });
+    return resource;
+}
+```
+
+### Q5: &quot;Walk me through your CI/CD implementation&quot;
+
+**Your Answer**:
+&quot;I built a GitOps workflow with automatic previews and deployments:&quot;
+
+```yaml
+# .github/workflows/pulumi.yml
+name: Infrastructure Deployment
+
+on:
+  pull_request:  # Preview on PR
+  push:
+    branches: [main]  # Deploy on merge
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pulumi/actions@v4
+        with:
+          command: ${{ github.event_name == &#039;push&#039; && &#039;up&#039; || &#039;preview&#039; }}
+          stack-name: ${{ github.event_name == &#039;push&#039; && &#039;prod&#039; || &#039;dev&#039; }}
+          comment-on-pr: true
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+```
+
+&quot;This reduced our deployment time from 2 hours to 18 minutes.&quot;
+
+### Q6: &quot;How do you handle resource aliases during refactoring?&quot;
+
+**Your Answer**:
+&quot;Resource aliases are critical when renaming or reorganizing infrastructure without recreation:&quot;
+
+```typescript
+// Renaming a resource without destroying it
+const bucket = new aws.s3.Bucket(&quot;new-name&quot;, {
+    // configuration
+}, {
+    aliases: [{ name: &quot;old-name&quot; }]  // Prevents deletion/recreation
+});
+
+// Moving resources between components
+const db = new aws.rds.Instance(&quot;prod-db&quot;, {
+    // configuration  
+}, {
+    aliases: [{ 
+        name: &quot;database&quot;,
+        parent: &quot;urn:pulumi:prod::app::custom:component$old-parent&quot;
+    }]
+});
+```
+
+&quot;I used this pattern when restructuring our 200+ resources at Mailmodo without any downtime.&quot;
+
+### Q7: &quot;Explain provider transformations&quot;
+
+**Your Answer**:
+&quot;Provider transformations allow applying common settings across all resources:&quot;
+
+```typescript
+// Enforce tagging standards across all resources
+const provider = new aws.Provider(&quot;aws&quot;, {
+    defaultTags: {
+        tags: {
+            Environment: pulumi.getStack(),
+            ManagedBy: &quot;Pulumi&quot;,
+            CostCenter: config.require(&quot;costCenter&quot;)
+        }
+    },
+    // Apply transformations
+    transformations: [(args) =&gt; {
+        // Force encryption on all S3 buckets
+        if (args.type === &quot;aws:s3/bucket:Bucket&quot;) {
+            args.props.serverSideEncryptionConfiguration = {
+                rule: {
+                    applyServerSideEncryptionByDefault: {
+                        sseAlgorithm: &quot;AES256&quot;
+                    }
+                }
+            };
+        }
+        return undefined;  // Return modified args
+    }]
+});
+```
+
+### Q8: &quot;How do you optimize Pulumi performance at scale?&quot;
+
+**Your Answer**:
+&quot;Several techniques I&#039;ve implemented for our 200+ resource deployments:&quot;
+
+```typescript
+// 1. Minimize dependencies with explicit ignoreChanges
+const instance = new aws.ec2.Instance(&quot;app&quot;, {
+    // config
+}, {
+    ignoreChanges: [&quot;userData&quot;, &quot;tags&quot;]  // Skip unnecessary updates
+});
+
+// 2. Use targeted updates
+// pulumi up --target urn:pulumi:prod::app::aws:lambda/function:Function::api
+
+// 3. Parallel resource creation
+const buckets = Promise.all(
+    regions.map(region =&gt; 
+        new aws.s3.Bucket(`bucket-${region}`, {}, {
+            provider: new aws.Provider(`aws-${region}`, { region })
+        })
+    )
+);
+
+// 4. Resource batching for similar resources
+const lambdas = new aws.lambda.Function(&quot;batch&quot;, {
+    // Use map for similar configs instead of individual resources
+});
+```
+
+&quot;These optimizations reduced our deployment time from 18 minutes to under 10.&quot;
+
+### Q9: &quot;Describe your approach to self-healing infrastructure&quot;
+
+**Your Answer**:
+&quot;I&#039;ve implemented self-healing patterns using Pulumi with CloudWatch and Lambda:&quot;
+
+```typescript
+class SelfHealingService extends pulumi.ComponentResource {
+    constructor(name: string) {
+        super(&quot;custom:app:SelfHealingService&quot;, name);
+
+        // Health check alarm
+        const alarm = new aws.cloudwatch.MetricAlarm(`${name}-health`, {
+            metricName: &quot;HealthCheck&quot;,
+            threshold: 1,
+            evaluationPeriods: 2,
+            alarmActions: [healingTopic.arn]
+        });
+
+        // Healing Lambda
+        const healer = new aws.lambda.Function(`${name}-healer`, {
+            handler: &quot;heal.handler&quot;,
+            runtime: aws.lambda.Runtime.NODEJS_18_X,
+            environment: {
+                variables: {
+                    STACK_NAME: pulumi.getStack(),
+                    PROJECT_NAME: pulumi.getProject()
+                }
+            }
+        });
+
+        // Subscribe to healing events
+        new aws.sns.TopicSubscription(`${name}-heal-sub`, {
+            topic: healingTopic.arn,
+            protocol: &quot;lambda&quot;,
+            endpoint: healer.arn
+        });
+    }
+}
+```
+
+### Q10: &quot;How do you handle state recovery in disaster scenarios?&quot;
+
+**Your Answer**:
+&quot;I&#039;ve implemented a comprehensive state backup and recovery strategy:&quot;
+
+```typescript
+// Automated state backups
+const stateBackup = new aws.s3.BucketObject(&quot;state-backup&quot;, {
+    bucket: backupBucket.id,
+    key: pulumi.interpolate`states/${pulumi.getStack()}-${Date.now()}.json`,
+    source: new pulumi.asset.StringAsset(
+        pulumi.runtime.serialize(() =&gt; pulumi.runtime.getStackResource())
+    )
+});
+
+// Recovery procedure
+async function recoverState(backupFile: string) {
+    const stack = await LocalWorkspace.selectStack({
+        stackName: pulumi.getStack()
+    });
+    
+    // Import the backup
+    const backup = await fs.readFile(backupFile, &#039;utf-8&#039;);
+    await stack.importStack(backup);
+    
+    // Refresh to sync with actual resources
+    await stack.refresh();
+    
+    // Validate consistency
+    const preview = await stack.preview();
+    if (preview.changeSummary.delete &gt; 0) {
+        console.warn(&quot;State inconsistency detected!&quot;);
+    }
+}
+```
+
+### Q11: &quot;How do you detect and handle drift?&quot;
+
+**Your Answer**:
+&quot;Drift detection is critical for maintaining infrastructure integrity:&quot;
+
+```typescript
+// Scheduled drift detection
+async function detectDrift() {
+    const stack = await LocalWorkspace.selectStack({
+        stackName: pulumi.getStack()
+    });
+    
+    // Refresh compares actual vs desired state
+    const refreshResult = await stack.refresh();
+    
+    if (refreshResult.summary.resourceChanges?.update &gt; 0) {
+        console.warn(`Drift detected in ${refreshResult.summary.resourceChanges.update} resources`);
+        
+        // Auto-remediate if configured
+        if (config.getBoolean(&quot;autoRemediate&quot;)) {
+            await stack.up();
+        }
+    }
+}
+
+// Run drift detection every hour
+setInterval(detectDrift, 3600000);
+```
+
+### Q12: &quot;Explain Policy as Code in Pulumi&quot;
+
+**Your Answer**:
+&quot;I implement Policy as Code using Pulumi CrossGuard for compliance:&quot;
+
+```typescript
+// policy-pack/index.ts
+new PolicyPack(&quot;security-policies&quot;, {
+    policies: [
+        {
+            name: &quot;s3-no-public-access&quot;,
+            description: &quot;S3 buckets must not allow public access&quot;,
+            enforcementLevel: &quot;mandatory&quot;,
+            validateResource: validateResourceOfType(aws.s3.Bucket, (bucket, args, reportViolation) =&gt; {
+                if (bucket.acl === &quot;public-read&quot; || bucket.acl === &quot;public-read-write&quot;) {
+                    reportViolation(&quot;S3 buckets must not be publicly accessible&quot;);
+                }
+            }),
+        },
+        {
+            name: &quot;required-tags&quot;,
+            description: &quot;All resources must have required tags&quot;,
+            enforcementLevel: &quot;mandatory&quot;,
+            validateResource: (args, reportViolation) =&gt; {
+                const tags = args.props.tags || {};
+                const required = [&quot;Environment&quot;, &quot;Owner&quot;, &quot;CostCenter&quot;];
+                
+                required.forEach(tag =&gt; {
+                    if (!tags[tag]) {
+                        reportViolation(`Missing required tag: ${tag}`);
+                    }
+                });
+            },
+        },
+    ],
+});
+```
+
+### Q13: &quot;What&#039;s the difference between CustomResource and ComponentResource?&quot;
+
+**Your Answer**:
+&quot;They serve different purposes in Pulumi&#039;s resource model:&quot;
+
+```typescript
+// CustomResource - represents actual cloud resources
+class MyCustomS3Bucket extends pulumi.CustomResource {
+    public readonly bucketName: pulumi.Output&lt;string&gt;;
+    
+    constructor(name: string, args: any, opts?: pulumi.CustomResourceOptions) {
+        super(&quot;mycloud:s3:Bucket&quot;, name, args, opts);
+    }
+}
+
+// ComponentResource - logical grouping, no cloud resource
+class MyAppStack extends pulumi.ComponentResource {
+    constructor(name: string, opts?: pulumi.ComponentResourceOptions) {
+        super(&quot;myapp:Stack&quot;, name, {}, opts);
+        
+        // Contains other resources
+        const bucket = new aws.s3.Bucket(`${name}-bucket`, {}, { parent: this });
+        const lambda = new aws.lambda.Function(`${name}-fn`, {}, { parent: this });
+    }
+}
+```
+
+&quot;CustomResource = actual cloud resource, ComponentResource = logical container.&quot;
+
+### Q14: &quot;How do you implement dynamic providers?&quot;
+
+**Your Answer**:
+&quot;Dynamic providers enable custom resource management:&quot;
+
+```typescript
+// Custom provider for managing external API resources
+const myProvider: pulumi.dynamic.ResourceProvider = {
+    async create(inputs: any) {
+        const response = await fetch(&quot;https://api.example.com/resources&quot;, {
+            method: &quot;POST&quot;,
+            body: JSON.stringify(inputs),
+        });
+        const data = await response.json();
+        return { id: data.id, outs: data };
+    },
+    
+    async delete(id: string) {
+        await fetch(`https://api.example.com/resources/${id}`, {
+            method: &quot;DELETE&quot;,
+        });
+    },
+    
+    async update(id: string, olds: any, news: any) {
+        const response = await fetch(`https://api.example.com/resources/${id}`, {
+            method: &quot;PUT&quot;,
+            body: JSON.stringify(news),
+        });
+        return { outs: await response.json() };
+    },
+};
+
+// Using the dynamic provider
+class ExternalResource extends pulumi.dynamic.Resource {
+    constructor(name: string, args: any, opts?: pulumi.CustomResourceOptions) {
+        super(myProvider, name, args, opts);
+    }
+}
+```
+
+### Q15: &quot;Explain your version control strategy for Pulumi&quot;
+
+**Your Answer**:
+&quot;I follow a structured approach for version control:&quot;
+
+```typescript
+// 1. Project structure
+/*
+infrastructure/
+├── Pulumi.yaml          // Project definition
+├── Pulumi.dev.yaml      // Dev config (not in git)
+├── Pulumi.prod.yaml     // Prod config (secrets encrypted)
+├── src/
+│   ├── components/      // Reusable components
+│   ├── stacks/         // Stack-specific code
+│   └── policies/       // Policy packs
+└── tests/              // Infrastructure tests
+*/
+
+// 2. Branch strategy
+// - main: production-ready code
+// - develop: integration branch
+// - feature/*: new features
+// - hotfix/*: emergency fixes
+
+// 3. Commit conventions
+// feat: new infrastructure component
+// fix: resolve drift or errors
+// refactor: improve existing infrastructure
+// docs: update documentation
+
+// 4. Pre-commit hooks
+// - Pulumi preview
+// - Policy validation
+// - Cost estimation
+```
+
+### Q16: &quot;Show me comprehensive Jest testing for Pulumi infrastructure&quot;
+
+**Your Answer**:
+&quot;I&#039;ve implemented a complete testing strategy with Jest:&quot;
+
+```typescript
+// jest.config.js
+module.exports = {
+    preset: &#039;ts-jest&#039;,
+    testEnvironment: &#039;node&#039;,
+    testMatch: [&#039;**/*.test.ts&#039;],
+    collectCoverageFrom: [&#039;src/**/*.ts&#039;],
+    coverageThreshold: {
+        global: { branches: 80, functions: 80, lines: 80 }
+    }
+};
+
+// infrastructure.test.ts
+import * as pulumi from &quot;@pulumi/pulumi&quot;;
+import { getMocks } from &quot;./mocks&quot;;
+
+describe(&quot;Infrastructure Tests&quot;, () =&gt; {
+    let mocks: any;
+    
+    beforeAll(() =&gt; {
+        // Set up Pulumi mocks
+        mocks = getMocks();
+        pulumi.runtime.setMocks(mocks);
+    });
+
+    describe(&quot;MicroserviceStack&quot;, () =&gt; {
+        it(&quot;should create Lambda with correct TypeScript config&quot;, async () =&gt; {
+            const stack = new MicroserviceStack(&quot;test&quot;, {
+                runtime: aws.lambda.Runtime.NODEJS_18_X,
+                memorySize: 512,
+                environment: {
+                    NODE_ENV: &quot;test&quot;,
+                    API_KEY: pulumi.secret(&quot;test-key&quot;)
+                }
+            });
+
+            // Test outputs using TypeScript async/await
+            const memory = await stack.lambda.memorySize.promise();
+            const runtime = await stack.lambda.runtime.promise();
+            
+            expect(memory).toBe(512);
+            expect(runtime).toBe(&quot;nodejs18.x&quot;);
+        });
+
+        it(&quot;should handle errors gracefully&quot;, async () =&gt; {
+            // Test error scenarios
+            expect(() =&gt; {
+                new MicroserviceStack(&quot;invalid&quot;, {
+                    runtime: &quot;invalid-runtime&quot; as any,
+                    memorySize: -1
+                });
+            }).toThrow();
+        });
+    });
+
+    // Integration test with real AWS
+    describe.skip(&quot;Integration Tests&quot;, () =&gt; {
+        it(&quot;should deploy to test stack&quot;, async () =&gt; {
+            const stack = await LocalWorkspace.createOrSelectStack({
+                stackName: &quot;test-integration&quot;,
+                projectName: &quot;test&quot;,
+                program: async () =&gt; {
+                    const bucket = new aws.s3.Bucket(&quot;test-bucket&quot;);
+                    return { bucketName: bucket.id };
+                }
+            });
+
+            const upResult = await stack.up();
+            expect(upResult.outputs.bucketName).toBeDefined();
+            
+            // Cleanup
+            await stack.destroy();
+        });
+    });
+});
+```
+
+### Q17: &quot;How do you handle TypeScript-specific patterns in Pulumi?&quot;
+
+**Your Answer**:
+&quot;I leverage TypeScript&#039;s type system for safer infrastructure:&quot;
+
+```typescript
+// 1. Generic component builders
+export class ResourceBuilder&lt;T extends pulumi.Resource&gt; {
+    private resource: T;
+    private config: Map&lt;string, any&gt; = new Map();
+
+    constructor(private factory: (name: string, args: any) =&gt; T) {}
+
+    withConfig(key: string, value: any): this {
+        this.config.set(key, value);
+        return this;
+    }
+
+    build(name: string): T {
+        const args = Object.fromEntries(this.config);
+        this.resource = this.factory(name, args);
+        return this.resource;
+    }
+}
+
+// Usage with type safety
+const lambdaBuilder = new ResourceBuilder(
+    (name, args) =&gt; new aws.lambda.Function(name, args)
+);
+
+const lambda = lambdaBuilder
+    .withConfig(&quot;runtime&quot;, aws.lambda.Runtime.NODEJS_18_X)
+    .withConfig(&quot;handler&quot;, &quot;index.handler&quot;)
+    .build(&quot;my-function&quot;);
+
+// 2. Type-safe configuration
+interface EnvironmentConfig {
+    dev: { instanceType: &quot;t3.micro&quot;; minSize: 1 };
+    staging: { instanceType: &quot;t3.small&quot;; minSize: 2 };
+    prod: { instanceType: &quot;t3.large&quot;; minSize: 3 };
+}
+
+function getTypedConfig&lt;K extends keyof EnvironmentConfig&gt;(
+    env: K
+): EnvironmentConfig[K] {
+    const configs: EnvironmentConfig = {
+        dev: { instanceType: &quot;t3.micro&quot;, minSize: 1 },
+        staging: { instanceType: &quot;t3.small&quot;, minSize: 2 },
+        prod: { instanceType: &quot;t3.large&quot;, minSize: 3 }
+    };
+    return configs[env];
+}
+
+// 3. Conditional types for resources
+type ResourceConfig&lt;T extends &quot;lambda&quot; | &quot;ec2&quot;&gt; = T extends &quot;lambda&quot;
+    ? aws.lambda.FunctionArgs
+    : aws.ec2.InstanceArgs;
+
+function createResource&lt;T extends &quot;lambda&quot; | &quot;ec2&quot;&gt;(
+    type: T,
+    name: string,
+    config: ResourceConfig&lt;T&gt;
+): T extends &quot;lambda&quot; ? aws.lambda.Function : aws.ec2.Instance {
+    if (type === &quot;lambda&quot;) {
+        return new aws.lambda.Function(name, config as any) as any;
+    }
+    return new aws.ec2.Instance(name, config as any) as any;
+}
+```
+
+### Q18: &quot;Demonstrate advanced TypeScript error handling in Pulumi&quot;
+
+**Your Answer**:
+&quot;I implement robust error handling with custom types:&quot;
+
+```typescript
+// Custom error types
+export class PulumiDeploymentError extends Error {
+    constructor(
+        public resource: string,
+        public reason: string,
+        public suggestion?: string
+    ) {
+        super(`Deployment failed for ${resource}: ${reason}`);
+        this.name = &quot;PulumiDeploymentError&quot;;
+    }
+}
+
+// Error handling wrapper
+export async function safeDeployment&lt;T&gt;(
+    operation: () =&gt; Promise&lt;T&gt;,
+    resourceName: string
+): Promise&lt;T&gt; {
+    try {
+        return await operation();
+    } catch (error) {
+        if (error.message.includes(&quot;already exists&quot;)) {
+            throw new PulumiDeploymentError(
+                resourceName,
+                &quot;Resource already exists&quot;,
+                &quot;Use &#039;pulumi import&#039; or delete the existing resource&quot;
+            );
+        }
+        throw error;
+    }
+}
+
+// Type-safe error recovery
+export class DeploymentRecovery {
+    private retryStrategies = new Map&lt;string, (error: Error) =&gt; Promise&lt;void&gt;&gt;();
+
+    registerStrategy(errorType: string, strategy: (error: Error) =&gt; Promise&lt;void&gt;) {
+        this.retryStrategies.set(errorType, strategy);
+    }
+
+    async recover(error: Error): Promise&lt;void&gt; {
+        const strategy = this.retryStrategies.get(error.constructor.name);
+        if (strategy) {
+            await strategy(error);
+        } else {
+            throw error;
+        }
+    }
+}
+
+// Usage
+const recovery = new DeploymentRecovery();
+recovery.registerStrategy(&quot;PulumiDeploymentError&quot;, async (error) =&gt; {
+    if (error instanceof PulumiDeploymentError) {
+        console.log(`Suggestion: ${error.suggestion}`);
+        // Implement recovery logic
+    }
+});
+```
+
+---
+
+## SECTION 3: YOUR STAR STORIES
+
+### Story 1: Infrastructure Migration (Mailmodo)
+**Situation**: 200+ manually configured AWS resources, 2-hour deployments
+**Task**: Migrate to IaC without downtime
+**Action**: 
+- Created reusable TypeScript components
+- Used `pulumi import` for zero-downtime migration
+- Built self-service platform for developers
+**Result**: 85% faster deployments, 40% less code
+
+### Story 2: Cost Optimization (Invecno)
+**Situation**: $50K/month cloud costs across AWS and Azure
+**Task**: Reduce costs by 30% without impacting performance
+**Action**:
+- Implemented spot instances for non-critical workloads
+- Created cloud-agnostic abstractions
+- Automated resource scheduling
+**Result**: 35% cost reduction ($17.5K/month saved)
+
+### Story 3: Backend to DevOps Transition
+**Situation**: Backend engineer, team needed DevOps expertise
+**Task**: Learn Pulumi/IaC while maintaining backend responsibilities  
+**Action**:
+- Self-studied after hours
+- Started with Lambda automation
+- Gradually took on complex infrastructure
+**Result**: Became team&#039;s infrastructure expert, managed 200+ resources
+
+---
+
+## SECTION 4: LIVE CODING PREPARATION
+
+Be ready to code these patterns:
+
+### Pattern 1: Basic Resource Creation
+```typescript
+const bucket = new aws.s3.Bucket(&quot;app-bucket&quot;, {
+    versioning: { enabled: true },
+    lifecycleRules: [{
+        enabled: true,
+        noncurrentVersionExpiration: { days: 30 }
+    }]
+});
+```
+
+### Pattern 2: Cross-Stack References
+```typescript
+const networkStack = new pulumi.StackReference(&quot;org/network/prod&quot;);
+const vpcId = networkStack.getOutput(&quot;vpcId&quot;);
+
+const instance = new aws.ec2.Instance(&quot;app&quot;, {
+    vpcSecurityGroupIds: [sg.id],
+    subnetId: vpcId.apply(id =&gt; `${id}-subnet-1`)
+});
+```
+
+### Pattern 3: Dynamic Resources
+```typescript
+const services = [&quot;auth&quot;, &quot;user&quot;, &quot;payment&quot;];
+const lambdas = services.map(service =&gt; 
+    new aws.lambda.Function(`${service}-fn`, {
+        runtime: aws.lambda.Runtime.NODEJS_18_X,
+        handler: `${service}.handler`,
+        code: new pulumi.asset.FileArchive(`./dist/${service}`)
+    })
+);
+```
+
+---
+
+## SECTION 5: QUESTIONS TO ASK THEM
+
+1. **Technical**: &quot;How do you currently manage Pulumi state across your 900+ clients? Separate AWS accounts?&quot;
+2. **Scale**: &quot;What&#039;s the largest infrastructure deployment you&#039;re managing?&quot;
+3. **AI Integration**: &quot;How does AI play into infrastructure automation at Turing?&quot;
+4. **Team**: &quot;How do infrastructure engineers collaborate with the AI development teams?&quot;
+5. **Growth**: &quot;What are the biggest infrastructure challenges as you scale?&quot;
+
+**Follow-up Questions**:
+```typescript
+// Example: Multi-tenant infrastructure patterns
+interface TenantConfig {
+    awsAccountId: string;
+    region: string;
+    tier: 'basic' | 'premium' | 'enterprise';
+}
+
+// How would you structure this at Turing's scale?
+class TenantInfrastructure extends pulumi.ComponentResource {
+    constructor(tenant: TenantConfig) {
+        // Implementation details...
+    }
+}
+```
+
+---
+
+## SECTION 6: CLOSING PITCH
+
+&quot;I bring a unique perspective as a backend engineer who deeply understands infrastructure. At Mailmodo, I reduced deployment times by 85% and at Invecno achieved 35% cost savings. I&#039;m excited about Turing&#039;s AI-powered approach and how infrastructure can enable that scale. My experience with reusable TypeScript components aligns perfectly with your needs for managing infrastructure across 900+ clients.&quot;
+
+**My Approach to Scale**:
+```typescript
+// Example of my component-based approach that scales
+export class StandardizedStack extends pulumi.ComponentResource {
+    constructor(name: string, config: StackConfig) {
+        super("turing:infra:StandardizedStack", name);
+        
+        // Standardized monitoring
+        this.monitoring = new MonitoringStack(`${name}-monitoring`, {
+            alertChannels: config.alertChannels,
+            slos: config.slos
+        }, { parent: this });
+        
+        // Standardized security
+        this.security = new SecurityStack(`${name}-security`, {
+            compliance: config.compliance,
+            encryption: config.encryption
+        }, { parent: this });
+    }
+}
+```
+
+---
+
+## QUICK COMMAND REFERENCE
+
+```bash
+# Stack Management
+pulumi stack init dev
+pulumi stack select prod
+pulumi config set aws:region us-east-1
+
+# Deployment
+pulumi up --yes              # Skip confirmation
+pulumi preview --diff        # See detailed changes
+pulumi destroy --target urn  # Remove specific resource
+
+# Debugging
+pulumi refresh              # Sync state
+pulumi stack export         # Inspect state
+pulumi logs -f             # Stream logs
+
+# State Surgery
+pulumi state delete &lt;urn&gt;   # Remove from state
+pulumi import &lt;type&gt; &lt;id&gt;   # Import existing
+```
+
+---
+
+## RED FLAGS TO AVOID
+
+1. **Never say**: &quot;I haven&#039;t used that feature&quot; - Instead: &quot;I&#039;ve used similar patterns with X&quot;
+2. **Don&#039;t**: Criticize Terraform heavily - Instead: Acknowledge both tools have strengths
+3. **Avoid**: Over-engineering examples - Keep it practical
+4. **Don&#039;t**: Forget to mention testing and security
+
+**Example of Good vs Bad Responses**:
+```typescript
+// ❌ BAD: Over-engineered solution
+class SuperComplexAbstractFactoryBuilderPattern {
+    // 100 lines of unnecessary abstraction
+}
+
+// ✅ GOOD: Simple, practical solution
+const createBucket = (name: string, isPublic = false) => {
+    return new aws.s3.Bucket(name, {
+        acl: isPublic ? "public-read" : "private",
+        versioning: { enabled: true }
+    });
+};
+```
+
+---
+
+## FINAL PREP CHECKLIST
+
+- [ ] Review all code examples - can you write them from memory?
+- [ ] Practice explaining Outputs vs regular values
+- [ ] Be ready to live-code a simple Component Resource
+- [ ] Know your metrics: 85% faster, 35% cost reduction, 200+ resources
+- [ ] Prepare to discuss your backend-to-DevOps journey
+- [ ] Have questions ready about Turing&#039;s scale and AI integration
+
+Remember: You&#039;ve already built this at scale. Be confident!</script>
+    
+    <!-- Ultimate Parser and Renderer -->
+    <script>
+        // HTML entity decoder
+        const decodeHtmlEntities = function(text) {
+            const entities = {
+                '&amp;': '&',
+                '&lt;': '<',
+                '&gt;': '>',
+                '&quot;': '"',
+                '&#039;': "'",
+                '&apos;': "'",
+                '&nbsp;': ' ',
+                '&mdash;': '—',
+                '&ndash;': '–',
+                '&hellip;': '…',
+                '&ldquo;': '"',
+                '&rdquo;': '"',
+                '&lsquo;': '\u2018',
+                '&rsquo;': '\u2019'
+            };
+            
+            return text.replace(/&[#\w]+;/g, entity => entities[entity] || entity);
+        };
+        
+        class UltimateContentRenderer {
+            constructor() {
+                this.markdown = this.decodeHtmlEntities(document.getElementById('markdownContent').textContent)
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .replace(/&quot;/g, '"')
+                    .replace(/&#039;/g, "'")
+                    .replace(/&amp;/g, '&');
+                this.container = document.getElementById('contentContainer');
+                this.nav = document.getElementById('sidebarNav');
+                this.data = {
+                    questions: [],
+                    sections: [],
+                    starStories: [],
+                    commands: [],
+                    redFlags: [],
+                    checklist: []
+                };
+            }
+            
+            init() {
+                console.log('🚀 Initializing Ultimate Content Renderer...');
+                
+                // Load and decode markdown content
+                const markdownElement = document.getElementById('markdownContent');
+                if (!markdownElement) {
+                    console.error('❌ Markdown content not found!');
+                    return;
+                }
+                
+                this.markdown = this.decodeHtmlEntities(markdownElement.textContent);
+                
+                // Debug: Check the markdown content
+                console.log('Markdown content length:', this.markdown.length);
+                console.log('First 200 chars:', this.markdown.substring(0, 200));
+                
+                // Count code blocks in the markdown
+                const codeBlockCount = (this.markdown.match(/```/g) || []).length / 2;
+                console.log('Code blocks in markdown:', codeBlockCount);
+                
+                this.parseAllContent();
+                this.renderNavigation();
+                this.renderAllContent();
+                this.initializeFeatures();
+                this.updateProgress();
+                console.log('✅ Rendering complete!');
+            }
+            
+            parseAllContent() {
+                // Parse sections
+                const sections = this.markdown.split(/\n## /).slice(1);
+                sections.forEach(section => {
+                    const [title, ...content] = section.split('\n');
+                    this.data.sections.push({ title, content: content.join('\n') });
+                });
+                
+                console.log('Sections found:', this.data.sections.map(s => s.title));
+                
+                // Parse all 18 questions
+                const questionSection = this.data.sections.find(s => s.title.includes('TECHNICAL INTERVIEW QUESTIONS'));
+                if (questionSection) {
+                    console.log('Question section found, length:', questionSection.content.length);
+                    
+                    const qRegex = /### Q(\d+):\s*"?([^"\n]+)"?\n([\s\S]*?)(?=### Q\d+:|$)/g;
+                    let match;
+                    while ((match = qRegex.exec(questionSection.content)) !== null) {
+                        // Count code blocks in this question
+                        const codeBlockCount = (match[3].match(/```/g) || []).length / 2;
+                        console.log(`Q${match[1]} has ${codeBlockCount} code blocks`);
+                        
+                        this.data.questions.push({
+                            number: parseInt(match[1]),
+                            title: match[2].trim(),
+                            fullContent: match[3].trim()
+                        });
+                    }
+                }
+                
+                // Parse STAR stories
+                const starSection = this.data.sections.find(s => s.title.includes('STAR STORIES'));
+                if (starSection) {
+                    const storyRegex = /### Story \d+:\s*([^\n]+)\n([\s\S]*?)(?=### Story|$)/g;
+                    let match;
+                    while ((match = storyRegex.exec(starSection.content)) !== null) {
+                        this.data.starStories.push({
+                            title: match[1].trim(),
+                            content: match[2].trim()
+                        });
+                    }
+                }
+                
+                console.log(`📊 Parsed: ${this.data.questions.length} questions, ${this.data.starStories.length} stories`);
+            }
+            
+            renderNavigation() {
+                let navHTML = `
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#quick-ref">
+                            <i class="bi bi-speedometer2"></i> Quick Reference
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#questions">
+                            <i class="bi bi-question-circle"></i> Questions (18)
+                        </a>
+                        <ul class="nav flex-column ms-3 small">`;
+                
+                this.data.questions.forEach(q => {
+                    navHTML += `
+                        <li class="nav-item">
+                            <a class="nav-link py-1" href="#q${q.number}">Q${q.number}: ${q.title.substring(0, 25)}...</a>
+                        </li>`;
+                });
+                
+                navHTML += `
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#star-stories">
+                            <i class="bi bi-star"></i> STAR Stories
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#section-4-live-coding-preparation">
+                            <i class="bi bi-code"></i> Live Coding
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#commands">
+                            <i class="bi bi-terminal"></i> Commands
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#final-prep-checklist">
+                            <i class="bi bi-check-circle"></i> Final Checklist
+                        </a>
+                    </li>`;
+                
+                this.nav.innerHTML = navHTML;
+            }
+            
+            renderAllContent() {
+                let html = '';
+                
+                // Render Section 1: Core Concepts FIRST (before quick reference)
+                const coreSection = this.data.sections.find(s => s.title.includes('CORE CONCEPTS'));
+                if (coreSection) {
+                    html += '<section id="core-concepts">';
+                    html += this.renderSection(coreSection);
+                    html += '</section>';
+                }
+                
+                // Quick Reference
+                html += this.renderQuickReference();
+                
+                // All 18 Questions
+                html += '<section id="questions"><h2 class="mb-4">Technical Interview Questions</h2>';
+                this.data.questions.forEach(q => {
+                    html += this.renderQuestion(q);
+                });
+                html += '</section>';
+                
+                // STAR Stories
+                if (this.data.starStories.length > 0) {
+                    html += '<section id="star-stories"><h2 class="mb-4">STAR Stories</h2>';
+                    this.data.starStories.forEach(story => {
+                        html += this.renderStarStory(story);
+                    });
+                    html += '</section>';
+                }
+                
+                // Commands
+                html += this.renderCommands();
+                
+                // Render other sections
+                const otherSections = this.data.sections.filter(s => 
+                    !s.title.includes('TECHNICAL INTERVIEW') && 
+                    !s.title.includes('CORE CONCEPTS') &&
+                    !s.title.includes('STAR STORIES') &&
+                    !s.title.includes('COMMAND REFERENCE')
+                );
+                
+                // Render each remaining section
+                otherSections.forEach(section => {
+                    const sectionId = section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                    html += `<section id="${sectionId}">`;
+                    html += this.renderSection(section);
+                    html += '</section>';
+                });
+                
+                this.container.innerHTML = html;
+                
+                // Update question count
+                document.getElementById('questionCount').textContent = this.data.questions.length;
+                
+                // Highlight code
+                Prism.highlightAll();
+                
+                // Copy button handler will automatically process the code blocks after highlighting
+                // The handler uses mutation observer and Prism hooks for reliable button addition
+                
+                // Log total code blocks found
+                const totalCodeBlocks = document.querySelectorAll('pre code').length;
+                console.log(`Total code blocks rendered: ${totalCodeBlocks}`);
+            }
+            
+            renderQuickReference() {
+                // Parse quick reference from the markdown
+                const quickRefSection = this.data.sections.find(s => s.title === 'Quick Reference');
+                
+                if (!quickRefSection) {
+                    return `
+                        <section id="quick-ref" class="mb-5">
+                            <h2>Quick Reference</h2>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h5>Position Details</h5>
+                                            <ul class="list-unstyled">
+                                                <li><strong>Role:</strong> Cloud Infrastructure Engineer</li>
+                                                <li><strong>Stack:</strong> Pulumi + TypeScript</li>
+                                                <li><strong>Company:</strong> Turing</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h5>Your Achievements</h5>
+                                            <ul class="list-unstyled">
+                                                <li><strong>Resources:</strong> 200+ managed</li>
+                                                <li><strong>Speed:</strong> 85% faster</li>
+                                                <li><strong>Savings:</strong> 35% cost reduction</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>`;
+                }
+                
+                // Parse the content
+                const content = quickRefSection.content;
+                const lines = content.split('\n');
+                const details = {};
+                
+                lines.forEach(line => {
+                    const match = line.match(/^-\s*\*\*([^:]+)\*\*:\s*(.+)$/);
+                    if (match) {
+                        details[match[1]] = match[2];
+                    }
+                });
+                
+                return `
+                    <section id="quick-ref" class="mb-5">
+                        <h2>Quick Reference</h2>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h5>Position Details</h5>
+                                        <ul class="list-unstyled">
+                                            <li><strong>Role:</strong> ${details['Role'] || 'Cloud Infrastructure Engineer'}</li>
+                                            <li><strong>Company:</strong> ${details['Company'] || 'Turing'}</li>
+                                            <li><strong>Stack:</strong> Pulumi + TypeScript</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h5>Your Achievements</h5>
+                                        <ul class="list-unstyled">
+                                            <li><strong>Experience:</strong> ${details['Your Edge'] || '200+ resources managed'}</li>
+                                            <li><strong>Speed:</strong> 85% faster deployments</li>
+                                            <li><strong>Savings:</strong> 35% cost reduction</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>`;
+            }
+            
+            renderQuestion(q) {
+                // Log for debugging
+                console.log(`Rendering Q${q.number}: ${q.title}`);
+                
+                // Process the content with our comprehensive markdown parser
+                let contentHtml = this.parseMarkdown(q.fullContent);
+                
+                // Build the HTML
+                let html = `
+                    <div id="q${q.number}" class="question-card">
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <h3 class="mb-0">Q${q.number}: ${q.title}</h3>
+                            </div>
+                            <div class="card-body">
+                                ${contentHtml}
+                            </div>
+                        </div>
+                    </div>`;
+                
+                return html;
+            }
+            
+            renderSection(section) {
+                let html = `<section class="mb-5">
+                    <h2>${section.title}</h2>`;
+                
+                // Split by subsections
+                const subsections = section.content.split(/\n### /);
+                const mainContent = subsections[0];
+                
+                // Render main content
+                if (mainContent.trim()) {
+                    html += `<div class="mb-3">${this.parseMarkdown(mainContent)}</div>`;
+                }
+                
+                // Render subsections
+                subsections.slice(1).forEach(subsection => {
+                    const [title, ...contentLines] = subsection.split('\n');
+                    const subsectionContent = contentLines.join('\n');
+                    
+                    html += `<h3>${title}</h3>`;
+                    html += `<div class="mb-3">${this.parseMarkdown(subsectionContent)}</div>`;
+                });
+                
+                html += '</section>';
+                return html;
+            }
+            
+            renderStarStory(story) {
+                return `
+                    <div class="star-story">
+                        <h3>${story.title}</h3>
+                        <div>${this.parseStarContent(story.content)}</div>
+                    </div>`;
+            }
+            
+            renderCommands() {
+                // Find the commands section in the parsed data
+                const commandsSection = this.data.sections.find(s => s.title.includes('COMMAND REFERENCE'));
+                
+                if (!commandsSection) {
+                    return `
+                        <section id="commands" class="mb-5">
+                            <h2>Command Reference</h2>
+                            <div class="card">
+                                <div class="card-body">
+                                    <pre><code class="language-bash"># Essential Pulumi Commands
+pulumi new typescript
+pulumi up --yes
+pulumi preview --diff
+pulumi destroy
+pulumi stack select prod
+pulumi config set --secret</code></pre>
+                                </div>
+                            </div>
+                        </section>`;
+                }
+                
+                // Extract the bash code block from the commands section
+                const codeMatch = commandsSection.content.match(/```bash\n([\s\S]*?)```/);
+                const commands = codeMatch ? codeMatch[1].trim() : '';
+                
+                return `
+                    <section id="commands" class="mb-5">
+                        <h2>Command Reference</h2>
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="position-relative">
+                                    <button class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 m-2 copy-code">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                    <pre><code class="language-bash">${this.escapeHtml(commands)}</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </section>`;
+            }
+            
+            parseMarkdown(text) {
+                // First decode HTML entities
+                text = this.decodeHtmlEntities(text);
+                
+                // Remove quotes from answer paragraphs before processing
+                // Match paragraphs that start and end with quotes on their own lines
+                text = text.replace(/^"([^"]+)"$/gm, '$1');
+                
+                // Also handle **Your Answer**: followed by quoted text
+                text = text.replace(/(\*\*Your Answer\*\*:\s*)\n"([^"]+)"/g, '$1\n$2');
+                text = text.replace(/(\*\*Your Experience\*\*:\s*)"([^"]+)"/g, '$1$2');
+                
+                // Store code blocks with placeholders to protect them
+                const codeBlocks = [];
+                text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (match, lang, code) => {
+                    const index = codeBlocks.length;
+                    codeBlocks.push({
+                        lang: lang || 'typescript',
+                        code: code.trim()
+                    });
+                    return `__CODE_BLOCK_${index}__`;
+                });
+                
+                // Store inline code to protect it
+                const inlineCode = [];
+                text = text.replace(/`([^`]+)`/g, (match, code) => {
+                    const index = inlineCode.length;
+                    inlineCode.push(code);
+                    return `__INLINE_CODE_${index}__`;
+                });
+                
+                // Handle horizontal rules (must be on its own line)
+                text = text.replace(/^\s*---+\s*$/gm, '<hr>');
+                
+                // Handle headers (must be at start of line)
+                text = text.replace(/^###\s+(.+)$/gm, '<h4>$1</h4>');
+                text = text.replace(/^##\s+(.+)$/gm, '<h3>$1</h3>');
+                text = text.replace(/^#\s+(.+)$/gm, '<h2>$1</h2>');
+                
+                // Handle bold text (including multi-word)
+                text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                
+                // Handle italic text (single asterisk, avoid list markers)
+                text = text.replace(/(?<!^|\s)\*([^*\n]+)\*/g, '<em>$1</em>');
+                
+                // Handle checkboxes BEFORE processing other lists
+                text = text.replace(/^-\s+\[\s\]\s+(.+)$/gm, '<div class="form-check"><input class="form-check-input" type="checkbox" disabled><label class="form-check-label">$1</label></div>');
+                text = text.replace(/^-\s+\[x\]\s+(.+)$/gm, '<div class="form-check"><input class="form-check-input" type="checkbox" checked disabled><label class="form-check-label">$1</label></div>');
+                
+                // Process lists and paragraphs line by line
+                const lines = text.split('\n');
+                let processedLines = [];
+                let inList = false;
+                let listType = null;
+                let currentParagraph = [];
+                
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    const trimmedLine = line.trim();
+                    
+                    // Skip lines that are already HTML
+                    if (trimmedLine.startsWith('<') && trimmedLine.endsWith('>')) {
+                        // Close current paragraph if any
+                        if (currentParagraph.length > 0) {
+                            processedLines.push('<p>' + currentParagraph.join(' ') + '</p>');
+                            currentParagraph = [];
+                        }
+                        // Close list if needed
+                        if (inList) {
+                            processedLines.push(`</${listType}>`);
+                            inList = false;
+                            listType = null;
+                        }
+                        processedLines.push(line);
+                        continue;
+                    }
+                    
+                    // Check for bullet points
+                    const bulletMatch = line.match(/^(\s*)[-*]\s+(.+)$/);
+                    const numberMatch = line.match(/^(\s*)\d+\.\s+(.+)$/);
+                    
+                    if (bulletMatch) {
+                        // Close current paragraph if any
+                        if (currentParagraph.length > 0) {
+                            processedLines.push('<p>' + currentParagraph.join(' ') + '</p>');
+                            currentParagraph = [];
+                        }
+                        
+                        const content = bulletMatch[2];
+                        
+                        if (!inList || listType !== 'ul') {
+                            if (inList && listType === 'ol') {
+                                processedLines.push('</ol>');
+                            }
+                            processedLines.push('<ul>');
+                            inList = true;
+                            listType = 'ul';
+                        }
+                        
+                        processedLines.push(`<li>${content}</li>`);
+                    } else if (numberMatch) {
+                        // Close current paragraph if any
+                        if (currentParagraph.length > 0) {
+                            processedLines.push('<p>' + currentParagraph.join(' ') + '</p>');
+                            currentParagraph = [];
+                        }
+                        
+                        const content = numberMatch[2];
+                        
+                        if (!inList || listType !== 'ol') {
+                            if (inList && listType === 'ul') {
+                                processedLines.push('</ul>');
+                            }
+                            processedLines.push('<ol>');
+                            inList = true;
+                            listType = 'ol';
+                        }
+                        
+                        processedLines.push(`<li>${content}</li>`);
+                    } else {
+                        // Not a list item
+                        if (trimmedLine === '') {
+                            // Empty line
+                            if (inList) {
+                                // End the list
+                                processedLines.push(`</${listType}>`);
+                                inList = false;
+                                listType = null;
+                            }
+                            // End current paragraph if any
+                            if (currentParagraph.length > 0) {
+                                processedLines.push('<p>' + currentParagraph.join(' ') + '</p>');
+                                currentParagraph = [];
+                            }
+                        } else {
+                            // Regular text line
+                            if (inList) {
+                                // End the list if we hit non-list content
+                                processedLines.push(`</${listType}>`);
+                                inList = false;
+                                listType = null;
+                            }
+                            // Add to current paragraph
+                            currentParagraph.push(trimmedLine);
+                        }
+                    }
+                }
+                
+                // Close any remaining paragraph
+                if (currentParagraph.length > 0) {
+                    processedLines.push('<p>' + currentParagraph.join(' ') + '</p>');
+                }
+                
+                // Close any open list
+                if (inList) {
+                    processedLines.push(`</${listType}>`);
+                }
+                
+                text = processedLines.join('\n');
+                
+                // Clean up multiple empty paragraphs
+                text = text.replace(/<p>\s*<\/p>/g, '');
+                
+                // Restore inline code
+                inlineCode.forEach((code, index) => {
+                    text = text.replace(`__INLINE_CODE_${index}__`, `<code>${this.escapeHtml(code)}</code>`);
+                });
+                
+                // Restore code blocks
+                codeBlocks.forEach((block, index) => {
+                    const codeHtml = `
+                        <div class="position-relative mb-3">
+                            <button class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 m-2 copy-code">
+                                <i class="bi bi-clipboard"></i> Copy
+                            </button>
+                            <pre><code class="language-${block.lang}">${this.escapeHtml(block.code)}</code></pre>
+                        </div>`;
+                    text = text.replace(`__CODE_BLOCK_${index}__`, codeHtml);
+                });
+                
+                return text;
+            }
+            parseStarContent(content) {
+                return content
+                    .replace(/\*\*Situation\*\*:/g, '<strong>Situation:</strong>')
+                    .replace(/\*\*Task\*\*:/g, '<br><strong>Task:</strong>')
+                    .replace(/\*\*Action\*\*:/g, '<br><strong>Action:</strong>')
+                    .replace(/\*\*Result\*\*:/g, '<br><strong>Result:</strong>')
+                    .replace(/\n/g, '<br>');
+            }
+            
+            initializeFeatures() {
+                // Sidebar toggle
+                document.getElementById('toggleSidebar').addEventListener('click', () => {
+                    document.getElementById('sidebar').classList.toggle('sidebar-hidden');
+                });
+                
+                // Copy code functionality is handled by the global event listener at the bottom
+                
+                // Initialize search
+                this.initializeSearch();
+            }
+            
+            decodeHtmlEntities(text) {
+                const entities = {
+                    '&amp;': '&',
+                    '&lt;': '<',
+                    '&gt;': '>',
+                    '&quot;': '"',
+                    '&#039;': "'",
+                    '&apos;': "'",
+                    '&nbsp;': ' ',
+                    '&mdash;': '—',
+                    '&ndash;': '–',
+                    '&hellip;': '…',
+                    '&ldquo;': '"',
+                    '&rdquo;': '"',
+                    '&lsquo;': '\u2018',
+                    '&rsquo;': '\u2019'
+                };
+                
+                return text.replace(/&[#\w]+;/g, entity => entities[entity] || entity);
+            }
+            
+            initializeSearch() {
+                // Enhanced Search with Highlighting
+                let searchTimeout;
+                let currentMatchIndex = 0;
+                let allMatches = [];
+                
+                const searchBox = document.getElementById('searchBox');
+                const clearButton = document.getElementById('clearSearch');
+                
+                // Clear search button
+                clearButton.addEventListener('click', () => {
+                    searchBox.value = '';
+                    searchBox.dispatchEvent(new Event('input'));
+                    searchBox.focus();
+                });
+                
+                // Navigate through search results with Enter/Shift+Enter
+                searchBox.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && allMatches.length > 0) {
+                        e.preventDefault();
+                        
+                        // Remove current highlight
+                        if (allMatches[currentMatchIndex]) {
+                            allMatches[currentMatchIndex].classList.remove('current-match');
+                        }
+                        
+                        // Navigate to next/previous match
+                        if (e.shiftKey) {
+                            currentMatchIndex = (currentMatchIndex - 1 + allMatches.length) % allMatches.length;
+                        } else {
+                            currentMatchIndex = (currentMatchIndex + 1) % allMatches.length;
+                        }
+                        
+                        // Highlight and scroll to new match
+                        if (allMatches[currentMatchIndex]) {
+                            allMatches[currentMatchIndex].classList.add('current-match');
+                            allMatches[currentMatchIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }
+                });
+                
+                searchBox.addEventListener('input', (e) => {
+                    const query = e.target.value.trim();
+                    const queryLower = query.toLowerCase();
+                    
+                    // Debounce search for performance
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        // Remove previous highlights
+                        document.querySelectorAll('mark.search-highlight').forEach(mark => {
+                            const parent = mark.parentNode;
+                            parent.replaceChild(document.createTextNode(mark.textContent), mark);
+                            parent.normalize();
+                        });
+                        
+                        const searchInfo = document.getElementById('searchInfo');
+                        const searchInfoText = document.getElementById('searchInfoText');
+                        
+                        // Show/hide clear button
+                        clearButton.style.display = query ? 'block' : 'none';
+                        
+                        if (!query) {
+                            // Reset all visibility
+                            document.querySelectorAll('.question-card, .star-story, section').forEach(el => {
+                                el.style.display = '';
+                            });
+                            searchInfo.style.display = 'none';
+                            allMatches = [];
+                            currentMatchIndex = 0;
+                            return;
+                        }
+                        
+                        let totalMatches = 0;
+                        let visibleSections = 0;
+                        
+                        // Search in all major content sections
+                        const searchableElements = [
+                            ...document.querySelectorAll('.question-card'),
+                            ...document.querySelectorAll('.star-story'),
+                            ...document.querySelectorAll('#quick-ref .card'),
+                            ...document.querySelectorAll('#commands .card'),
+                            ...document.querySelectorAll('section')
+                        ];
+                        
+                        // Remove duplicates and filter out empty elements
+                        const uniqueElements = [...new Set(searchableElements)].filter(el => el.textContent.trim());
+                        
+                        uniqueElements.forEach(element => {
+                            const elementText = element.textContent.toLowerCase();
+                            const hasMatch = elementText.includes(queryLower);
+                            
+                            if (hasMatch) {
+                                element.style.display = '';
+                                visibleSections++;
+                                
+                                // Highlight matches (including in code blocks)
+                                this.highlightTextInElement(element, query, true);
+                                
+                                // Count matches
+                                const matches = element.querySelectorAll('mark.search-highlight').length;
+                                totalMatches += matches;
+                            } else {
+                                element.style.display = 'none';
+                            }
+                        });
+                        
+                        // Collect all matches for navigation
+                        allMatches = [...document.querySelectorAll('mark.search-highlight')];
+                        currentMatchIndex = 0;
+                        
+                        // Update search info
+                        if (totalMatches > 0) {
+                            searchInfoText.innerHTML = `Found <strong>${totalMatches}</strong> match${totalMatches > 1 ? 'es' : ''} in <strong>${visibleSections}</strong> section${visibleSections > 1 ? 's' : ''}<br><small>Press Enter/Shift+Enter to navigate</small>`;
+                            searchInfo.style.display = 'block';
+                        } else {
+                            searchInfoText.textContent = 'No matches found';
+                            searchInfo.style.display = 'block';
+                        }
+                        
+                        // Auto-scroll to first match and highlight it
+                        if (allMatches.length > 0) {
+                            allMatches[0].classList.add('current-match');
+                            allMatches[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }, 300); // 300ms debounce
+                });
+                
+                // Smooth scroll
+                document.querySelectorAll('a[href^="#"]').forEach(a => {
+                    a.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const target = document.querySelector(a.getAttribute('href'));
+                        if (target) target.scrollIntoView({ behavior: 'smooth' });
+                    });
+                });
+            }
+            
+            updateProgress() {
+                const progress = Math.round((this.data.questions.length / 18) * 100);
+                const bar = document.getElementById('progressBar');
+                bar.style.width = progress + '%';
+                bar.textContent = `${this.data.questions.length}/18 Questions (${progress}%)`;
+            }
+            
+            escapeHtml(text) {
+                const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+                return text.replace(/[&<>"']/g, m => map[m]);
+            }
+            
+            highlightTextInElement(element, searchTerm, includeCode = false) {
+                if (!searchTerm || searchTerm.length === 0) return;
+                
+                // More robust special character escaping
+                const escapeRegExp = (string) => {
+                    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                };
+                
+                const walker = document.createTreeWalker(
+                    element,
+                    NodeFilter.SHOW_TEXT,
+                    {
+                        acceptNode: (node) => {
+                            // Skip nodes that are already highlighted
+                            if (node.parentElement.tagName === 'MARK') {
+                                return NodeFilter.FILTER_REJECT;
+                            }
+                            
+                            // Optionally include code blocks
+                            if (!includeCode && node.parentElement.closest('pre, code')) {
+                                return NodeFilter.FILTER_REJECT;
+                            }
+                            
+                            return NodeFilter.FILTER_ACCEPT;
+                        }
+                    }
+                );
+                
+                const nodesToHighlight = [];
+                let node;
+                
+                while (node = walker.nextNode()) {
+                    const text = node.textContent;
+                    const escapedSearchTerm = escapeRegExp(searchTerm);
+                    const regex = new RegExp(`(${escapedSearchTerm})`, 'gi');
+                    
+                    if (regex.test(text)) {
+                        nodesToHighlight.push(node);
+                    }
+                }
+                
+                // Process nodes in reverse to avoid issues with DOM manipulation
+                nodesToHighlight.reverse().forEach(textNode => {
+                    const text = textNode.textContent;
+                    const escapedSearchTerm = escapeRegExp(searchTerm);
+                    const regex = new RegExp(`(${escapedSearchTerm})`, 'gi');
+                    const parts = text.split(regex);
+                    
+                    if (parts.length > 1) {
+                        const fragment = document.createDocumentFragment();
+                        
+                        parts.forEach((part, index) => {
+                            if (index % 2 === 0) {
+                                // Non-matching text
+                                if (part) {
+                                    fragment.appendChild(document.createTextNode(part));
+                                }
+                            } else {
+                                // Matching text - wrap in mark tag
+                                const mark = document.createElement('mark');
+                                mark.className = 'search-highlight';
+                                mark.textContent = part;
+                                fragment.appendChild(mark);
+                            }
+                        });
+                        
+                        textNode.parentNode.replaceChild(fragment, textNode);
+                    }
+                });
+            }
+        }
+        
+        // Dark Mode Toggle Functionality
+        class DarkModeManager {
+            constructor() {
+                this.darkModeToggle = document.getElementById('darkModeToggle');
+                this.body = document.body;
+                this.prismThemeLight = document.getElementById('prism-theme-light');
+                this.prismThemeDark = document.getElementById('prism-theme-dark');
+                this.init();
+            }
+            
+            init() {
+                // Check for saved theme preference or default to 'light'
+                const currentTheme = (typeof localStorage !== 'undefined' ? localStorage.getItem('theme') : null) || 'light';
+                this.setTheme(currentTheme);
+                
+                // Add click event to toggle button
+                this.darkModeToggle.addEventListener('click', () => {
+                    const currentTheme = this.body.getAttribute('data-theme');
+                    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                    this.setTheme(newTheme);
+                });
+            }
+            
+            setTheme(theme) {
+                // Set theme attribute on body
+                this.body.setAttribute('data-theme', theme);
+                
+                // Update button icon
+                const icon = this.darkModeToggle.querySelector('i');
+                if (theme === 'dark') {
+                    icon.classList.remove('bi-moon-fill');
+                    icon.classList.add('bi-sun-fill');
+                } else {
+                    icon.classList.remove('bi-sun-fill');
+                    icon.classList.add('bi-moon-fill');
+                }
+                
+                // Switch Prism themes
+                if (theme === 'dark') {
+                    this.prismThemeLight.disabled = true;
+                    this.prismThemeDark.disabled = false;
+                } else {
+                    this.prismThemeLight.disabled = false;
+                    this.prismThemeDark.disabled = true;
+                }
+                
+                // Save preference
+                if (typeof localStorage !== 'undefined') {
+                    localStorage.setItem('theme', theme);
+                }
+                
+                // Re-highlight code blocks
+                setTimeout(() => {
+                    if (typeof Prism !== 'undefined') {
+                        Prism.highlightAll();
+                    }
+                }, 100);
+            }
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 DOMContentLoaded - Starting initialization...');
+            
+            try {
+                const renderer = new UltimateContentRenderer();
+                renderer.init();
+                
+                // Initialize dark mode
+                const darkModeManager = new DarkModeManager();
+                
+                // Initialize sidebar toggle
+                const toggleSidebar = document.getElementById('toggleSidebar');
+                const sidebar = document.getElementById('sidebar');
+                const mainContent = document.getElementById('mainContent');
+                
+                if (toggleSidebar) {
+                    // Set initial state
+                    let sidebarVisible = true;
+                    
+                    toggleSidebar.addEventListener('click', () => {
+                        sidebarVisible = !sidebarVisible;
+                        
+                        if (sidebarVisible) {
+                            // Show sidebar
+                            sidebar.style.display = 'block';
+                            sidebar.classList.remove('d-none');
+                            mainContent.classList.remove('col-md-12', 'col-lg-12');
+                            mainContent.classList.add('col-md-9', 'col-lg-10');
+                            toggleSidebar.innerHTML = '<i class="bi bi-x-lg"></i> Hide Menu';
+                        } else {
+                            // Hide sidebar
+                            sidebar.style.display = 'none';
+                            sidebar.classList.add('d-none');
+                            mainContent.classList.remove('col-md-9', 'col-lg-10');
+                            mainContent.classList.add('col-md-12', 'col-lg-12');
+                            toggleSidebar.innerHTML = '<i class="bi bi-list"></i> Show Menu';
+                        }
+                        
+                        // Scroll to top to prevent visual jump
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        
+                        // Scroll to top to prevent content jumping
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    });
+                }
+                
+                console.log('✅ Initialization complete!');
+            } catch (error) {
+                console.error('❌ Initialization error:', error);
+            }
+            
+            // Initialize copy button handler
+            document.addEventListener('click', (e) => {
+                if (e.target.closest('.copy-code')) {
+                    const btn = e.target.closest('.copy-code');
+                    const codeBlock = btn.closest('.position-relative').querySelector('code');
+                    if (codeBlock) {
+                        const text = codeBlock.textContent;
+                        navigator.clipboard.writeText(text).then(() => {
+                            const originalText = btn.innerHTML;
+                            btn.innerHTML = '<i class="bi bi-check"></i> Copied!';
+                            setTimeout(() => {
+                                btn.innerHTML = originalText;
+                            }, 2000);
+                        }).catch(err => {
+                            console.error('Failed to copy text: ', err);
+                        });
+                    }
+                }
+            });
+            
+            // Initialize Interactive Features
+            initializeInteractiveFeatures();
+        });
+        
+        // Interactive Features Implementation
+        function initializeInteractiveFeatures() {
+            // 1. Animated Typing Effect for Headers
+            const headers = document.querySelectorAll('h1, h2');
+            headers.forEach(header => {
+                if (header.textContent.includes('Complete Turing Interview Guide')) {
+                    const text = header.textContent;
+                    header.innerHTML = `<span class="typing-effect">${text}</span>`;
+                }
+            });
+            
+            // 2. Add Interactive Quiz after Section 2
+            const section2 = document.querySelector('#questions');
+            if (section2) {
+                const quizHtml = `
+                    <div class="quiz-container animate__animated animate__fadeIn">
+                        <h3 class="quiz-title">🎯 Quick Knowledge Check</h3>
+                        <div class="quiz-question">What is the main advantage of using Pulumi over traditional IaC tools?</div>
+                        <div class="quiz-options">
+                            <div class="quiz-option" data-correct="true">Using real programming languages with type safety</div>
+                            <div class="quiz-option" data-correct="false">It's faster to deploy</div>
+                            <div class="quiz-option" data-correct="false">It only works with AWS</div>
+                            <div class="quiz-option" data-correct="false">It doesn't require state management</div>
+                        </div>
+                        <div class="quiz-feedback mt-3" style="display: none;"></div>
+                    </div>
+                `;
+                section2.insertAdjacentHTML('afterend', quizHtml);
+                
+                // Quiz interaction
+                document.querySelectorAll('.quiz-option').forEach(option => {
+                    option.addEventListener('click', function() {
+                        const isCorrect = this.dataset.correct === 'true';
+                        const feedback = document.querySelector('.quiz-feedback');
+                        
+                        // Remove previous states
+                        document.querySelectorAll('.quiz-option').forEach(opt => {
+                            opt.classList.remove('correct', 'incorrect');
+                            opt.style.pointerEvents = 'none';
+                        });
+                        
+                        if (isCorrect) {
+                            this.classList.add('correct');
+                            feedback.innerHTML = '✅ Correct! Pulumi\'s use of real programming languages provides type safety and better developer experience.';
+                            feedback.style.color = '#4CAF50';
+                        } else {
+                            this.classList.add('incorrect');
+                            feedback.innerHTML = '❌ Not quite. The main advantage is using real programming languages with full type safety and IDE support.';
+                            feedback.style.color = '#f44336';
+                        }
+                        
+                        feedback.style.display = 'block';
+                        feedback.classList.add('animate__animated', 'animate__fadeIn');
+                    });
+                });
+            }
+            
+            // 3. Animate code blocks on scroll
+            const codeBlocks = document.querySelectorAll('pre');
+            const observerOptions = {
+                threshold: 0.1,
+                rootMargin: '0px 0px -100px 0px'
+            };
+            
+            const codeObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('code-animate');
+                        codeObserver.unobserve(entry.target);
+                    }
+                });
+            }, observerOptions);
+            
+            codeBlocks.forEach(block => {
+                codeObserver.observe(block);
+            });
+            
+            // 4. Add Terminal Simulation for commands
+            const commandSections = document.querySelectorAll('code.language-bash, code.language-shell');
+            commandSections.forEach(cmd => {
+                const parent = cmd.closest('pre');
+                if (parent && cmd.textContent.includes('pulumi')) {
+                    const terminalHtml = `
+                        <div class="terminal">
+                            <div class="terminal-header">
+                                <span class="terminal-dot red"></span>
+                                <span class="terminal-dot yellow"></span>
+                                <span class="terminal-dot green"></span>
+                            </div>
+                            <div class="terminal-content">
+                                <span class="terminal-command">${cmd.textContent}</span>
+                                <span class="terminal-cursor"></span>
+                            </div>
+                        </div>
+                    `;
+                    parent.insertAdjacentHTML('afterend', terminalHtml);
+                }
+            });
+            
+            // 5. Add progress animation to progress bars
+            const progressBars = document.querySelectorAll('.progress-bar');
+            progressBars.forEach(bar => {
+                bar.classList.add('progress-animated');
+            });
+            
+            // 6. Create Floating Action Buttons
+            const fabContainer = document.createElement('div');
+            fabContainer.className = 'fab-container';
+            fabContainer.innerHTML = `
+                <button class="fab" id="scrollToTop" title="Scroll to top">
+                    <i class="bi bi-arrow-up"></i>
+                </button>
+                <button class="fab" id="quickNavFab" title="Quick navigation">
+                    <i class="bi bi-compass"></i>
+                </button>
+            `;
+            document.body.appendChild(fabContainer);
+            
+            // Scroll to top functionality
+            document.getElementById('scrollToTop').addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+            
+            // Quick navigation
+            document.getElementById('quickNavFab').addEventListener('click', () => {
+                const quickNav = document.createElement('div');
+                quickNav.className = 'modal fade';
+                quickNav.innerHTML = `
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Quick Navigation</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="list-group">
+                                    <a href="#core-concepts" class="list-group-item list-group-item-action" data-bs-dismiss="modal">Core Concepts</a>
+                                    <a href="#technical-questions" class="list-group-item list-group-item-action" data-bs-dismiss="modal">Technical Questions</a>
+                                    <a href="#behavioral-questions" class="list-group-item list-group-item-action" data-bs-dismiss="modal">Behavioral Questions</a>
+                                    <a href="#star-stories" class="list-group-item list-group-item-action" data-bs-dismiss="modal">STAR Stories</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(quickNav);
+                const modal = new bootstrap.Modal(quickNav);
+                modal.show();
+                quickNav.addEventListener('hidden.bs.modal', () => quickNav.remove());
+            });
+            
+            // 7. Add interactive tooltips to technical terms
+            const technicalTerms = {
+                'TypeScript': 'A strongly typed programming language that builds on JavaScript',
+                'IaC': 'Infrastructure as Code - managing infrastructure through code instead of manual processes',
+                'Output': 'A Pulumi concept representing values known only after deployment',
+                'Stack': 'An isolated instance of your Pulumi program (dev, staging, prod)',
+                'Component Resource': 'Custom, reusable infrastructure abstractions'
+            };
+            
+            Object.entries(technicalTerms).forEach(([term, definition]) => {
+                const regex = new RegExp(`\\b${term}\\b`, 'g');
+                document.querySelectorAll('p, li').forEach(element => {
+                    if (element.innerHTML.includes(term) && !element.querySelector('.tooltip-custom')) {
+                        element.innerHTML = element.innerHTML.replace(regex, 
+                            `<span class="tooltip-custom" data-tooltip="${definition}">${term}</span>`
+                        );
+                    }
+                });
+            });
+            
+            // 8. Add code diff visualization for before/after examples
+            const codeExamples = document.querySelectorAll('pre code');
+            codeExamples.forEach((code, index) => {
+                if (code.textContent.includes('// Before') || code.textContent.includes('// After')) {
+                    const lines = code.textContent.split('\n');
+                    const diffHtml = lines.map(line => {
+                        if (line.includes('// Before')) return `<div class="diff-line diff-remove">- ${line}</div>`;
+                        if (line.includes('// After')) return `<div class="diff-line diff-add">+ ${line}</div>`;
+                        return `<div class="diff-line">${line}</div>`;
+                    }).join('');
+                    
+                    const diffContainer = document.createElement('div');
+                    diffContainer.className = 'code-diff';
+                    diffContainer.innerHTML = diffHtml;
+                    code.closest('pre').replaceWith(diffContainer);
+                }
+            });
+            
+            console.log('✨ Interactive features initialized!');
+        }
+    </script>
+    <script src="assets/js/final-100-fix.js"></script>
+</body>
+</html>

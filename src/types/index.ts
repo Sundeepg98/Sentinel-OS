@@ -1,29 +1,19 @@
-export interface V8InternalItem {
-  title: string;
-  desc: string;
-  impact: string;
-  solution: string;
-}
+export type ModuleType = 'grid' | 'list' | 'map' | 'playbook' | 'checklist' | 'markdown';
 
-export interface V8InternalSection {
-  category: string;
-  items: V8InternalItem[];
-}
-
-export interface ArchitecturePattern {
+export interface Module {
   id: string;
-  title: string;
-  tech: string;
-  bottleneck: string;
-  scenario: string;
-  code: string;
+  label: string;
+  type: ModuleType;
+  icon: string; // Lucide icon name
+  data: any; // Flexible data structure based on type
 }
 
-export interface DiagnosticItem {
-  q: string;
-  trap: string;
-  trapWhy: string;
-  optimal: string;
+export interface CompanyDossier {
+  id: string;
+  name: string;
+  targetRole: string;
+  brandColor: 'cyan' | 'indigo' | 'emerald' | 'rose' | 'amber';
+  modules: Module[];
 }
 
 export interface Task {
