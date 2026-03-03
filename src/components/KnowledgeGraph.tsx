@@ -39,9 +39,10 @@ export const KnowledgeGraph: React.FC<{ isOpen: boolean; onClose: () => void }> 
         val: 10
       });
 
-      // Extract dummy keywords for visualization
-      const mockKeywords = ['Redis', 'Kubernetes', 'Scalability', 'Security', 'Latency'];
-      const activeKeywords = mockKeywords.filter(() => Math.random() > 0.5);
+      // Extract keywords for visualization
+      // In a real system, these would be indexed in the backend
+      const mockKeywords = ['Redis', 'Kubernetes', 'Scalability', 'Security', 'Latency', 'Node.js', 'Infrastructure'];
+      const activeKeywords = mockKeywords.filter(() => Math.random() > 0.4);
 
       activeKeywords.forEach(k => {
         if (!concepts.has(k)) {
@@ -116,7 +117,7 @@ export const KnowledgeGraph: React.FC<{ isOpen: boolean; onClose: () => void }> 
               ctx.fillStyle = node.type === 'file' ? '#a5b4fc' : '#67e8f9';
               ctx.fillText(label, node.x, node.y);
 
-              node.__bckgDimensions = bckgDimensions; // to Use in nodePointerAreaPaint
+              node.__bckgDimensions = bckgDimensions;
             }}
             nodePointerAreaPaint={(node: any, color, ctx) => {
               ctx.fillStyle = color;
