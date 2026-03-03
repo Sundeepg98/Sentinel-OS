@@ -5,86 +5,52 @@ const path = require('path');
 const matter = require('gray-matter');
 const { Index } = require('flexsearch');
 const natural = require('natural');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Initialize Gemini (Free Tier available via Google AI Studio)
+const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from the React frontend build
+const INTELLIGENCE_DIR = path.join(__dirname, '..', 'intelligence');
 const FRONTEND_DIST = path.join(__dirname, '..', 'dist');
 app.use(express.static(FRONTEND_DIST));
 
-const INTELLIGENCE_DIR = path.join(__dirname, '..', 'intelligence');
-
-// Initialize Semantic Index
-const searchIndex = new Index({
-  preset: 'score',
-  tokenize: 'forward'
-});
-
-// Cache for Knowledge Graph
-let knowledgeGraph = {
-  concepts: {}, // keyword -> file links
-  files: {}     // file -> keywords
-};
+const searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
+let knowledgeGraph = { concepts: {}, files: {} };
 
 /**
- * Intelligent Keyword Extractor (TF-IDF Lite)
+ * Heuristic Intelligence: Keyword Extractor
  */
 function extractKeywords(text) {
   const tokenizer = new natural.WordTokenizer();
   const words = tokenizer.tokenize(text.toLowerCase());
-  
-  // Filter out common stopwords and short words
-  const stopWords = new Set(['the', 'this', 'that', 'with', 'from', 'using', 'into', 'your', 'will', 'then', 'they', 'when', 'what']);
-  const filtered = words.filter(w => w.length > 3 && !stopWords.has(w));
-  
-  // Count frequencies
+  const stopWords = new Set(['the', 'this', 'that', 'with', 'from', 'using', 'into', 'your', 'will', 'then', 'when', 'what']);
   const counts = {};
-  filtered.forEach(w => counts[w] = (counts[w] || 0) + 1);
-  
-  // Sort by frequency and return top 10
-  return Object.entries(counts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(entry => entry[0]);
+  words.filter(w => w.length > 3 && !stopWords.has(w)).forEach(w => counts[w] = (counts[w] || 0) + 1);
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => entry = e[0]);
 }
 
-/**
- * Knowledge Sync: Rebuilds the search index and graph
- */
 async function syncIntelligence() {
-  console.log('Synchronizing Technical Intelligence...');
   const newGraph = { concepts: {}, files: {} };
-  
   try {
     const companies = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
-    
     for (const company of companies.filter(d => d.isDirectory())) {
       const companyPath = path.join(INTELLIGENCE_DIR, company.name);
       const files = await fs.readdir(companyPath);
-      
       for (const fileName of files.filter(f => f.endsWith('.md'))) {
         const filePath = path.join(companyPath, fileName);
         const fileContent = await fs.readFile(filePath, 'utf-8');
         const { content, data } = matter(fileContent);
-        
         const fileId = `${company.name}/${fileName}`;
         const keywords = extractKeywords(content + ' ' + (data.label || ''));
-        
-        // Update Search Index
         searchIndex.add(fileId, content);
-        
-        // Update Graph
-        newGraph.files[fileId] = {
-          label: data.label || fileName,
-          company: company.name,
-          keywords
-        };
-        
+        newGraph.files[fileId] = { label: data.label || fileName, company: company.name, keywords, content };
         keywords.forEach(k => {
           if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
           newGraph.concepts[k].push({ fileId, company: company.name });
@@ -92,143 +58,93 @@ async function syncIntelligence() {
       }
     }
     knowledgeGraph = newGraph;
-    console.log(`Sync Complete. Indexed ${Object.keys(newGraph.files).length} files.`);
-  } catch (e) {
-    console.error('Sync Error:', e.message);
-  }
+    console.log(`Knowledge Graph Synced: ${Object.keys(newGraph.files).length} nodes.`);
+  } catch (e) { console.error('Sync Error:', e.message); }
 }
-
-// Initial Sync
 syncIntelligence();
 
 /**
- * 1. Global Intelligence Search
+ * AI Intelligence: Gemini Drill Generation
  */
-app.get('/api/intelligence/search', (req, res) => {
-  const { q } = req.query;
-  const results = searchIndex.search(q, { limit: 10 });
-  
-  const detailedResults = results.map(id => ({
-    id,
-    ...knowledgeGraph.files[id]
-  }));
-  
-  res.json(detailedResults);
+app.post('/api/intelligence/drill', async (req, res) => {
+  const { fileId } = req.body;
+  const fileData = knowledgeGraph.files[fileId];
+
+  if (!genAI) return res.json({ error: 'GEMINI_API_KEY not configured. Add it to server/.env to enable AI Drills.' });
+  if (!fileData) return res.status(404).json({ error: 'Content not found' });
+
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `You are a Staff Engineer interviewer. Based on the following technical notes, generate ONE challenging "Deep Drill" interview question that tests architectural trade-offs or low-level internals. 
+    
+    Context:
+    ${fileData.content.slice(0, 2000)}
+    
+    Respond in JSON format:
+    { "question": "the question", "idealResponse": "points to cover in response" }`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    // Extract JSON from potential markdown blocks
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    res.json(JSON.parse(jsonMatch[jsonMatch.length - 1]));
+  } catch (error) {
+    res.status(500).json({ error: 'AI Generation failed' });
+  }
 });
 
-/**
- * 2. Get Insights for a specific file
- */
 app.get('/api/intelligence/insights', (req, res) => {
   const { fileId } = req.query;
   const fileData = knowledgeGraph.files[fileId];
-  
   if (!fileData) return res.status(404).json({ error: 'File not indexed' });
-  
-  // Find related files based on shared keywords
   const related = [];
   const seenFiles = new Set([fileId]);
-  
   fileData.keywords.forEach(k => {
-    const matches = knowledgeGraph.concepts[k] || [];
-    matches.forEach(m => {
-      if (!seenFiles.has(m.fileId)) {
-        related.push({ ...m, sharedKeyword: k });
-        seenFiles.add(m.fileId);
-      }
+    (knowledgeGraph.concepts[k] || []).forEach(m => {
+      if (!seenFiles.has(m.fileId)) { related.push({ ...m, sharedKeyword: k }); seenFiles.add(m.fileId); }
     });
   });
-
-  res.json({
-    keywords: fileData.keywords,
-    related: related.slice(0, 5)
-  });
+  res.json({ keywords: fileData.keywords, related: related.slice(0, 5) });
 });
 
-/**
- * 3. Company Discovery
- */
 app.get('/api/companies', async (req, res) => {
   try {
     const entries = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
-    const companies = entries
-      .filter(dirent => dirent.isDirectory())
-      .map(dirent => ({
-        id: dirent.name,
-        name: dirent.name.toUpperCase()
-      }));
-    res.json(companies);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to discover companies' });
-  }
+    res.json(entries.filter(d => d.isDirectory()).map(d => ({ id: d.name, name: d.name.toUpperCase() })));
+  } catch (e) { res.status(500).json({ error: 'Discovery failed' }); }
 });
 
-/**
- * 4. Dossier Harvester
- */
 app.get('/api/dossier/:companyId', async (req, res) => {
   const { companyId } = req.params;
   const companyDir = path.join(INTELLIGENCE_DIR, companyId);
-
   try {
     const files = await fs.readdir(companyDir);
-    const mdFiles = files.filter(f => f.endsWith('.md'));
-
-    const modules = await Promise.all(mdFiles.map(async (fileName) => {
-      const filePath = path.join(companyDir, fileName);
-      const fileContent = await fs.readFile(filePath, 'utf-8');
+    const modules = await Promise.all(files.filter(f => f.endsWith('.md')).map(async (fileName) => {
+      const fileContent = await fs.readFile(path.join(companyDir, fileName), 'utf-8');
       const { data, content } = matter(fileContent);
-      const moduleType = data.type || 'markdown';
-
-      return {
-        id: fileName.replace('.md', '').toLowerCase(),
-        fullId: `${companyId}/${fileName}`, // Used for graph lookups
-        label: data.label || fileName.replace('.md', '').replace(/_/g, ' '),
-        type: moduleType,
-        icon: data.icon || (moduleType === 'playbook' ? 'SearchCode' : 'FileText'),
-        data: data.data || parseMarkdownToModuleData(moduleType, content)
-      };
+      const type = data.type || 'markdown';
+      return { id: fileName.replace('.md', '').toLowerCase(), fullId: `${companyId}/${fileName}`, label: data.label || fileName.replace('.md', ''), type, icon: data.icon || 'FileText', data: data.data || parseMarkdownToModuleData(type, content) };
     }));
-
-    res.json({
-      id: companyId,
-      name: companyId.toUpperCase(),
-      targetRole: companyId === 'mailin' ? 'L6 Staff Infrastructure Engineer' : 'Infrastructure & Pulumi Architect',
-      brandColor: companyId === 'mailin' ? 'cyan' : 'indigo',
-      modules: modules.sort((a, b) => a.id.localeCompare(b.id))
-    });
-  } catch (error) {
-    res.status(404).json({ error: 'Company not found' });
-  }
+    res.json({ id: companyId, name: companyId.toUpperCase(), targetRole: companyId === 'mailin' ? 'L6 Staff Infrastructure Engineer' : 'Infrastructure & Pulumi Architect', brandColor: companyId === 'mailin' ? 'cyan' : 'indigo', modules: modules.sort((a, b) => a.id.localeCompare(b.id)) });
+  } catch (e) { res.status(404).json({ error: 'Not found' }); }
 });
 
 function parseMarkdownToModuleData(type, content) {
-  if (type === 'list') {
-    return [{
-      category: 'Documentation',
-      items: [{ title: 'Notes', desc: content.slice(0, 500) + '...', impact: 'Full view enabled.', solution: 'N/A' }]
-    }];
-  }
+  if (type === 'list') return [{ category: 'Documentation', items: [{ title: 'Notes', desc: content.slice(0, 500) + '...', impact: 'Full view enabled.', solution: 'N/A' }] }];
   if (type === 'playbook') {
     const sections = content.split(/\n###?\s+/);
-    let q = 'Question content missing', trap = 'Trap content missing', why = 'Context missing', optimal = 'Solution missing';
-    sections.forEach(section => {
-      const s = section.trim();
-      if (s.startsWith('Q:')) q = s.replace(/^Q:\s*/, '');
-      if (s.startsWith('The Trap Response')) trap = s.replace(/^The Trap Response\s*/, '');
-      if (s.startsWith('Why it fails')) why = s.replace(/^Why it fails\s*/, '');
-      if (s.startsWith('Optimal Staff Response')) optimal = s.replace(/^Optimal Staff Response\s*/, '');
+    let q = 'Question missing', t = 'Trap missing', w = 'Context missing', o = 'Solution missing';
+    sections.forEach(s => {
+      const tr = s.trim();
+      if (tr.startsWith('Q:')) q = tr.replace(/^Q:\s*/, '');
+      if (tr.startsWith('The Trap Response')) t = tr.replace(/^The Trap Response\s*/, '');
+      if (tr.startsWith('Why it fails')) w = tr.replace(/^Why it fails\s*/, '');
+      if (tr.startsWith('Optimal Staff Response')) o = tr.replace(/^Optimal Staff Response\s*/, '');
     });
-    return [{ q, trap, trapWhy: why, optimal }];
+    return [{ q, trap: t, trapWhy: w, optimal: o }];
   }
   return content;
 }
 
-// Catch-all route for SPA navigation
-app.get('*', (req, res) => {
-  res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
-});
-
-app.listen(PORT, () => {
-  console.log(`Sentinel Intelligence Engine active on port ${PORT}`);
-});
+app.get('*', (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
+app.listen(PORT, () => console.log(`Sentinel Intelligence Engine active on port ${PORT}`));
