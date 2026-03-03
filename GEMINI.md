@@ -3,6 +3,7 @@
 This file contains critical engineering standards and "memories" discovered during development to prevent regression and runtime failures.
 
 ## 🚦 System Integrity
+- **Local-First Verification:** NEVER push code to the `main` branch or production environment without first empirically verifying the change in the local development environment (port 5173/3002) using the Playwright MCP. Bug fixes require a "visual proof" screenshot from the local environment before finalization.
 - **Surgical Process Management:** Never use `taskkill /F /IM node.exe`. It terminates the active Gemini CLI session. Always use port-specific termination:
   `Get-NetTCPConnection -LocalPort [PORT] | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }`
 

@@ -33,12 +33,12 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [graphData, setGraphData] = useState<{ nodes: GraphNode[], links: GraphLink[] }>({ nodes: [], links: [] });
-  const [hasInitialZoomed, setHasInitialZoomed] = useState(false);
+  const hasInitialZoomed = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Reset zoom lock when closing/opening
+  // Reset zoom lock only when explicitly closed
   useEffect(() => {
-    if (!isOpen) setHasInitialZoomed(false);
+    if (!isOpen) hasInitialZoomed.current = false;
   }, [isOpen]);
 
   // Load real graph data from backend
@@ -71,6 +71,19 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [isOpen, isFullscreen]);
+
+  // Instant perfect framing on load
+  useEffect(() => {
+    if (isOpen && graphData.nodes.length > 0 && graphRef.current && !hasInitialZoomed.current) {
+      // Instant snap (0ms) to perfect framing with a 150px margin
+      setTimeout(() => {
+        if (graphRef.current) {
+          graphRef.current.zoomToFit(0, 150);
+          hasInitialZoomed.current = true;
+        }
+      }, 100); // Slight delay to ensure canvas is fully rendered
+    }
+  }, [isOpen, graphData]);
 
   // Premium Node Rendering
   const nodeThreeObject = useCallback((node: any) => {
@@ -223,13 +236,6 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
             // Tighter Physics Forces
             d3AlphaDecay={0.02}
             d3VelocityDecay={0.1}
-            onEngineStop={() => {
-              if (graphRef.current && !hasInitialZoomed) {
-                // Wait for physics to settle, then smoothly frame the entire graph with a 20% margin
-                graphRef.current.zoomToFit(1500, 150);
-                setHasInitialZoomed(true);
-              }
-            }}
           />
           
           {/* Professional Legend Overlay */}
