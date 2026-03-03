@@ -8,9 +8,10 @@ import { Tracker } from './views/Tracker';
 import { MarkdownView } from './views/MarkdownView';
 import { DeepSearch } from './components/DeepSearch';
 import { InsightPanel } from './components/InsightPanel';
+import { KnowledgeGraph } from './components/KnowledgeGraph';
 import { useDossier } from './hooks/useDossier';
 import type { CompanyDossier } from './types';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Network } from 'lucide-react';
 
 interface DossierContextType {
   dossier: CompanyDossier | null;
@@ -30,6 +31,7 @@ export const useDossierContext = () => {
 function App() {
   const dossierData = useDossier();
   const [activeModuleId, setActiveModuleId] = useState<string>('');
+  const [isGraphOpen, setIsGraphOpen] = useState(false);
 
   useEffect(() => {
     if (dossierData.dossier?.modules && dossierData.dossier.modules.length > 0) {
@@ -56,9 +58,19 @@ function App() {
                   <option key={c.id} value={c.id}>{c.name} Profile</option>
                 ))}
               </select>
+
+              <button 
+                onClick={() => setIsGraphOpen(true)}
+                className="p-2 bg-white/[0.03] border border-white/[0.08] rounded-lg text-neutral-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all shadow-sm"
+                title="Open Knowledge Graph"
+              >
+                <Network size={16} />
+              </button>
             </div>
             <DeepSearch onSelect={setActiveModuleId} />
           </div>
+          
+          <KnowledgeGraph isOpen={isGraphOpen} onClose={() => setIsGraphOpen(false)} />
           
           <div 
             className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" 
