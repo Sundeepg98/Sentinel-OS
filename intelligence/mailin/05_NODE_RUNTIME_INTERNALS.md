@@ -1,45 +1,45 @@
 ---
-label: Runtime & V8 Internals
+label: Node.js Runtime & V8
 type: playbook
 icon: Cpu
 ---
 
-## Q: Node.js Event Loop Saturation
-How do you distinguish between true CPU exhaustion and Event Loop saturation in a high-throughput environment?
+## Q: Event Loop Blockage vs CPU Saturation
+How do you distinguish between true CPU exhaustion and event loop saturation in a high-throughput microservice?
 
 ### The Trap Response
-"I will monitor the overall CPU utilization of the Kubernetes pod using Prometheus/Grafana."
+"I will monitor the average CPU utilization of the container using standard cloud metrics (CloudWatch/Grafana)."
 
 ### Why it fails
-A node might demonstrate moderate overall CPU utilization but high "Event Loop Blocked Time." Synchronous, CPU-intensive operations (like RSA signing for DKIM) executing on the main thread paralyze the loop while other CPU cores sit idle. Standard metrics won't reveal the specific bottleneck in the libuv reactor pattern.
+A node may show moderate overall CPU utilization but high "Event Loop Blocked Time." Synchronous, CPU-intensive operations (like parsing massive HTML templates) executing on the main thread paralyze the loop while other CPU cores remain idle.
 
 ### Optimal Staff Response
-I would utilize **eBPF (extended Berkeley Packet Filter)** instrumentation at the kernel level. By attaching uprobes to `uv__io_poll()`, I can mathematically calculate the exact duration the event loop is blocked by synchronous execution, ignoring benign idle time. 
+I would utilize **eBPF (extended Berkeley Packet Filter)** instrumentation. By attaching uprobes to specific functions in `libuv` (primarily `uv__io_poll`), I can mathematically calculate the exact duration the event loop is blocked by synchronous execution, ignoring benign idle time spent waiting for traffic.
 
 ---
 
-## Q: V8 GC Premature Promotion
-How do you mitigate P99 latency spikes caused by garbage collection when processing massive JSON payloads?
+## Q: V8 Memory Leaks & Premature Promotion
+How do you mitigate P99 latency spikes caused by garbage collection in a high-allocation environment?
 
 ### The Trap Response
-"I will increase the total memory limit of the container to give V8 more heap space."
+"I will increase the total heap memory limit (`--max-old-space-size`) to give V8 more room to operate."
 
 ### Why it fails
-Increasing total heap doesn't prevent "premature promotion." If the New Space (Young Generation) is too small, it fills faster than the Scavenge collector can clear it, incorrectly promoting short-lived objects to the Old Space and triggering expensive Mark-and-Sweep pauses.
+Increasing the total heap does not prevent "premature promotion." If the New Space (Young Generation) is too small, short-lived objects are incorrectly promoted to the Old Space, triggering frequent, expensive Mark-and-Sweep pauses.
 
 ### Optimal Staff Response
-I would aggressively tune the **`--max-semi-space-size`** flag (e.g., to 64MB or 128MB). This expands the New Space, giving the Scavenger enough breathing room to discard short-lived objects before they pollute the Old Space, thus eliminating major GC latency spikes.
+I would aggressively tune the **`--max-semi-space-size`** flag. Expanding the semi-space (e.g., to 64MB or 128MB) gives the Scavenge collector enough breathing room to correctly identify and discard short-lived objects before they pollute the Old Space, thus eliminating the major GC pauses that manifest as P99 latency spikes.
 
 ---
 
-## Q: Boundary Crossing & C++ Addons
-When should you offload a task to a Native C++ Addon (N-API) vs. using Worker Threads?
+## Q: Compiler Volatility (Maglev)
+When should you enable the Maglev compiler in a Node.js production environment?
 
 ### The Trap Response
-"C++ is always faster, so any complex calculation should be moved to an addon."
+"Maglev is the fastest optimizing JIT, so it should always be enabled for performance-critical applications."
 
 ### Why it fails
-Crossing the boundary between V8 and C++ carries a marshaling cost. For trivial tasks, the overhead of translating and copying data structures across the memory boundary makes the native implementation slower than pure JavaScript.
+Compiler optimization is volatile. Maglev was temporarily disabled by default in certain Node.js release lines (e.g., v22.9.0) due to regressions and inaccuracies. Principal engineers must balance steady-state responsiveness against runtime stability.
 
 ### Optimal Staff Response
-Native Addons are reserved for sustained, CPU-heavy blocks (e.g., SHA-256 hashing or custom cryptographic signatures) where performance gains outweigh marshaling latency. Worker Threads are preferred for parallelizing pure JavaScript logic where SharedArrayBuffer can minimize memory cloning overhead.
+I would evaluate Maglev based on the specific workload. Maglev focuses on steady-state responsiveness and fast-optimizing bytecode generation, filling the gap between Ignition and Turbofan. I would perform A/B load tests with and without Maglev enabled, monitoring for inaccuracies or regressions before a full-scale rollout.
