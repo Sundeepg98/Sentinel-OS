@@ -231,11 +231,18 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
             linkDirectionalParticleSpeed={0.005}
             // Environment
             backgroundColor="rgba(0,0,0,0)"
-            enableNodeDrag={true}
+            enableNodeDrag={false} // Disable drag to prevent physics recalculation
             onNodeClick={handleNodeClick}
-            // Tighter Physics Forces
-            d3AlphaDecay={0.02}
-            d3VelocityDecay={0.1}
+            // The UX Fix: Pre-calculate layout, freeze physics, and frame once.
+            warmupTicks={100}
+            cooldownTicks={0}
+            onEngineStop={() => {
+              // This now fires instantly after warmup, before the first frame.
+              if (graphRef.current && !hasInitialZoomed.current) {
+                graphRef.current.zoomToFit(0, 150); // Instant 0ms snap
+                hasInitialZoomed.current = true;
+              }
+            }}
           />
           
           {/* Professional Legend Overlay */}

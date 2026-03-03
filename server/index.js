@@ -106,36 +106,48 @@ app.post('/api/intelligence/drill', async (req, res) => {
   }
 });
 
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
 /**
- * AI Evaluation - DEMO RESILIENT VERSION
+ * AI Evaluation - CONVERSATIONAL ENGINE
  */
+const activeChats = new Map();
+
 app.post('/api/intelligence/evaluate', async (req, res) => {
-  const { userAnswer } = req.body;
+  const { userAnswer, sessionId, question, idealResponse, model = 'gemini-2.5-flash' } = req.body;
   const key = process.env.GEMINI_API_KEY;
 
   const DEMO_EVAL = {
     score: "8/10",
-    feedback: "Your answer correctly identifies the need for atomicity in Redis. However, you should mention the trade-off between network latency and Redis precision.",
-    followUp: "How would you handle a network partition between your workers and the Redis cluster?"
+    feedback: "Demo Mode: Your answer correctly identifies the need for atomicity. However, consider the impact of network partitions on Redis ZSET precision.",
+    followUp: "How would you handle a failure in the Redis cluster itself during a high-velocity burst?"
   };
 
   if (!key) return res.json(DEMO_EVAL);
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${key}`;
-    const payload = {
-      contents: [{
-        parts: [{
-          text: `Evaluate this Staff Engineer answer: "${userAnswer}". Respond in JSON: { "score": "...", "feedback": "...", "followUp": "..." }`
-        }]
-      }]
-    };
+    const genAI = new GoogleGenerativeAI(key);
+    const gemini = genAI.getGenerativeModel({ model });
 
-    const response = await axios.post(url, payload);
-    const text = response.data.candidates[0].content.parts[0].text;
+    let chat = activeChats.get(sessionId);
+    if (!chat) {
+      chat = gemini.startChat({
+        history: [
+          { role: "user", parts: [{ text: `You are a strict Staff Engineer interviewer. Generate challenging follow-up questions based on my architectural proposals. Context Question: ${question}. Ideal Response Criteria: ${idealResponse}` }] },
+          { role: "model", parts: [{ text: "Acknowledged. I am ready to evaluate your proposal and drill into the technical trade-offs." }] }
+        ]
+      });
+      activeChats.set(sessionId, chat);
+    }
+
+    const result = await chat.sendMessage(`Candidate Proposal: "${userAnswer}". Evaluate technical depth and provide a score, feedback, and one challenging follow-up. Respond in JSON: { "score": "...", "feedback": "...", "followUp": "..." }`);
+    const response = await result.response;
+    const text = response.text();
+    
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    res.json(JSON.parse(jsonMatch[jsonMatch.length - 1]));
+    res.json(jsonMatch ? JSON.parse(jsonMatch[0]) : { score: "N/A", feedback: text, followUp: "Please elaborate on your scaling strategy." });
   } catch (error) {
+    console.error('CONVERSATIONAL EVAL FAILED:', error);
     res.json(DEMO_EVAL);
   }
 });

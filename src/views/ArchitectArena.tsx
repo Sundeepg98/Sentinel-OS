@@ -19,12 +19,14 @@ export const ArchitectArena: React.FC = () => {
   const [drillLoading, setDrillLoading] = useState(false);
   const [evalLoading, setEvalLoading] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  const [sessionId, setSessionId] = useState('');
 
   useEffect(() => {
     if (arenaIds.length === 0) {
       setModules([]);
       return;
     }
+    setSessionId(crypto.randomUUID());
 
     const fetchAll = async () => {
       setLoading(true);
@@ -75,7 +77,8 @@ export const ArchitectArena: React.FC = () => {
         body: JSON.stringify({ 
           question: drill.question, 
           idealResponse: drill.idealResponse, 
-          userAnswer 
+          userAnswer,
+          sessionId 
         })
       });
       setEvalData(await res.json());

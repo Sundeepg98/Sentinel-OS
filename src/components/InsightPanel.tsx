@@ -40,6 +40,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   const [userAnswer, setUserAnswer] = useState('');
   const [evalData, setEvalData] = useState<EvalData | null>(null);
   const [evalLoading, setEvalLoading] = useState(false);
+  const [sessionId, setSessionId] = useState('');
 
   useEffect(() => {
     async function fetchInsights() {
@@ -48,6 +49,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
       setEvalData(null);
       setUserAnswer('');
       setDrillRevealed(false);
+      setSessionId(crypto.randomUUID());
       try {
         const response = await fetch(`/api/intelligence/insights?fileId=${encodeURIComponent(fullId)}`);
         if (response.ok) {
@@ -98,6 +100,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
           question: drill.question, 
           idealResponse: drill.idealResponse, 
           userAnswer,
+          sessionId,
           model: selectedModel 
         })
       });
