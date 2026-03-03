@@ -10,6 +10,7 @@ interface GraphNode {
   group: 'module' | 'concept';
   company: string;
   val: number;
+  readiness?: number; // 0 to 1
 }
 
 interface GraphLink {
@@ -32,7 +33,6 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   const [graphData, setGraphData] = useState<{ nodes: GraphNode[], links: GraphLink[] }>({ nodes: [], links: [] });
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Load real graph data from backend
   useEffect(() => {
     if (isOpen) {
       fetch('/api/intelligence/graph')
@@ -67,15 +67,12 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     if (node.group === 'module') {
       const [companyId, fileName] = node.id.split('/');
       const moduleId = fileName.replace('.md', '');
-      
       setCompany(companyId);
-      // Brief delay to allow context switch
       setTimeout(() => {
         onSelectModule(moduleId);
         onClose();
       }, 100);
     } else {
-      // For concepts, just focus the camera
       const distance = 100;
       const distRatio = 1 + distance/Math.hypot(node.x, node.y, node.z);
       graphRef.current.cameraPosition(
@@ -113,7 +110,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white tracking-wide">3D Semantic nervous System</h2>
-              <p className="text-[10px] text-neutral-500 uppercase tracking-widest mt-0.5">Live Architectural Relationships</p>
+              <p className="text-[10px] text-neutral-500 uppercase tracking-widest mt-0.5">Real-time Readiness Map</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -138,11 +135,26 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
             width={dimensions.width}
             height={dimensions.height}
             graphData={graphData}
-            nodeLabel={(node: any) => `${node.label} (${node.company})`}
+            nodeLabel={(node: any) => `
+              <div class="bg-black/80 border border-white/10 p-2 rounded-lg backdrop-blur-md">
+                <div class="text-white font-bold text-xs">${node.label}</div>
+                ${node.readiness !== undefined ? `
+                  <div class="flex items-center gap-2 mt-1">
+                    <div class="w-16 h-1 bg-white/10 rounded-full overflow-hidden">
+                      <div class="h-full bg-emerald-500" style="width: ${node.readiness * 100}%"></div>
+                    </div>
+                    <div class="text-[10px] text-emerald-400 font-mono">${Math.round(node.readiness * 100)}%</div>
+                  </div>
+                ` : ''}
+              </div>
+            `}
             nodeColor={(node: any) => {
-              if (node.company === 'mailin') return '#22d3ee'; // Cyan
-              if (node.company === 'turing') return '#818cf8'; // Indigo
-              return '#a3a3a3'; // Global Concept
+              if (node.group === 'concept') return '#525252';
+              
+              // Color based on company and readiness
+              const baseColor = node.company === 'mailin' ? '#22d3ee' : '#818cf8';
+              if (node.readiness === 1) return '#10b981'; // Completed: Green
+              return baseColor;
             }}
             nodeVal={(node: any) => node.val}
             nodeResolution={32}
@@ -156,18 +168,18 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
             onNodeClick={handleNodeClick}
           />
           
-          <div className="absolute bottom-6 left-6 flex flex-col gap-3 pointer-events-none bg-black/50 p-4 rounded-xl border border-white/[0.05] backdrop-blur-md">
+          <div className="absolute bottom-6 right-6 flex flex-col gap-3 pointer-events-none bg-black/50 p-4 rounded-xl border border-white/[0.05] backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
+              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Mastered (100%)</span>
+            </div>
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></div>
-              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Mailin Module</span>
+              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">In Progress</span>
             </div>
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.8)]"></div>
-              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Turing Module</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-neutral-400"></div>
-              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Shared Concept (Link)</span>
+              <div className="w-3 h-3 rounded-full bg-neutral-600"></div>
+              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Unexplored</span>
             </div>
           </div>
         </div>

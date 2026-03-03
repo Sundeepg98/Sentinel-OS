@@ -145,39 +145,58 @@ app.get('/api/intelligence/graph', (req, res) => {
   const links = [];
   const conceptToFiles = knowledgeGraph.concepts;
   
-  // 1. Create File Nodes
-  Object.entries(knowledgeGraph.files).forEach(([id, data]) => {
-    nodes.push({ 
-      id, 
-      label: data.label, 
-      group: 'module', 
-      company: data.company,
-      val: 15 
-    });
-  });
-
-  // 2. Create Concept Nodes & Links
-  Object.entries(conceptToFiles).forEach(([concept, files]) => {
-    if (files.length > 1) { // Only show concepts that link at least 2 files (Synthesis nodes)
-      nodes.push({ 
-        id: `concept:${concept}`, 
-        label: concept, 
-        group: 'concept', 
-        company: 'global',
-        val: 8 
-      });
-
-      files.forEach(f => {
-        links.push({ 
-          source: f.fileId, 
-          target: `concept:${concept}`,
-          keyword: concept 
-        });
+  // 1. Fetch all readiness states from DB
+  db.all("SELECT key, value FROM user_state WHERE key LIKE 'tracker-%'", [], (err, rows) => {
+    const readinessMap = {};
+    if (!err && rows) {
+      rows.forEach(row => {
+        try {
+          const tasks = JSON.parse(row.value);
+          const done = tasks.filter(t => t.done).length;
+          readinessMap[row.key] = done / tasks.length;
+        } catch (e) {}
       });
     }
-  });
 
-  res.json({ nodes, links });
+    // 2. Create File Nodes with readiness
+    Object.entries(knowledgeGraph.files).forEach(([id, data]) => {
+      const companyId = data.company;
+      const moduleId = id.split('/').pop().replace('.md', '').toLowerCase();
+      const stateKey = `tracker-${companyId}-${moduleId}`;
+      
+      nodes.push({ 
+        id, 
+        label: data.label, 
+        group: 'module', 
+        company: companyId,
+        val: 15,
+        readiness: readinessMap[stateKey] || 0
+      });
+    });
+
+    // 3. Create Concept Nodes & Links
+    Object.entries(conceptToFiles).forEach(([concept, files]) => {
+      if (files.length > 1) {
+        nodes.push({ 
+          id: `concept:${concept}`, 
+          label: concept, 
+          group: 'concept', 
+          company: 'global',
+          val: 8 
+        });
+
+        files.forEach(f => {
+          links.push({ 
+            source: f.fileId, 
+            target: `concept:${concept}`,
+            keyword: concept 
+          });
+        });
+      }
+    });
+
+    res.json({ nodes, links });
+  });
 });
 
 app.get('/api/intelligence/search', (req, res) => {
