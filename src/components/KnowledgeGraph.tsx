@@ -75,13 +75,15 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   // Instant perfect framing on load
   useEffect(() => {
     if (isOpen && graphData.nodes.length > 0 && graphRef.current && !hasInitialZoomed.current) {
-      // Instant snap (0ms) to perfect framing with a 150px margin
+      // Use explicit cameraPosition instead of aggressive zoomToFit to respect user UX
       setTimeout(() => {
         if (graphRef.current) {
-          graphRef.current.zoomToFit(0, 150);
+          // Set a comfortable, static Z distance. 
+          // 0ms transition means it happens instantly without animation rubber-banding.
+          graphRef.current.cameraPosition({ z: 200 }, undefined, 0);
           hasInitialZoomed.current = true;
         }
-      }, 100); // Slight delay to ensure canvas is fully rendered
+      }, 50); 
     }
   }, [isOpen, graphData]);
 
