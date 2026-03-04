@@ -1,5 +1,5 @@
 import { useState, createContext, useContext, useEffect, Suspense, lazy } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './views/Dashboard';
 import { Internals } from './views/Internals';
