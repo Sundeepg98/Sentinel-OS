@@ -14,7 +14,6 @@ import { WarRoom } from './views/WarRoom';
 import { useDossier } from './hooks/useDossier';
 import type { CompanyDossier } from './types';
 import { Loader2, AlertCircle, Network, Swords, Terminal } from 'lucide-react';
-import { Suspense, lazy } from 'react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { cn } from './lib/utils';
 import { ToastProvider } from './hooks/useToast';
