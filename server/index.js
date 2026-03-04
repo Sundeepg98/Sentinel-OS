@@ -6,6 +6,8 @@ const { Index } = require('flexsearch');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const { z } = require('zod');
+const morgan = require('morgan');
+const pino = require('pino');
 const { db, initDB } = require('./lib/db');
 const { 
   GEMINI_API_KEY, 
@@ -23,10 +25,13 @@ const {
   INTELLIGENCE_DIR 
 } = require('./lib/harvester');
 
-/**
- * 🛠️ ENGINEERING BASIC: ENV VALIDATION
- * Ensure critical environment variables exist before the app starts.
- */
+// --- 🛠️ ENGINEERING BASIC: STRUCTURED LOGGING ---
+const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  transport: process.env.NODE_ENV !== 'production' ? { target: 'pino-pretty' } : undefined
+});
+
+// --- 🛠️ ENGINEERING BASIC: ENV VALIDATION ---
 const envSchema = z.object({
   GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
   PORT: z.string().default("3002"),
@@ -43,35 +48,24 @@ const FRONTEND_DIST = path.join(__dirname, '..', 'dist');
 // Initialize Core Systems
 initDB();
 
-/**
- * 🛠️ ENGINEERING BASIC: SECURITY HEADERS
- * Hardens the app against common web vulnerabilities.
- */
 app.use(helmet({
-  contentSecurityPolicy: false, // Disabled to allow Three.js/Postprocessing assets
+  contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false
 }));
+
+// --- 🛠️ ENGINEERING BASIC: REQUEST LOGGING ---
+app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 app.use(cors());
 app.use(express.json());
 
 // --- HEALTH CHECK ---
-app.get('/api/health', (req, res) => {
+app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
-/**
- * 🛠️ ENGINEERING BASIC: CACHE CONTROL
- * Explicitly set headers for static assets to improve load performance.
- */
-app.use(express.static(FRONTEND_DIST, {
-  maxAge: '1y',
-  setHeaders: (res, path) => {
-    if (path.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache');
-    }
-  }
-}));
+// --- 🛠️ ENGINEERING BASIC: API VERSIONING (v1) ---
+const v1Router = express.Router();
 
 // --- UPSTREAM PROTECTION (Rate Limiting) ---
 const aiRateLimiter = rateLimit({
@@ -81,17 +75,6 @@ const aiRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-
-app.use('/api/intelligence/drill', aiRateLimiter);
-app.use('/api/intelligence/evaluate', aiRateLimiter);
-app.use('/api/intelligence/incident', aiRateLimiter);
-
-// Auth Middleware
-const authGuard = (req, res, next) => {
-  req.userId = 'local-admin'; 
-  next();
-};
-app.use(authGuard);
 
 // --- SYNCED STATE (Main Thread) ---
 let knowledgeGraph = { concepts: {}, files: {} };
@@ -107,7 +90,7 @@ function spawnRAGWorker() {
   
   worker.on('message', (msg) => {
     if (msg.status === 'complete') {
-      console.log(`📡 Main Loop: Hydrating Intelligence from Worker (${msg.duration}s)`);
+      logger.info(`📡 Intelligence Hydrated from Worker (${msg.duration}s)`);
       knowledgeGraph = msg.knowledgeGraph;
       
       const newIndex = new Index({ preset: 'score', tokenize: 'forward' });
@@ -115,13 +98,13 @@ function spawnRAGWorker() {
         newIndex.add(id, file.content);
       });
       searchIndex = newIndex;
-      console.log(`🔍 Main Loop: Search Index Synchronized.`);
+      logger.info(`🔍 Search Index Synchronized.`);
       isSyncing = false;
     }
   });
 
   worker.on('error', (err) => {
-    console.error('🧵 Worker Error:', err);
+    logger.error('🧵 Worker Error:', err);
     isSyncing = false;
   });
 
@@ -140,12 +123,21 @@ async function learnFromProposal(userId, fileId, text, score) {
       db.prepare(`INSERT INTO chunks_metadata (id, file_id, chunk_text, metadata) VALUES (?, ?, ?, ?)`).run(rowid, `learned/${fileId}`, text, JSON.stringify(meta));
       db.prepare(`INSERT INTO vec_chunks (id, vector) VALUES (?, ?)`).run(rowid, new Float32Array(vector));
     })();
-  } catch (e) { console.error("Feedback Loop Error:", e.message); }
+    logger.info(`🧠 Learned from proposal in ${fileId}`);
+  } catch (e) { logger.error("Feedback Loop Error:", e.message); }
 }
 
-// --- API ENDPOINTS ---
+// Auth Middleware (No-Blocker Strategy)
+const authGuard = (req, res, next) => {
+  req.userId = 'local-admin'; 
+  next();
+};
 
-app.get('/api/intelligence/stats', (req, res) => {
+v1Router.use(authGuard);
+
+// --- API V1 ENDPOINTS ---
+
+v1Router.get('/intelligence/stats', (req, res) => {
   const chunks = db.prepare("SELECT count(*) as count FROM chunks_metadata").get();
   const history = db.prepare("SELECT count(*) as count FROM interaction_history").get();
   const learned = db.prepare("SELECT count(*) as count FROM chunks_metadata WHERE file_id LIKE 'learned/%'").get();
@@ -161,7 +153,7 @@ app.get('/api/intelligence/stats', (req, res) => {
   });
 });
 
-app.get('/api/intelligence/graph', (req, res) => {
+v1Router.get('/intelligence/graph', (req, res) => {
   const nodes = []; const links = [];
   const rows = db.prepare("SELECT key, value FROM user_state WHERE user_id = ? AND (key LIKE 'tracker-%' OR key LIKE 'score-%')").all(req.userId);
   const trackers = {}; const scores = {};
@@ -196,7 +188,7 @@ app.get('/api/intelligence/graph', (req, res) => {
   res.json({ nodes, links });
 });
 
-app.get('/api/intelligence/insights', async (req, res) => {
+v1Router.get('/intelligence/insights', async (req, res) => {
   const { fileId } = req.query;
   if (!fileId) return res.status(400).json({ error: 'Missing fileId' });
   const file = knowledgeGraph.files[fileId];
@@ -209,14 +201,14 @@ app.get('/api/intelligence/insights', async (req, res) => {
   } catch (e) { res.json({ keywords: file.keywords, related: [] }); }
 });
 
-app.get('/api/intelligence/search', (req, res) => {
+v1Router.get('/intelligence/search', (req, res) => {
   const { q } = req.query;
   if (!q) return res.json([]);
   const results = searchIndex.search(q, { limit: 10 });
   res.json(results.map(id => ({ id, ...knowledgeGraph.files[id] })));
 });
 
-app.post('/api/intelligence/semantic-search', async (req, res) => {
+v1Router.post('/intelligence/semantic-search', async (req, res) => {
   const { q, limit = 5 } = req.body;
   try {
     const vector = await getEmbedding(q);
@@ -225,7 +217,7 @@ app.post('/api/intelligence/semantic-search', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/intelligence/drill', async (req, res) => {
+v1Router.post('/intelligence/drill', aiRateLimiter, async (req, res) => {
   const { fileId, extraContext = "" } = req.body;
   if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
   try {
@@ -235,7 +227,7 @@ app.post('/api/intelligence/drill', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.post('/api/intelligence/evaluate', async (req, res) => {
+v1Router.post('/intelligence/evaluate', aiRateLimiter, async (req, res) => {
   const { userAnswer, question, idealResponse, fileId } = req.body;
   try {
     const prompt = `Staff Interview Evaluation. Q: ${question}\nIdeal: ${idealResponse}\nCandidate: "${userAnswer}"`;
@@ -253,7 +245,7 @@ app.post('/api/intelligence/evaluate', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.post('/api/intelligence/incident', async (req, res) => {
+v1Router.post('/intelligence/incident', aiRateLimiter, async (req, res) => {
   const { moduleIds = [] } = req.body;
   if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
   let context = moduleIds.map(id => knowledgeGraph.files[id]?.content.slice(0, 1000)).join('\n\n') || "General System Architecture";
@@ -264,7 +256,7 @@ app.post('/api/intelligence/incident', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.post('/api/intelligence/incident/evaluate', async (req, res) => {
+v1Router.post('/intelligence/incident/evaluate', aiRateLimiter, async (req, res) => {
   const { userAnswer, incident } = req.body;
   try {
     const prompt = `Staff Engineer Incident Post-Mortem.\nIncident: ${incident.title}\nActual Root Cause: ${incident.rootCause}\nIdeal Mitigation: ${incident.idealMitigation}\nCandidate's Response: "${userAnswer}"`;
@@ -278,7 +270,7 @@ app.post('/api/intelligence/incident/evaluate', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.get('/api/dossier/:companyId', async (req, res) => {
+v1Router.get('/dossier/:companyId', async (req, res) => {
   const fsNative = require('fs').promises;
   const matter = require('gray-matter');
   const { parsePlaybook, parseChecklist } = require('./lib/harvester');
@@ -295,28 +287,28 @@ app.get('/api/dossier/:companyId', async (req, res) => {
   res.json({ id: req.params.companyId, name: req.params.companyId.toUpperCase(), modules: modules.sort((a, b) => a.id.localeCompare(b.id)) });
 });
 
-app.get('/api/companies', async (req, res) => {
+v1Router.get('/companies', async (req, res) => {
   const fsNative = require('fs').promises;
   const entries = await fsNative.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
   res.json(entries.filter(d => d.isDirectory()).map(d => ({ id: d.name, name: d.name.toUpperCase() })));
 });
 
-app.get('/api/intelligence/history', (req, res) => {
+v1Router.get('/intelligence/history', (req, res) => {
   const rows = db.prepare("SELECT * FROM interaction_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 50").all(req.userId);
   res.json(rows.map(r => ({ ...r, evaluation: JSON.parse(r.evaluation) })));
 });
 
-app.get('/api/state/:key', (req, res) => {
+v1Router.get('/state/:key', (req, res) => {
   const row = db.prepare("SELECT value FROM user_state WHERE user_id = ? AND key = ?").get(req.userId, req.params.key);
   res.json({ value: row ? JSON.parse(row.value) : null });
 });
 
-app.post('/api/state/:key', (req, res) => {
+v1Router.post('/state/:key', (req, res) => {
   db.prepare(`INSERT INTO user_state (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`).run(req.userId, req.params.key, JSON.stringify(req.body.value));
   res.json({ success: true });
 });
 
-app.get('/api/portfolio/export', (req, res) => {
+v1Router.get('/portfolio/export', (req, res) => {
   const rows = db.prepare("SELECT key, value FROM user_state WHERE user_id = ?").all(req.userId);
   let md = `# Staff Engineer Architectural Portfolio\n\n*Generated by Sentinel-OS*\n\n---\n\n## 🏆 Readiness & Mastery Tracker\n\n`;
   let hasTrackers = false;
@@ -354,29 +346,41 @@ app.get('/api/portfolio/export', (req, res) => {
   res.send(md);
 });
 
+// --- MOUNT VERSIONED API ---
+app.use('/api/v1', v1Router);
+
+/**
+ * 🛠️ ENGINEERING BASIC: CACHE CONTROL
+ */
+app.use(express.static(FRONTEND_DIST, {
+  maxAge: '1y',
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
+
 app.get(/(.*)/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
 
 const server = app.listen(PORT, () => {
-  console.log(`Intelligence Engine ACTIVE on ${PORT}`);
+  logger.info(`Intelligence Engine ACTIVE on ${PORT}`);
   spawnRAGWorker();
 });
 
 /**
  * 🛠️ ENGINEERING BASIC: GRACEFUL SHUTDOWN
- * Ensure DB connections and server handles are closed cleanly.
  */
 function gracefulShutdown() {
-  console.log("🛑 Signal received. Shutting down gracefully...");
+  logger.info("🛑 Signal received. Shutting down gracefully...");
   server.close(() => {
-    console.log("📡 Express server closed.");
+    logger.info("📡 Express server closed.");
     db.close();
-    console.log("🗄️ SQLite connection closed.");
+    logger.info("🗄️ SQLite connection closed.");
     process.exit(0);
   });
-  
-  // Force close after 10s
   setTimeout(() => {
-    console.error("⚠️ Forcefully shutting down.");
+    logger.error("⚠️ Forcefully shutting down.");
     process.exit(1);
   }, 10000);
 }
