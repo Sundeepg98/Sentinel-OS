@@ -22,6 +22,9 @@ const AUTH_ENABLED = process.env.AUTH_ENABLED === 'true';
 
 const getGenAI = () => new GoogleGenerativeAI(GEMINI_API_KEY || '');
 
+// Global counter for learned chunks
+let dynamicChunkId = 999000; 
+
 // --- PERSISTENCE ENGINE INITIALIZATION ---
 const dbFile = path.join(__dirname, 'sentinel.db');
 const db = new Database(dbFile);
@@ -115,6 +118,25 @@ app.use(express.static(FRONTEND_DIST));
 
 const searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
 let knowledgeGraph = { concepts: {}, files: {} };
+
+// --- FEEDBACK LOOP: KNOWLEDGE EVOLUTION ---
+
+async function learnFromProposal(userId, fileId, text, score) {
+  if (score < 8) return; 
+  console.log(`🧠 Evolving Knowledge: Learning from high-score proposal in ${fileId}`);
+  try {
+    const vector = await getEmbedding(text);
+    const meta = { learned: true, contributor: userId, originalModule: fileId, timestamp: new Date().toISOString() };
+    
+    db.transaction(() => {
+      const rowid = dynamicChunkId++;
+      db.prepare(`INSERT INTO chunks_metadata (id, file_id, chunk_text, metadata) VALUES (?, ?, ?, ?)`).run(rowid, `learned/${fileId}`, text, JSON.stringify(meta));
+      db.prepare(`INSERT INTO vec_chunks (id, vector) VALUES (?, ?)`).run(rowid, new Float32Array(vector));
+    })();
+  } catch (e) {
+    console.error("Feedback Loop Error:", e.message);
+  }
+}
 
 // --- MARKDOWN PARSING UTILITIES ---
 
@@ -382,6 +404,9 @@ app.post('/api/intelligence/evaluate', async (req, res) => {
         db.prepare(`INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) 
                    VALUES (?, 'drill', ?, ?, ?, ?, ?)`)
           .run(req.userId, fileId, question, userAnswer, JSON.stringify(json), numericScore);
+
+        // Feedback Loop: Evolve the Knowledge Graph
+        learnFromProposal(req.userId, fileId, userAnswer, numericScore);
       }
     }
 
