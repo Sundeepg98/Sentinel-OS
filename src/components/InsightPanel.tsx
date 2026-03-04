@@ -98,7 +98,8 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
         })
       });
       if (!res.ok) throw new Error('Eval failed');
-      return res.json() as EvalData;
+      const data = await res.json();
+      return data as unknown as EvalData;
     },
     onSuccess: (data) => {
       if (data) {

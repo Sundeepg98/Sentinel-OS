@@ -105,7 +105,7 @@ export const WarRoom = () => {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      return data as Evaluation;
+      return data as unknown as Evaluation;
     },
     onSuccess: (data) => {
       setEvaluation(data);
