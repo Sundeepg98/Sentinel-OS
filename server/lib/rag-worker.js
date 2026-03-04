@@ -18,12 +18,12 @@ async function runSync() {
     parentPort.postMessage({ 
       status: 'complete', 
       duration,
-      knowledgeGraph: getKnowledgeGraph(),
-      searchIndexExport: getSearchIndex().export() // FlexSearch needs to be exported/imported as string
+      knowledgeGraph: getKnowledgeGraph()
+      // searchIndexExport: removed due to FlexSearch internal worker crash
     });
   } catch (error) {
-    console.error('❌ [RAG Worker] Sync Error:', error.message);
-    parentPort.postMessage({ status: 'error', message: error.message });
+    console.error('❌ [RAG Worker] Sync Error:', error);
+    parentPort.postMessage({ status: 'error', message: error.message, stack: error.stack });
   }
 }
 

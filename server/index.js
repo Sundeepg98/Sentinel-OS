@@ -15,6 +15,7 @@ const {
   POST_MORTEM_SCHEMA
 } = require('./lib/intelligence');
 const { 
+  getKnowledgeGraph, 
   INTELLIGENCE_DIR 
 } = require('./lib/harvester');
 
@@ -52,12 +53,13 @@ function spawnRAGWorker() {
       console.log(`📡 Main Loop: Hydrating Intelligence from Worker (${msg.duration}s)`);
       knowledgeGraph = msg.knowledgeGraph;
       
-      // Re-hydrate search index from export
+      // Re-build search index in main thread after worker finishes
       const newIndex = new Index({ preset: 'score', tokenize: 'forward' });
-      if (msg.searchIndexExport) {
-        // FlexSearch export handling depends on version, for now we will just re-sync if needed 
-        // but since we want performance, we'll use the worker's map
-      }
+      Object.entries(knowledgeGraph.files).forEach(([id, file]) => {
+        newIndex.add(id, file.content);
+      });
+      searchIndex = newIndex;
+      console.log(`🔍 Main Loop: Search Index Re-built.`);
       isSyncing = false;
     }
   });
@@ -159,6 +161,28 @@ app.get('/api/intelligence/insights', async (req, res) => {
   }
 });
 
+app.post('/api/intelligence/search', (req, res) => {
+  const { q } = req.body;
+  if (!q) return res.json([]);
+  const results = searchIndex.search(q, { limit: 10 });
+  res.json(results.map(id => ({ id, ...knowledgeGraph.files[id] })));
+});
+
+app.post('/api/intelligence/semantic-search', async (req, res) => {
+  const { q, limit = 5 } = req.body;
+  try {
+    const vector = await getEmbedding(q);
+    const results = db.prepare(`
+      SELECT m.file_id, m.chunk_text, v.distance 
+      FROM vec_chunks v
+      JOIN chunks_metadata m ON v.id = m.id
+      WHERE v.vector MATCH ? AND k = ?
+      ORDER BY distance
+    `).all(new Float32Array(vector), limit);
+    res.json(results);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/intelligence/drill', async (req, res) => {
   const { fileId, extraContext = "" } = req.body;
   if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
@@ -187,6 +211,37 @@ app.post('/api/intelligence/evaluate', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+app.post('/api/intelligence/incident', async (req, res) => {
+  const { moduleIds = [] } = req.body;
+  if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
+  let context = moduleIds.map(id => knowledgeGraph.files[id]?.content.slice(0, 1000)).join('\n\n') || "General System Architecture";
+
+  try {
+    const prompt = `You are a Chaos Engineering simulator for a Staff Engineer. Context: ${context}. Generate a critical production incident (P0/P1) based on this architecture.`;
+    const text = await generateStructuredContent(prompt, INCIDENT_SCHEMA);
+    res.json(JSON.parse(text));
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/intelligence/incident/evaluate', async (req, res) => {
+  const { userAnswer, incident } = req.body;
+  if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
+  
+  try {
+    const prompt = `Staff Engineer Incident Post-Mortem.\nIncident: ${incident.title}\nActual Root Cause: ${incident.rootCause}\nIdeal Mitigation: ${incident.idealMitigation}\nCandidate's Response: "${userAnswer}"`;
+    const text = await generateStructuredContent(prompt, POST_MORTEM_SCHEMA);
+    const json = JSON.parse(text);
+
+    if (json && json.score) {
+      const numericScore = parseInt(json.score.split('/')[0]);
+      db.prepare(`INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) 
+                 VALUES (?, 'incident', ?, ?, ?, ?, ?)`)
+        .run(req.userId, incident.title, incident.title, userAnswer, text, isNaN(numericScore) ? 0 : numericScore);
+    }
+    res.json(json);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 app.get('/api/dossier/:companyId', async (req, res) => {
   const fsNative = require('fs').promises;
   const matter = require('gray-matter');
@@ -204,7 +259,12 @@ app.get('/api/dossier/:companyId', async (req, res) => {
   res.json({ id: req.params.companyId, name: req.params.companyId.toUpperCase(), modules: modules.sort((a, b) => a.id.localeCompare(b.id)) });
 });
 
-// Other Endpoints (stats, search, history, etc) ... [stubbed for brevity]
+app.get('/api/companies', async (req, res) => {
+  const fsNative = require('fs').promises;
+  const entries = await fsNative.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
+  res.json(entries.filter(d => d.isDirectory()).map(d => ({ id: d.name, name: d.name.toUpperCase() })));
+});
+
 app.get('/api/intelligence/history', (req, res) => {
   const rows = db.prepare("SELECT * FROM interaction_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 50").all(req.userId);
   res.json(rows.map(r => ({ ...r, evaluation: JSON.parse(r.evaluation) })));

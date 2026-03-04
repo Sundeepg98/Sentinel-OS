@@ -8,8 +8,8 @@ const { db } = require('./db');
 const { getEmbedding } = require('./intelligence');
 
 const INTELLIGENCE_DIR = path.join(__dirname, '..', '..', 'intelligence');
-const searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
 let knowledgeGraph = { concepts: {}, files: {} };
+let searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
 
 function parsePlaybook(content) {
   const sections = content.split(/## Q:/).filter(s => s.trim().length > 0);
@@ -19,91 +19,53 @@ function parsePlaybook(content) {
     const trapMatch = s.match(/### The Trap Response\n([\s\S]*?)(?=###|$)/);
     const trapWhyMatch = s.match(/### Why it fails\n([\s\S]*?)(?=###|$)/);
     const optimalMatch = s.match(/### Optimal Staff Response\n([\s\S]*?)(?=###|$)/);
-    
-    return {
-      q: question,
-      trap: trapMatch ? trapMatch[1].trim() : "",
-      trapWhy: trapWhyMatch ? trapWhyMatch[1].trim() : "",
-      optimal: optimalMatch ? optimalMatch[1].trim() : ""
-    };
+    return { q: question, trap: trapMatch ? trapMatch[1].trim() : "", trapWhy: trapWhyMatch ? trapWhyMatch[1].trim() : "", optimal: optimalMatch ? optimalMatch[1].trim() : "" };
   }).filter(p => p.q);
 }
 
 function parseChecklist(content) {
   const lines = content.split('\n');
   let id = 1;
-  return lines
-    .filter(l => l.trim().startsWith('-'))
-    .map(l => ({
-      id: id++,
-      text: l.replace(/^-\s*(\[[\sxX]\])?\s*/, '').trim(),
-      done: l.includes('[x]') || l.includes('[X]')
-    }))
-    .filter(t => t.text.length > 0);
+  return lines.filter(l => l.trim().startsWith('-')).map(l => ({ id: id++, text: l.replace(/^-\s*(\[[\sxX]\])?\s*/, '').trim(), done: l.includes('[x]') || l.includes('[X]') })).filter(t => t.text.length > 0);
 }
 
 function extractKeywords(text) {
-  const tokenizer = new natural.WordTokenizer();
-  const words = tokenizer.tokenize(text.toLowerCase());
-  const stopWords = new Set(['the', 'this', 'that', 'with', 'from', 'using', 'into', 'your', 'will', 'then', 'they', 'when', 'what']);
-  const counts = {};
-  words.filter(w => w.length > 3 && !stopWords.has(w)).forEach(w => counts[w] = (counts[w] || 0) + 1);
-  return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
+  try {
+    const words = text.toLowerCase().split(/\W+/);
+    const stopWords = new Set(['the', 'this', 'that', 'with', 'from', 'using', 'into', 'your', 'will', 'then', 'they', 'when', 'what', 'these', 'those', 'about']);
+    const counts = {};
+    words.filter(w => w.length > 3 && !stopWords.has(w)).forEach(w => counts[w] = (counts[w] || 0) + 1);
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
+  } catch (e) {
+    return [];
+  }
 }
 
 function getFileHash(content) {
   return crypto.createHash('md5').update(content).digest('hex');
 }
 
-/**
- * ADVANCED SEMANTIC CHUNKING
- * Splits markdown by headers and paragraphs, ensuring code blocks stay intact.
- */
 function chunkMarkdown(text, maxLength = 1500) {
   const chunks = [];
-  
-  // 1. Recursive structural split
   const splitRecursive = (content, headerLevel = 1) => {
-    if (content.length <= maxLength) {
-      if (content.trim()) chunks.push(content.trim());
-      return;
-    }
-
-    // Try splitting by headers of decreasing weight
+    if (content.length <= maxLength) { if (content.trim()) chunks.push(content.trim()); return; }
     const headerRegex = new RegExp(`^#{${headerLevel}}\\s+`, 'm');
     const parts = content.split(headerRegex).filter(p => p.trim());
-
-    if (parts.length > 1) {
-      parts.forEach(p => splitRecursive(p, headerLevel + 1));
-    } else if (headerLevel < 4) {
-      splitRecursive(content, headerLevel + 1);
-    } else {
-      // 2. Fallback to paragraph split if headers don't help
+    if (parts.length > 1) { parts.forEach(p => splitRecursive(p, headerLevel + 1)); }
+    else if (headerLevel < 4) { splitRecursive(content, headerLevel + 1); }
+    else {
       const paragraphs = content.split(/\n\n+/).filter(p => p.trim());
       let currentChunk = "";
-
       for (const p of paragraphs) {
-        if ((currentChunk + p).length > maxLength && currentChunk) {
-          chunks.push(currentChunk.trim());
-          currentChunk = p;
-        } else {
-          currentChunk += (currentChunk ? "\n\n" : "") + p;
-        }
+        if ((currentChunk + p).length > maxLength && currentChunk) { chunks.push(currentChunk.trim()); currentChunk = p; }
+        else { currentChunk += (currentChunk ? "\n\n" : "") + p; }
       }
-      
-      // 3. Final character-based split for massive paragraphs (rare)
       if (currentChunk.length > maxLength) {
         let remaining = currentChunk;
-        while (remaining.length > 0) {
-          chunks.push(remaining.substring(0, maxLength));
-          remaining = remaining.substring(maxLength);
-        }
-      } else if (currentChunk) {
-        chunks.push(currentChunk.trim());
-      }
+        while (remaining.length > 0) { chunks.push(remaining.substring(0, maxLength)); remaining = remaining.substring(maxLength); }
+      } else if (currentChunk) { chunks.push(currentChunk.trim()); }
     }
   };
-
   splitRecursive(text);
   return chunks;
 }
@@ -116,11 +78,7 @@ async function processFileVectors(fileId, content, metadata) {
       db.prepare(`DELETE FROM vec_chunks WHERE id IN (${oldIds.join(',')})`).run();
       db.prepare(`DELETE FROM chunks_metadata WHERE file_id = ?`).run(fileId);
     }
-    
-    // Use Advanced Chunker
     const chunks = chunkMarkdown(content);
-    console.log(`📑 [${fileId}] Generated ${chunks.length} structural chunks.`);
-    
     for (const chunk of chunks) {
       const vector = await getEmbedding(chunk);
       db.transaction(() => {
@@ -128,7 +86,6 @@ async function processFileVectors(fileId, content, metadata) {
         db.prepare(`INSERT INTO vec_chunks (id, vector) SELECT last_insert_rowid(), ?`).run(new Float32Array(vector));
       })();
     }
-    console.log(`🧠 Vectorized: ${fileId}`);
   } catch (e) { console.error(`Vectorization Error [${fileId}]:`, e.message); }
 }
 
@@ -155,15 +112,16 @@ async function syncIntelligence() {
           keywords = JSON.parse(cached.keywords);
           label = cached.label;
         } else {
-          console.log(`📡 Processing: ${fileId} (Change Detected)`);
           keywords = extractKeywords(content + ' ' + (data.label || ''));
           label = data.label || fileName;
           db.prepare(`INSERT INTO intelligence_cache (file_id, content_hash, label, company, keywords) VALUES (?, ?, ?, ?, ?) 
                      ON CONFLICT(file_id) DO UPDATE SET content_hash=excluded.content_hash, label=excluded.label, keywords=excluded.keywords, last_processed=CURRENT_TIMESTAMP`)
             .run(fileId, currentHash, label, company.name, JSON.stringify(keywords));
-          processFileVectors(fileId, content, data);
+          await processFileVectors(fileId, content, data);
         }
-        searchIndex.add(fileId, content);
+        
+        try { searchIndex.add(fileId, content); } catch(e) {}
+        
         newGraph.files[fileId] = { label, company: company.name, keywords, content };
         keywords.forEach(k => {
           if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
