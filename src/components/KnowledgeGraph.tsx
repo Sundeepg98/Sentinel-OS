@@ -166,9 +166,21 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     const group = new THREE.Group();
     const isHighlighted = highlightNodes.has(node) || highlightNodes.size === 0;
     const size = node.weight || 3;
-    const isMastered = node.readiness === 1;
-    const baseColor = node.company === 'mailin' ? '#06b6d4' : node.company === 'turing' ? '#6366f1' : '#737373';
-    const activeColor = isMastered ? '#10b981' : baseColor;
+    const readiness = node.readiness || 0;
+
+    // --- MASTERY HEATMAP COLOR GRADIENT ---
+    let activeColor = '#737373'; 
+    if (node.group === 'module') {
+      if (readiness < 0.3) {
+        activeColor = '#f43f5e'; // Rose (Unexplored)
+      } else if (readiness < 0.7) {
+        activeColor = '#f59e0b'; // Amber (Practicing)
+      } else {
+        activeColor = '#10b981'; // Emerald (Mastered)
+      }
+    } else {
+      activeColor = '#6366f1'; // Indigo for Concepts
+    }
 
     const geometry = new THREE.SphereGeometry(size, 32, 32);
     const material = new THREE.MeshPhysicalMaterial({
@@ -181,7 +193,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
       transparent: true,
       opacity: isHighlighted ? 1 : 0.15,
       emissive: isHighlighted ? activeColor : '#000000',
-      emissiveIntensity: isHighlighted ? 0.4 : 0
+      emissiveIntensity: isHighlighted ? (0.2 + readiness * 0.8) : 0
     });
     group.add(new THREE.Mesh(geometry, material));
 
@@ -270,20 +282,20 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
           
           <div className="absolute bottom-6 left-6 pointer-events-none bg-black/40 border border-white/10 backdrop-blur-xl p-5 rounded-xl space-y-4 shadow-2xl">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-[#06b6d4] shadow-[0_0_12px_#22d3ee]"></div>
-              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Mailin Core</span>
+              <div className="w-3 h-3 rounded-full bg-[#f43f5e] shadow-[0_0_12px_#f43f5e]"></div>
+              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Unexplored (0-30%)</span>
             </div>
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-[#6366f1] shadow-[0_0_12px_#818cf8]"></div>
-              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Turing Core</span>
+              <div className="w-3 h-3 rounded-full bg-[#f59e0b] shadow-[0_0_12px_#f59e0b]"></div>
+              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Practicing (31-70%)</span>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 rounded-full bg-[#10b981] shadow-[0_0_15px_#10b981]"></div>
-              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">100% Mastered</span>
+              <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Mastered (71-100%)</span>
             </div>
             <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
-              <div className="flex items-center gap-2 text-[9px] font-bold text-neutral-500 uppercase tracking-widest"><Zap size={10} className="text-amber-400" /> SMAA + Bloom + Vignette</div>
-              <div className="flex items-center gap-2 text-[9px] font-bold text-neutral-500 uppercase tracking-widest"><Cpu size={10} className="text-indigo-400" /> Three.js Physical Engine</div>
+              <div className="flex items-center gap-2 text-[9px] font-bold text-neutral-500 uppercase tracking-widest"><Zap size={10} className="text-amber-400" /> Mastery Heatmap Mode</div>
+              <div className="flex items-center gap-2 text-[9px] font-bold text-neutral-500 uppercase tracking-widest"><Cpu size={10} className="text-indigo-400" /> Post-Processing: High-Justice</div>
             </div>
           </div>
         </div>

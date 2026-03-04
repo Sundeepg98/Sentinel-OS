@@ -17,8 +17,25 @@ export const Tracker: React.FC = () => {
   
   const [tasks, setTasks] = useLocalStorage<Task[]>(`tracker-${dossier.id}-${activeModule.id}`, initialTasks);
 
+  // Sync with backend on mount
+  React.useEffect(() => {
+    fetch(`/api/state/tracker-${dossier.id}-${activeModule.id}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.value) setTasks(data.value);
+      });
+  }, [dossier.id, activeModule.id, setTasks]);
+
   const toggle = (id: number) => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, done: !t.done } : t));
+    const newTasks = tasks.map(t => t.id === id ? { ...t, done: !t.done } : t);
+    setTasks(newTasks);
+    
+    // Persist to backend for Heatmap
+    fetch(`/api/state/tracker-${dossier.id}-${activeModule.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: newTasks })
+    });
   };
 
   const progress = Math.round((tasks.filter(t => t.done).length / tasks.length) * 100);

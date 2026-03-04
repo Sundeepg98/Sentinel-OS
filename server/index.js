@@ -19,7 +19,6 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const DEFAULT_MODEL = "gemini-2.5-flash"; 
 const EMBEDDING_MODEL = "gemini-embedding-001";
 
-// Initialize inside handlers to ensure ENV is loaded
 const getGenAI = () => new GoogleGenerativeAI(GEMINI_API_KEY || '');
 
 // --- PERSISTENCE ENGINE INITIALIZATION ---
@@ -68,7 +67,38 @@ app.use(express.static(FRONTEND_DIST));
 const searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
 let knowledgeGraph = { concepts: {}, files: {} };
 
-// --- SDK-BASED INTELLIGENCE UTILITIES ---
+// --- MARKDOWN PARSING UTILITIES ---
+
+function parsePlaybook(content) {
+  const sections = content.split(/## Q:/).filter(s => s.trim().length > 0);
+  return sections.map(s => {
+    const lines = s.split('\n');
+    const question = lines[0].trim();
+    const trapMatch = s.match(/### The Trap Response\n([\s\S]*?)(?=###|$)/);
+    const trapWhyMatch = s.match(/### Why it fails\n([\s\S]*?)(?=###|$)/);
+    const optimalMatch = s.match(/### Optimal Staff Response\n([\s\S]*?)(?=###|$)/);
+    
+    return {
+      q: question,
+      trap: trapMatch ? trapMatch[1].trim() : "",
+      trapWhy: trapWhyMatch ? trapWhyMatch[1].trim() : "",
+      optimal: optimalMatch ? optimalMatch[1].trim() : ""
+    };
+  }).filter(p => p.q);
+}
+
+function parseChecklist(content) {
+  const lines = content.split('\n');
+  let id = 1;
+  return lines
+    .filter(l => l.trim().startsWith('-'))
+    .map(l => ({
+      id: id++,
+      text: l.replace(/^-\s*(\[[\sxX]\])?\s*/, '').trim(),
+      done: l.includes('[x]') || l.includes('[X]')
+    }))
+    .filter(t => t.text.length > 0);
+}
 
 function extractKeywords(text) {
   const tokenizer = new natural.WordTokenizer();
@@ -200,12 +230,26 @@ setTimeout(syncIntelligence, 500);
 
 app.get('/api/intelligence/graph', (req, res) => {
   const nodes = []; const links = [];
-  const rows = db.prepare("SELECT key, value FROM user_state WHERE key LIKE 'tracker-%'").all();
-  const readinessMap = {};
-  rows.forEach(row => { try { const tasks = JSON.parse(row.value); readinessMap[row.key] = tasks.filter(t => t.done).length / tasks.length; } catch (e) {} });
+  const rows = db.prepare("SELECT key, value FROM user_state WHERE key LIKE 'tracker-%' OR key LIKE 'score-%'").all();
+  
+  const trackers = {};
+  const scores = {};
+  rows.forEach(row => {
+    if (row.key.startsWith('tracker-')) trackers[row.key] = JSON.parse(row.value);
+    if (row.key.startsWith('score-')) scores[row.key.replace('score-', '')] = JSON.parse(row.value);
+  });
+
   Object.entries(knowledgeGraph.files).forEach(([id, data]) => {
-    const stateKey = `tracker-${data.company}-${id.split('/').pop().replace('.md', '').toLowerCase()}`;
-    nodes.push({ id, label: data.label, group: 'module', company: data.company, val: 15, readiness: readinessMap[stateKey] || 0 });
+    const trackerKey = `tracker-${data.company}-${id.split('/').pop().replace('.md', '').toLowerCase()}`;
+    const moduleTasks = trackers[trackerKey] || [];
+    const trackerReadiness = moduleTasks.length > 0 
+      ? (moduleTasks.filter(t => t.done).length / moduleTasks.length) * 0.5 
+      : 0;
+    const moduleScore = scores[id]?.lastScore || 0;
+    const scoreReadiness = (moduleScore / 10) * 0.5;
+    const readiness = trackerReadiness + scoreReadiness;
+
+    nodes.push({ id, label: data.label, group: 'module', company: data.company, val: 15, readiness });
   });
   Object.entries(knowledgeGraph.concepts).forEach(([concept, files]) => {
     if (files.length > 1) {
@@ -259,7 +303,7 @@ app.post('/api/intelligence/drill', async (req, res) => {
 });
 
 app.post('/api/intelligence/evaluate', async (req, res) => {
-  const { userAnswer, question, idealResponse } = req.body;
+  const { userAnswer, question, idealResponse, fileId } = req.body;
   if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
   try {
     const genAI = getGenAI();
@@ -272,6 +316,16 @@ app.post('/api/intelligence/evaluate', async (req, res) => {
     const result = await model.generateContent(prompt);
     const text = (await result.response).text();
     const json = extractJson(text);
+
+    if (json && json.score && fileId) {
+      const numericScore = parseInt(json.score.split('/')[0]);
+      if (!isNaN(numericScore)) {
+        db.prepare(`INSERT INTO user_state (key, value) VALUES (?, ?) 
+                   ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`)
+          .run(`score-${fileId}`, JSON.stringify({ lastScore: numericScore }));
+      }
+    }
+
     res.json(json || { score: "N/A", feedback: text });
   } catch (error) { 
     console.error("Evaluation Error:", error.message);
@@ -310,7 +364,20 @@ app.get('/api/dossier/:companyId', async (req, res) => {
   const modules = await Promise.all(files.filter(f => f.endsWith('.md')).map(async (fileName) => {
     const fileContent = await fs.readFile(path.join(companyDir, fileName), 'utf-8');
     const { data, content } = matter(fileContent);
-    return { id: fileName.replace('.md', '').toLowerCase(), fullId: `${companyId}/${fileName}`, label: data.label || fileName.replace('.md', ''), type: data.type || 'markdown', icon: data.icon || 'FileText', data: data.data || content };
+    
+    // STRUCTURED DATA PARSING FOR MODULES
+    let processedData = content;
+    if (data.type === 'playbook') processedData = parsePlaybook(content);
+    if (data.type === 'checklist') processedData = parseChecklist(content);
+
+    return { 
+      id: fileName.replace('.md', '').toLowerCase(), 
+      fullId: `${companyId}/${fileName}`, 
+      label: data.label || fileName.replace('.md', ''), 
+      type: data.type || 'markdown', 
+      icon: data.icon || 'FileText', 
+      data: data.data || processedData 
+    };
   }));
   res.json({ id: companyId, name: companyId.toUpperCase(), modules: modules.sort((a, b) => a.id.localeCompare(b.id)) });
 });

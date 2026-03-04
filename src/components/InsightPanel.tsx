@@ -142,6 +142,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
+          fileId: fullId, // Added for heatmap persistence
           question: drill.question, 
           idealResponse: drill.idealResponse, 
           userAnswer,
