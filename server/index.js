@@ -1,11 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs').promises;
 const { Worker } = require('worker_threads');
 const { Index } = require('flexsearch');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const compression = require('compression');
+const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const { z } = require('zod');
 const morgan = require('morgan');
@@ -56,10 +58,9 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// Compression middleware - MUST be before routes
+// Compression middleware
 app.use(compression({
   filter: (req, res) => {
-    // DO NOT compress SSE streams
     if (req.headers.accept === 'text/event-stream') return false;
     return compression.filter(req, res);
   }
@@ -77,11 +78,42 @@ app.use(morgan(':id :method :url :status :res[content-length] - :response-time m
 app.use(cors());
 app.use(express.json());
 
+// --- 🛠️ FILE UPLOAD CONFIGURATION ---
+const storage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const companyId = req.params.companyId || 'mailin';
+    const uploadPath = path.join(INTELLIGENCE_DIR, companyId);
+    try {
+      await fs.mkdir(uploadPath, { recursive: true });
+      cb(null, uploadPath);
+    } catch (e) {
+      cb(e, null);
+    }
+  },
+  filename: (req, file, cb) => {
+    // Sanitize and ensure .md extension
+    const cleanName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, cleanName.endsWith('.md') ? cleanName : `${cleanName}.md`);
+  }
+});
+
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (path.extname(file.originalname).toLowerCase() === '.md') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Markdown (.md) files are allowed'));
+    }
+  }
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString(), requestId: req.id });
 });
 
-// --- SYNCED STATE (Main Thread) ---
+// --- SYNCED STATE ---
 const globalState = {
   knowledgeGraph: { concepts: {}, files: {} },
   searchIndex: new Index({ preset: 'score', tokenize: 'forward' }),
@@ -107,14 +139,9 @@ function spawnRAGWorker() {
       });
       globalState.searchIndex = newIndex;
       
-      // BROADCAST TO SSE CLIENTS
       const payload = JSON.stringify({ type: 'SYNC_COMPLETE', hotReload: !!msg.isHotReload });
       globalState.clients.forEach(c => {
-        try {
-          c.res.write(`data: ${payload}\n\n`);
-        } catch (e) {
-          logger.error(`Failed to notify SSE client ${c.id}`);
-        }
+        try { c.res.write(`data: ${payload}\n\n`); } catch (e) {}
       });
 
       logger.info(`🔍 Search Index Synchronized. Notified ${globalState.clients.length} clients.`);
@@ -130,7 +157,7 @@ function spawnRAGWorker() {
   worker.on('exit', () => { isSyncing = false; });
 }
 
-// Auth Middleware (No-Blocker Strategy)
+// Auth Middleware
 const authGuard = (req, res, next) => {
   req.userId = 'local-admin'; 
   next();
@@ -148,6 +175,60 @@ const aiRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// --- REAL-TIME STREAM ---
+v1Router.get('/intelligence/stream', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+  const clientId = Date.now();
+  globalState.clients.push({ id: clientId, res });
+  res.write(':ok\n\n');
+  req.on('close', () => {
+    globalState.clients = globalState.clients.filter(c => c.id !== clientId);
+  });
+});
+
+// --- ADMIN & MANAGEMENT ENDPOINTS ---
+
+v1Router.post('/admin/upload/:companyId', upload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+  logger.info(`📁 [Admin] File uploaded: ${req.file.filename} to ${req.params.companyId}`);
+  res.json({ success: true, filename: req.file.filename });
+});
+
+v1Router.post('/admin/companies/:companyId', async (req, res) => {
+  const { companyId } = req.params;
+  const companyPath = path.join(INTELLIGENCE_DIR, companyId.toLowerCase());
+  try {
+    await fs.mkdir(companyPath, { recursive: true });
+    logger.info(`🏢 [Admin] Company directory created: ${companyId}`);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to create company", details: e.message });
+  }
+});
+
+v1Router.delete('/admin/files/:companyId/:filename', async (req, res) => {
+  const { companyId, filename } = req.params;
+  const filePath = path.join(INTELLIGENCE_DIR, companyId, filename);
+  try {
+    await fs.unlink(filePath);
+    logger.info(`🗑️ [Admin] File deleted: ${filename} from ${companyId}`);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to delete file", details: e.message });
+  }
+});
+
+v1Router.get('/admin/export-db', (req, res) => {
+  const dbPath = path.join(__dirname, 'sentinel.db');
+  res.download(dbPath, `sentinel-backup-${new Date().toISOString().split('T')[0]}.db`);
+});
+
+// --- STANDARD AI ENDPOINTS (v1) ---
+
 v1Router.get('/intelligence/stats', (req, res) => {
   const chunks = db.prepare("SELECT count(*) as count FROM chunks_metadata").get();
   const history = db.prepare("SELECT count(*) as count FROM interaction_history").get();
@@ -164,26 +245,6 @@ v1Router.get('/intelligence/stats', (req, res) => {
   });
 });
 
-v1Router.get('/intelligence/stream', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no'); // Disable proxy buffering (Nginx/Render)
-  
-  res.flushHeaders();
-
-  const clientId = Date.now();
-  const newClient = { id: clientId, res };
-  globalState.clients.push(newClient);
-
-  // Send initial keep-alive
-  res.write(':ok\n\n');
-
-  req.on('close', () => {
-    globalState.clients = globalState.clients.filter(c => c.id !== clientId);
-  });
-});
-
 v1Router.get('/intelligence/graph', (req, res) => {
   const nodes = []; const links = [];
   const rows = db.prepare("SELECT key, value FROM user_state WHERE user_id = ? AND (key LIKE 'tracker-%' OR key LIKE 'score-%')").all(req.userId);
@@ -192,9 +253,7 @@ v1Router.get('/intelligence/graph', (req, res) => {
     if (row.key.startsWith('tracker-')) trackers[row.key] = JSON.parse(row.value);
     if (row.key.startsWith('score-')) scores[row.key.replace('score-', '')] = JSON.parse(row.value);
   });
-
   const learnedModules = db.prepare("SELECT DISTINCT file_id, metadata FROM chunks_metadata WHERE file_id LIKE 'learned/%'").all();
-
   Object.entries(globalState.knowledgeGraph.files).forEach(([id, data]) => {
     const trackerKey = `tracker-${data.company}-${id.split('/').pop().replace('.md', '').toLowerCase()}`;
     const moduleTasks = trackers[trackerKey] || [];
@@ -203,13 +262,11 @@ v1Router.get('/intelligence/graph', (req, res) => {
     const readiness = trackerReadiness + ((moduleScore / 10) * 0.5);
     nodes.push({ id, label: data.label, group: 'module', company: data.company, val: 15, readiness, blastRadius: data.keywords.length });
   });
-
   learnedModules.forEach(lm => {
     const meta = JSON.parse(lm.metadata);
     nodes.push({ id: lm.file_id, label: `💡 Learned: ${lm.file_id.split('/').pop()}`, group: 'learned', company: 'user', val: 10, readiness: 1, learned: true, originalModule: meta.originalModule });
     if (meta.originalModule) links.push({ source: meta.originalModule, target: lm.file_id, type: 'learned-from' });
   });
-
   Object.entries(globalState.knowledgeGraph.concepts).forEach(([concept, files]) => {
     if (files.length > 1) {
       nodes.push({ id: `concept:${concept}`, label: concept, group: 'concept', company: 'global', val: 8 });
@@ -218,22 +275,13 @@ v1Router.get('/intelligence/graph', (req, res) => {
   });
   res.json({ nodes, links });
 });
+
 v1Router.get('/intelligence/insights', async (req, res) => {
   const { fileId } = req.query;
   if (!fileId) return res.status(400).json({ error: 'Missing fileId' });
-
-  // Wait if syncing to avoid "Empty Concepts" race condition
-  if (isSyncing) {
-    logger.info(`⏳ Insights requested during sync. Waiting...`);
-    // Simple retry logic or just block briefly
-  }
-
   const graph = globalState.knowledgeGraph;
   const file = graph.files[fileId];
-  if (!file) {
-    logger.warn(`🔍 Insight lookup failed for ${fileId}. Graph has ${Object.keys(graph.files).length} files.`);
-    return res.json({ keywords: [], related: [] });
-  }
+  if (!file) return res.json({ keywords: [], related: [] });
   try {
     const vector = await getEmbedding(file.content.slice(0, 1000));
     const semanticMatches = db.prepare(`SELECT m.file_id, m.chunk_text, v.distance FROM vec_chunks v JOIN chunks_metadata m ON v.id = m.id WHERE v.vector MATCH ? AND k = 5 AND m.file_id != ? ORDER BY distance`).all(new Float32Array(vector), fileId);
@@ -315,16 +363,20 @@ v1Router.get('/dossier/:companyId', async (req, res) => {
   const matter = require('gray-matter');
   const { parsePlaybook, parseChecklist } = require('./lib/harvester');
   const companyDir = path.join(INTELLIGENCE_DIR, req.params.companyId);
-  const files = await fsNative.readdir(companyDir);
-  const modules = await Promise.all(files.filter(f => f.endsWith('.md')).map(async (fileName) => {
-    const fileContent = await fsNative.readFile(path.join(companyDir, fileName), 'utf-8');
-    const { data, content } = matter(fileContent);
-    let processedData = content;
-    if (data.type === 'playbook') processedData = parsePlaybook(content);
-    if (data.type === 'checklist') processedData = parseChecklist(content);
-    return { id: fileName.replace('.md', '').toLowerCase(), fullId: `${req.params.companyId}/${fileName}`, label: data.label || fileName.replace('.md', ''), type: data.type || 'markdown', icon: data.icon || 'FileText', data: data.data || processedData };
-  }));
-  res.json({ id: req.params.companyId, name: req.params.companyId.toUpperCase(), modules: modules.sort((a, b) => a.id.localeCompare(b.id)) });
+  try {
+    const files = await fsNative.readdir(companyDir);
+    const modules = await Promise.all(files.filter(f => f.endsWith('.md')).map(async (fileName) => {
+      const fileContent = await fsNative.readFile(path.join(companyDir, fileName), 'utf-8');
+      const { data, content } = matter(fileContent);
+      let processedData = content;
+      if (data.type === 'playbook') processedData = parsePlaybook(content);
+      if (data.type === 'checklist') processedData = parseChecklist(content);
+      return { id: fileName.replace('.md', '').toLowerCase(), fullId: `${req.params.companyId}/${fileName}`, label: data.label || fileName.replace('.md', ''), type: data.type || 'markdown', icon: data.icon || 'FileText', data: data.data || processedData };
+    }));
+    res.json({ id: req.params.companyId, name: req.params.companyId.toUpperCase(), modules: modules.sort((a, b) => a.id.localeCompare(b.id)) });
+  } catch (e) {
+    res.status(404).json({ error: "Company dossier not found" });
+  }
 });
 
 v1Router.get('/companies', async (req, res) => {
@@ -348,43 +400,6 @@ v1Router.post('/state/:key', (req, res) => {
   res.json({ success: true });
 });
 
-v1Router.get('/portfolio/export', (req, res) => {
-  const rows = db.prepare("SELECT key, value FROM user_state WHERE user_id = ?").all(req.userId);
-  let md = `# Staff Engineer Architectural Portfolio\n\n*Generated by Sentinel-OS*\n\n---\n\n## 🏆 Readiness & Mastery Tracker\n\n`;
-  rows.forEach(row => {
-    if (row.key.startsWith('tracker-')) {
-      try {
-        const tasks = JSON.parse(row.value);
-        if (tasks && tasks.length > 0) {
-          const parts = row.key.split('-');
-          md += `### ${parts[1].toUpperCase()} - ${parts.slice(2).join('-').toUpperCase()}\n`;
-          tasks.forEach(t => { md += `- [${t.done ? 'x' : ' '}] ${t.text}\n`; });
-          md += `\n`;
-        }
-      } catch (e) {}
-    }
-  });
-  md += `## 🧠 AI Drill Evaluations\n\n`;
-  rows.forEach(row => {
-    if (row.key.startsWith('score-')) {
-      try {
-        const data = JSON.parse(row.value);
-        if (data && data.lastScore) {
-          md += `### Module: ${row.key.replace('score-', '')}\n- **Highest Score**: ${data.lastScore}/10\n\n`;
-        }
-      } catch (e) {}
-    }
-  });
-  res.setHeader('Content-Type', 'text/markdown');
-  res.send(md);
-});
-
-v1Router.get('/admin/export-db', (req, res) => {
-  const dbPath = path.join(__dirname, 'sentinel.db');
-  res.download(dbPath, `sentinel-backup-${new Date().toISOString().split('T')[0]}.db`);
-});
-
-// MOUNT V1 ROUTER
 app.use('/api/v1', v1Router);
 
 app.use(express.static(FRONTEND_DIST, {
