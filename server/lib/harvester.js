@@ -55,20 +55,56 @@ function getFileHash(content) {
   return crypto.createHash('md5').update(content).digest('hex');
 }
 
-function chunkMarkdown(text, maxLength = 1000) {
+/**
+ * ADVANCED SEMANTIC CHUNKING
+ * Splits markdown by headers and paragraphs, ensuring code blocks stay intact.
+ */
+function chunkMarkdown(text, maxLength = 1500) {
   const chunks = [];
-  let current = text;
-  while (current.length > 0) {
-    if (current.length <= maxLength) {
-      chunks.push(current);
-      break;
+  
+  // 1. Recursive structural split
+  const splitRecursive = (content, headerLevel = 1) => {
+    if (content.length <= maxLength) {
+      if (content.trim()) chunks.push(content.trim());
+      return;
     }
-    let slice = current.substring(0, maxLength);
-    const lastNewline = slice.lastIndexOf('\n');
-    if (lastNewline > maxLength * 0.7) slice = current.substring(0, lastNewline);
-    chunks.push(slice);
-    current = current.substring(slice.length).trim();
-  }
+
+    // Try splitting by headers of decreasing weight
+    const headerRegex = new RegExp(`^#{${headerLevel}}\\s+`, 'm');
+    const parts = content.split(headerRegex).filter(p => p.trim());
+
+    if (parts.length > 1) {
+      parts.forEach(p => splitRecursive(p, headerLevel + 1));
+    } else if (headerLevel < 4) {
+      splitRecursive(content, headerLevel + 1);
+    } else {
+      // 2. Fallback to paragraph split if headers don't help
+      const paragraphs = content.split(/\n\n+/).filter(p => p.trim());
+      let currentChunk = "";
+
+      for (const p of paragraphs) {
+        if ((currentChunk + p).length > maxLength && currentChunk) {
+          chunks.push(currentChunk.trim());
+          currentChunk = p;
+        } else {
+          currentChunk += (currentChunk ? "\n\n" : "") + p;
+        }
+      }
+      
+      // 3. Final character-based split for massive paragraphs (rare)
+      if (currentChunk.length > maxLength) {
+        let remaining = currentChunk;
+        while (remaining.length > 0) {
+          chunks.push(remaining.substring(0, maxLength));
+          remaining = remaining.substring(maxLength);
+        }
+      } else if (currentChunk) {
+        chunks.push(currentChunk.trim());
+      }
+    }
+  };
+
+  splitRecursive(text);
   return chunks;
 }
 
@@ -80,7 +116,11 @@ async function processFileVectors(fileId, content, metadata) {
       db.prepare(`DELETE FROM vec_chunks WHERE id IN (${oldIds.join(',')})`).run();
       db.prepare(`DELETE FROM chunks_metadata WHERE file_id = ?`).run(fileId);
     }
+    
+    // Use Advanced Chunker
     const chunks = chunkMarkdown(content);
+    console.log(`📑 [${fileId}] Generated ${chunks.length} structural chunks.`);
+    
     for (const chunk of chunks) {
       const vector = await getEmbedding(chunk);
       db.transaction(() => {
@@ -115,7 +155,7 @@ async function syncIntelligence() {
           keywords = JSON.parse(cached.keywords);
           label = cached.label;
         } else {
-          console.log(`📡 Processing: ${fileId}`);
+          console.log(`📡 Processing: ${fileId} (Change Detected)`);
           keywords = extractKeywords(content + ' ' + (data.label || ''));
           label = data.label || fileName;
           db.prepare(`INSERT INTO intelligence_cache (file_id, content_hash, label, company, keywords) VALUES (?, ?, ?, ?, ?) 

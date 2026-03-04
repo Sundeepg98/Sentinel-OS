@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Brain, Sparkles, Hash, Loader2, Mic, MicOff, PenTool, X } from 'lucide-react';
 import { Whiteboard } from './Whiteboard';
 import { cn } from '../lib/utils';
+import { useToast } from '../hooks/useToast';
 
 interface InsightData {
   keywords: string[];
@@ -34,6 +35,7 @@ const getUUID = () => {
 };
 
 export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
+  const { toast } = useToast();
   const [data, setData] = useState<InsightData | null>(null);
   const [loading, setLoading] = useState(false);
   const [drill, setDrill] = useState<DrillData | null>(null);
@@ -73,7 +75,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
         recognitionRef.current.start();
         setIsRecording(true);
       } else {
-        alert("Speech Recognition is not supported in this browser.");
+        toast("Speech Recognition is not supported in this browser.", "error");
       }
     }
   };
@@ -88,7 +90,10 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
       setSessionId(getUUID());
       try {
         const response = await fetch(`/api/intelligence/insights?fileId=${encodeURIComponent(fullId)}`);
-        if (response.ok) setData(await response.json());
+        if (response.ok) {
+          const json = await response.json();
+          setData(json);
+        }
       } catch (e) {
         console.error('Insights failed', e);
       } finally {
@@ -109,9 +114,9 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
         body: JSON.stringify({ fileId: fullId })
       });
       const json = await response.json();
-      if (json.error) alert(json.error); else setDrill(json);
+      if (json.error) toast(json.error, "error"); else setDrill(json);
     } catch (e) {
-      console.error('Drill failed', e);
+      toast("Failed to generate technical drill.", "error");
     } finally {
       setDrillLoading(false);
     }
@@ -132,9 +137,11 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
           sessionId 
         })
       });
-      setEvalData(await response.json());
+      const json = await response.json();
+      setEvalData(json);
+      toast("Evaluation complete.", "success");
     } catch (e) {
-      console.error('Eval failed', e);
+      toast("Failed to evaluate proposal.", "error");
     } finally {
       setEvalLoading(false);
     }
@@ -220,7 +227,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
         </div>
         <div className="flex flex-wrap gap-2">
           {loading ? [1,2,3].map(i => <div key={i} className="h-6 w-16 bg-white/5 animate-pulse rounded-md" />) : 
-            data?.keywords.map(k => (
+            data?.keywords?.map(k => (
               <span key={k} className="px-2 py-1 bg-white/[0.03] border border-white/[0.05] rounded-md text-[11px] text-neutral-300 font-mono flex items-center gap-1">
                 <Hash className="w-3 h-3 opacity-40" /> {k}
               </span>

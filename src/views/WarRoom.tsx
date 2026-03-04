@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useDossierContext } from '../App';
 import { Whiteboard } from '../components/Whiteboard';
 import { cn } from '../lib/utils';
+import { useToast } from '../hooks/useToast';
 
 interface Incident {
   title: string;
@@ -20,6 +21,7 @@ interface Evaluation {
 }
 
 export const WarRoom = () => {
+  const { toast } = useToast();
   const { dossier } = useDossierContext();
   const [status, setStatus] = useState<'idle' | 'generating' | 'active' | 'evaluating' | 'completed'>('idle');
   const [incident, setIncident] = useState<Incident | null>(null);
@@ -52,6 +54,7 @@ export const WarRoom = () => {
           if (prev <= 1) {
             clearInterval(timerRef.current);
             setStatus('completed');
+            toast("Simulation Time Expired. System Failure Imminent.", "error");
             return 0;
           }
           return prev - 1;
@@ -82,8 +85,9 @@ export const WarRoom = () => {
       if (data.error) throw new Error(data.error);
       setIncident(data);
       setStatus('active');
+      toast("P0 Incident Triggered. Secure the perimeter.", "info");
     } catch (e: any) {
-      alert("Failed to generate incident: " + e.message);
+      toast("Chaos Synthesis Failed: " + e.message, "error");
       setStatus('idle');
     }
   };
@@ -102,8 +106,9 @@ export const WarRoom = () => {
       const data = await res.json();
       setEvaluation(data);
       setStatus('completed');
+      toast("Incident Evaluation Received.", "success");
     } catch (e: any) {
-      alert("Evaluation failed: " + e.message);
+      toast("Post-Mortem Failure: " + e.message, "error");
       setStatus('completed');
     }
   };
