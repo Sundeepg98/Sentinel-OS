@@ -92,6 +92,8 @@ async function processFileVectors(fileId, content, metadata) {
 async function syncIntelligence() {
   console.log('🔄 Sentinel Intelligence Sync: Scanning...');
   const newGraph = { concepts: {}, files: {} };
+  // Reset the search index to prevent duplication during hot-reloads
+  searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
   try {
     const companies = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
     for (const company of companies.filter(d => d.isDirectory())) {

@@ -52,8 +52,32 @@ function App() {
       const res = await fetch('/api/v1/intelligence/stats');
       return res.json();
     },
-    refetchInterval: 5000,
+    refetchInterval: 10000,
   });
+
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const eventSource = new EventSource('/api/v1/intelligence/stream');
+    
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'SYNC_COMPLETE') {
+          // Invalidate ALL intelligence-related queries
+          queryClient.invalidateQueries({ queryKey: ['companies'] });
+          queryClient.invalidateQueries({ queryKey: ['dossier'] });
+          queryClient.invalidateQueries({ queryKey: ['insights'] });
+          queryClient.invalidateQueries({ queryKey: ['graph'] });
+          queryClient.invalidateQueries({ queryKey: ['sync-status'] });
+        }
+      } catch (e) {
+        console.error('SSE Parse Error:', e);
+      }
+    };
+
+    return () => eventSource.close();
+  }, [queryClient]);
 
   useEffect(() => {
     if (dossierData.dossier?.modules && dossierData.dossier.modules.length > 0) {
