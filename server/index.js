@@ -6,24 +6,49 @@ const matter = require('gray-matter');
 const { Index } = require('flexsearch');
 const natural = require('natural');
 const axios = require('axios');
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
+const sqliteVec = require('sqlite-vec');
+const crypto = require('crypto');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3002;
 
-// Initialize SQLite Persistence Engine
+// --- PERSISTENCE ENGINE INITIALIZATION ---
 const dbFile = path.join(__dirname, 'sentinel.db');
-const db = new sqlite3.Database(dbFile, (err) => {
-  if (err) console.error('SQLite initialization failed:', err);
-  else {
-    db.run(`CREATE TABLE IF NOT EXISTS user_state (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-  }
-});
+const db = new Database(dbFile);
+sqliteVec.load(db);
+
+// Initialize Tables
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_state (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  
+  CREATE TABLE IF NOT EXISTS intelligence_cache (
+    file_id TEXT PRIMARY KEY,
+    content_hash TEXT NOT NULL,
+    label TEXT,
+    company TEXT,
+    keywords TEXT,
+    last_processed DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS chunks_metadata (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_id TEXT,
+    chunk_text TEXT,
+    metadata TEXT,
+    FOREIGN KEY(file_id) REFERENCES intelligence_cache(file_id) ON DELETE CASCADE
+  );
+
+  CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
+    id INTEGER PRIMARY KEY,
+    vector FLOAT[768]
+  );
+`);
 
 app.use(cors());
 app.use(express.json());
@@ -44,7 +69,42 @@ function extractKeywords(text) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
 }
 
+async function getEmbedding(text) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return new Array(768).fill(0);
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${key}`;
+    const response = await axios.post(url, { content: { parts: [{ text }] } });
+    return response.data.embedding.values;
+  } catch (e) {
+    console.error('Embedding Error:', e.response?.data || e.message);
+    return new Array(768).fill(0);
+  }
+}
+
+function chunkMarkdown(text, maxLength = 1000) {
+  const chunks = [];
+  let current = text;
+  while (current.length > 0) {
+    if (current.length <= maxLength) {
+      chunks.push(current);
+      break;
+    }
+    let slice = current.substring(0, maxLength);
+    const lastNewline = slice.lastIndexOf('\n');
+    if (lastNewline > maxLength * 0.7) slice = current.substring(0, lastNewline);
+    chunks.push(slice);
+    current = current.substring(slice.length).trim();
+  }
+  return chunks;
+}
+
+function getFileHash(content) {
+  return crypto.createHash('md5').update(content).digest('hex');
+}
+
 async function syncIntelligence() {
+  console.log('🔄 Sentinel Intelligence Sync: Scanning...');
   const newGraph = { concepts: {}, files: {} };
   try {
     const companies = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
@@ -56,9 +116,24 @@ async function syncIntelligence() {
         const fileContent = await fs.readFile(filePath, 'utf-8');
         const { content, data } = matter(fileContent);
         const fileId = `${company.name}/${fileName}`;
-        const keywords = extractKeywords(content + ' ' + (data.label || ''));
+        const currentHash = getFileHash(fileContent);
+
+        const cached = db.prepare("SELECT content_hash, keywords, label FROM intelligence_cache WHERE file_id = ?").get(fileId);
+        let keywords, label;
+        if (cached && cached.content_hash === currentHash) {
+          keywords = JSON.parse(cached.keywords);
+          label = cached.label;
+        } else {
+          console.log(`📡 Processing: ${fileId} (Update detected)`);
+          keywords = extractKeywords(content + ' ' + (data.label || ''));
+          label = data.label || fileName;
+          db.prepare(`INSERT INTO intelligence_cache (file_id, content_hash, label, company, keywords) VALUES (?, ?, ?, ?, ?) 
+                     ON CONFLICT(file_id) DO UPDATE SET content_hash=excluded.content_hash, label=excluded.label, keywords=excluded.keywords, last_processed=CURRENT_TIMESTAMP`)
+            .run(fileId, currentHash, label, company.name, JSON.stringify(keywords));
+          processFileVectors(fileId, content, data);
+        }
         searchIndex.add(fileId, content);
-        newGraph.files[fileId] = { label: data.label || fileName, company: company.name, keywords, content };
+        newGraph.files[fileId] = { label, company: company.name, keywords, content };
         keywords.forEach(k => {
           if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
           newGraph.concepts[k].push({ fileId, company: company.name });
@@ -66,149 +141,47 @@ async function syncIntelligence() {
       }
     }
     knowledgeGraph = newGraph;
-    console.log(`Knowledge Graph Synced: ${Object.keys(newGraph.files).length} nodes.`);
+    console.log(`✅ Intelligence Engine ACTIVE.`);
   } catch (e) { console.error('Sync Error:', e.message); }
 }
-syncIntelligence();
 
-/**
- * AI Deep Drill - DEMO RESILIENT VERSION
- */
-app.post('/api/intelligence/drill', async (req, res) => {
-  const { fileId, model = 'gemini-2.5-flash' } = req.body;
-  const key = process.env.GEMINI_API_KEY;
-  
-  const DEMO_FALLBACK = {
-    question: "Given Mailin's massive outbound scale, how would you design a distributed 'Sliding Window' rate limiter in Redis that prevents ISP blacklisting while maintaining high throughput?",
-    idealResponse: "Implement Redis Lua scripts for atomic increments, use a sorted set for high-precision windows, and provide local worker-level caching to reduce Redis overhead during traffic bursts."
-  };
-
-  if (!key) return res.json(DEMO_FALLBACK);
-
+async function processFileVectors(fileId, content, metadata) {
   try {
-    const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${key}`;
-    const payload = {
-      contents: [{
-        parts: [{
-          text: `You are a Staff Engineer interviewer. Based on the technical notes, generate ONE challenging interview question. Respond in JSON: { "question": "...", "idealResponse": "..." }
-          Notes: ${knowledgeGraph.files[fileId]?.content.slice(0, 3000)}`
-        }]
-      }]
-    };
-
-    const response = await axios.post(url, payload);
-    const text = response.data.candidates[0].content.parts[0].text;
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    res.json(JSON.parse(jsonMatch[jsonMatch.length - 1]));
-  } catch (error) {
-    console.log("Using Demo Fallback due to API Error");
-    res.json(DEMO_FALLBACK);
-  }
-});
-
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-
-/**
- * AI Evaluation - CONVERSATIONAL ENGINE
- */
-const activeChats = new Map();
-
-app.post('/api/intelligence/evaluate', async (req, res) => {
-  const { userAnswer, sessionId, question, idealResponse, model = 'gemini-2.5-flash' } = req.body;
-  const key = process.env.GEMINI_API_KEY;
-
-  const DEMO_EVAL = {
-    score: "8/10",
-    feedback: "Demo Mode: Your answer correctly identifies the need for atomicity. However, consider the impact of network partitions on Redis ZSET precision.",
-    followUp: "How would you handle a failure in the Redis cluster itself during a high-velocity burst?"
-  };
-
-  if (!key) return res.json(DEMO_EVAL);
-
-  try {
-    const genAI = new GoogleGenerativeAI(key);
-    const gemini = genAI.getGenerativeModel({ model });
-
-    let chat = activeChats.get(sessionId);
-    if (!chat) {
-      chat = gemini.startChat({
-        history: [
-          { role: "user", parts: [{ text: `You are a strict Staff Engineer interviewer. Generate challenging follow-up questions based on my architectural proposals. Context Question: ${question}. Ideal Response Criteria: ${idealResponse}` }] },
-          { role: "model", parts: [{ text: "Acknowledged. I am ready to evaluate your proposal and drill into the technical trade-offs." }] }
-        ]
-      });
-      activeChats.set(sessionId, chat);
+    const oldChunks = db.prepare("SELECT id FROM chunks_metadata WHERE file_id = ?").all(fileId);
+    if (oldChunks.length > 0) {
+      const oldIds = oldChunks.map(c => c.id);
+      db.prepare(`DELETE FROM vec_chunks WHERE id IN (${oldIds.join(',')})`).run();
+      db.prepare(`DELETE FROM chunks_metadata WHERE file_id = ?`).run(fileId);
     }
+    const chunks = chunkMarkdown(content);
+    for (const chunk of chunks) {
+      const vector = await getEmbedding(chunk);
+      const result = db.prepare(`INSERT INTO chunks_metadata (file_id, chunk_text, metadata) VALUES (?, ?, ?)`).run(fileId, chunk, JSON.stringify(metadata));
+      db.prepare(`INSERT INTO vec_chunks (id, vector) VALUES (?, ?)`).run(result.lastInsertRowid, new Float32Array(vector));
+    }
+    console.log(`🧠 Vectorized: ${fileId}`);
+  } catch (e) { console.error(`Vectorization Error [${fileId}]:`, e.message); }
+}
 
-    const result = await chat.sendMessage(`Candidate Proposal: "${userAnswer}". Evaluate technical depth and provide a score, feedback, and one challenging follow-up. Respond in JSON: { "score": "...", "feedback": "...", "followUp": "..." }`);
-    const response = await result.response;
-    const text = response.text();
-    
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    res.json(jsonMatch ? JSON.parse(jsonMatch[0]) : { score: "N/A", feedback: text, followUp: "Please elaborate on your scaling strategy." });
-  } catch (error) {
-    console.error('CONVERSATIONAL EVAL FAILED:', error);
-    res.json(DEMO_EVAL);
-  }
-});
+setTimeout(syncIntelligence, 500);
 
 app.get('/api/intelligence/graph', (req, res) => {
   const nodes = [];
   const links = [];
-  const conceptToFiles = knowledgeGraph.concepts;
-  
-  // 1. Fetch all readiness states from DB
-  db.all("SELECT key, value FROM user_state WHERE key LIKE 'tracker-%'", [], (err, rows) => {
-    const readinessMap = {};
-    if (!err && rows) {
-      rows.forEach(row => {
-        try {
-          const tasks = JSON.parse(row.value);
-          const done = tasks.filter(t => t.done).length;
-          readinessMap[row.key] = done / tasks.length;
-        } catch (e) {}
-      });
-    }
-
-    // 2. Create File Nodes with readiness
-    Object.entries(knowledgeGraph.files).forEach(([id, data]) => {
-      const companyId = data.company;
-      const moduleId = id.split('/').pop().replace('.md', '').toLowerCase();
-      const stateKey = `tracker-${companyId}-${moduleId}`;
-      
-      nodes.push({ 
-        id, 
-        label: data.label, 
-        group: 'module', 
-        company: companyId,
-        val: 15,
-        readiness: readinessMap[stateKey] || 0
-      });
-    });
-
-    // 3. Create Concept Nodes & Links
-    Object.entries(conceptToFiles).forEach(([concept, files]) => {
-      if (files.length > 1) {
-        nodes.push({ 
-          id: `concept:${concept}`, 
-          label: concept, 
-          group: 'concept', 
-          company: 'global',
-          val: 8 
-        });
-
-        files.forEach(f => {
-          links.push({ 
-            source: f.fileId, 
-            target: `concept:${concept}`,
-            keyword: concept 
-          });
-        });
-      }
-    });
-
-    res.json({ nodes, links });
+  const rows = db.prepare("SELECT key, value FROM user_state WHERE key LIKE 'tracker-%'").all();
+  const readinessMap = {};
+  rows.forEach(row => { try { const tasks = JSON.parse(row.value); readinessMap[row.key] = tasks.filter(t => t.done).length / tasks.length; } catch (e) {} });
+  Object.entries(knowledgeGraph.files).forEach(([id, data]) => {
+    const stateKey = `tracker-${data.company}-${id.split('/').pop().replace('.md', '').toLowerCase()}`;
+    nodes.push({ id, label: data.label, group: 'module', company: data.company, val: 15, readiness: readinessMap[stateKey] || 0 });
   });
+  Object.entries(knowledgeGraph.concepts).forEach(([concept, files]) => {
+    if (files.length > 1) {
+      nodes.push({ id: `concept:${concept}`, label: concept, group: 'concept', company: 'global', val: 8 });
+      files.forEach(f => links.push({ source: f.fileId, target: `concept:${concept}`, keyword: concept }));
+    }
+  });
+  res.json({ nodes, links });
 });
 
 app.get('/api/intelligence/search', (req, res) => {
@@ -218,18 +191,39 @@ app.get('/api/intelligence/search', (req, res) => {
   res.json(results.map(id => ({ id, ...knowledgeGraph.files[id] })));
 });
 
-app.get('/api/intelligence/insights', (req, res) => {
-  const { fileId } = req.query;
-  const fileData = knowledgeGraph.files[fileId];
-  if (!fileData) return res.status(404).json({ error: 'Not indexed' });
-  const related = [];
-  const seenFiles = new Set([fileId]);
-  fileData.keywords.forEach(k => {
-    (knowledgeGraph.concepts[k] || []).forEach(m => {
-      if (!seenFiles.has(m.fileId)) { related.push({ ...m, sharedKeyword: k }); seenFiles.add(m.fileId); }
-    });
-  });
-  res.json({ keywords: fileData.keywords, related: related.slice(0, 5) });
+app.post('/api/intelligence/drill', async (req, res) => {
+  const { fileId, model = 'gemini-2.5-flash' } = req.body;
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return res.status(500).json({ error: "API Key Missing" });
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${key}`;
+    const payload = { contents: [{ parts: [{ text: `Staff Engineer drill. Q & Ideal response JSON format. Context: ${knowledgeGraph.files[fileId]?.content.slice(0, 3000)}` }] }] };
+    const response = await axios.post(url, payload);
+    const jsonMatch = response.data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
+    res.json(JSON.parse(jsonMatch[0]));
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const activeChats = new Map();
+
+app.post('/api/intelligence/evaluate', async (req, res) => {
+  const { userAnswer, sessionId, question, idealResponse, model = 'gemini-2.5-flash' } = req.body;
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return res.status(500).json({ error: "API Key Missing" });
+  try {
+    const genAI = new GoogleGenerativeAI(key);
+    const gemini = genAI.getGenerativeModel({ model });
+    let chat = activeChats.get(sessionId);
+    if (!chat) {
+      chat = gemini.startChat({ history: [{ role: "user", parts: [{ text: `Staff Interview. Q: ${question}. Criteria: ${idealResponse}` }] }, { role: "model", parts: [{ text: "Acknowledged." }] }] });
+      activeChats.set(sessionId, chat);
+    }
+    const result = await chat.sendMessage(`Proposal: "${userAnswer}". JSON format evaluation.`);
+    const text = (await result.response).text();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    res.json(jsonMatch ? JSON.parse(jsonMatch[0]) : { score: "N/A", feedback: text });
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get('/api/companies', async (req, res) => {
@@ -246,17 +240,17 @@ app.get('/api/dossier/:companyId', async (req, res) => {
     const { data, content } = matter(fileContent);
     return { id: fileName.replace('.md', '').toLowerCase(), fullId: `${companyId}/${fileName}`, label: data.label || fileName.replace('.md', ''), type: data.type || 'markdown', icon: data.icon || 'FileText', data: data.data || content };
   }));
-  res.json({ id: companyId, name: companyId.toUpperCase(), targetRole: 'L6 Staff Infrastructure Engineer', brandColor: 'cyan', modules: modules.sort((a, b) => a.id.localeCompare(b.id)) });
+  res.json({ id: companyId, name: companyId.toUpperCase(), modules: modules.sort((a, b) => a.id.localeCompare(b.id)) });
 });
 
 app.get('/api/state/:key', (req, res) => {
-  db.get("SELECT value FROM user_state WHERE key = ?", [req.params.key], (err, row) => {
-    res.json({ value: row ? JSON.parse(row.value) : null });
-  });
+  const row = db.prepare("SELECT value FROM user_state WHERE key = ?").get(req.params.key);
+  res.json({ value: row ? JSON.parse(row.value) : null });
 });
 
 app.post('/api/state/:key', (req, res) => {
-  db.run(`INSERT INTO user_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, [req.params.key, JSON.stringify(req.body.value)], () => res.json({ success: true }));
+  db.prepare(`INSERT INTO user_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`).run(req.params.key, JSON.stringify(req.body.value));
+  res.json({ success: true });
 });
 
 app.get(/(.*)/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));

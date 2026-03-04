@@ -14,7 +14,9 @@
   "dependencies": {
     "@tailwindcss/typography": "^0.5.19",
     "3d-force-graph": "^1.79.1",
+    "better-sqlite3": "^12.6.2",
     "clsx": "^2.1.1",
+    "crypto-js": "^4.2.0",
     "d3-force": "^3.0.0",
     "d3-force-3d": "^3.0.6",
     "framer-motion": "^12.34.4",
@@ -26,6 +28,7 @@
     "react-force-graph-3d": "^1.29.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "sqlite-vec": "^0.1.7-alpha.2",
     "tailwind-merge": "^3.5.0",
     "three": "^0.183.2",
     "three-spritetext": "^1.10.0",

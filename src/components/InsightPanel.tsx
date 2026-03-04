@@ -120,7 +120,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   if (!data && !loading) return null;
 
   return (
-    <div className="w-80 shrink-0 hidden xl:flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-700 pb-10">
+    <div className="w-80 shrink-0 hidden lg:flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-700 pb-10">
       {/* AI Deep Drill Section */}
       <div className="bg-[#0d0d0d] border border-indigo-500/20 rounded-xl p-5 shadow-[0_0_20px_rgba(99,102,241,0.05)] relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 blur-2xl -z-10 rounded-full" />
