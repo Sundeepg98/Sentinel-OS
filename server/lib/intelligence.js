@@ -8,18 +8,58 @@ const EMBEDDING_MODEL = "gemini-embedding-001";
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || '');
 
-function extractJson(text) {
-  try {
-    const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const start = cleaned.indexOf('{');
-    const end = cleaned.lastIndexOf('}');
-    if (start === -1 || end === -1) return null;
-    const jsonStr = cleaned.substring(start, end + 1);
-    return JSON.parse(jsonStr);
-  } catch (e) {
-    console.warn("AI JSON Extraction failed:", e.message);
-    return null;
-  }
+// SCHEMAS
+const DRILL_SCHEMA = {
+  type: "object",
+  properties: {
+    question: { type: "string" },
+    idealResponse: { type: "string" }
+  },
+  required: ["question", "idealResponse"]
+};
+
+const INCIDENT_SCHEMA = {
+  type: "object",
+  properties: {
+    title: { type: "string" },
+    description: { type: "string" },
+    logs: { type: "array", items: { type: "string" } },
+    rootCause: { type: "string" },
+    idealMitigation: { type: "string" }
+  },
+  required: ["title", "description", "logs", "rootCause", "idealMitigation"]
+};
+
+const EVAL_SCHEMA = {
+  type: "object",
+  properties: {
+    score: { type: "string" },
+    feedback: { type: "string" },
+    followUp: { type: "string" }
+  },
+  required: ["score", "feedback"]
+};
+
+const POST_MORTEM_SCHEMA = {
+  type: "object",
+  properties: {
+    score: { type: "string" },
+    feedback: { type: "string" },
+    missedSteps: { type: "array", items: { type: "string" } }
+  },
+  required: ["score", "feedback"]
+};
+
+async function generateStructuredContent(prompt, schema) {
+  const model = genAI.getGenerativeModel({ 
+    model: DEFAULT_MODEL,
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: schema
+    }
+  });
+  const result = await model.generateContent(prompt);
+  return (await result.response).text();
 }
 
 async function getEmbedding(text) {
@@ -37,16 +77,13 @@ async function getEmbedding(text) {
   }
 }
 
-async function generateContent(prompt) {
-  const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
-  const result = await model.generateContent(prompt);
-  return (await result.response).text();
-}
-
 module.exports = { 
   getEmbedding, 
-  generateContent, 
-  extractJson, 
+  generateStructuredContent,
+  DRILL_SCHEMA,
+  INCIDENT_SCHEMA,
+  EVAL_SCHEMA,
+  POST_MORTEM_SCHEMA,
   DEFAULT_MODEL, 
   EMBEDDING_MODEL,
   GEMINI_API_KEY

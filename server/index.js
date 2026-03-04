@@ -5,9 +5,12 @@ const { db, initDB } = require('./lib/db');
 const { 
   GEMINI_API_KEY, 
   DEFAULT_MODEL, 
-  generateContent, 
-  extractJson, 
-  getEmbedding 
+  generateStructuredContent, 
+  getEmbedding,
+  DRILL_SCHEMA,
+  INCIDENT_SCHEMA,
+  EVAL_SCHEMA,
+  POST_MORTEM_SCHEMA
 } = require('./lib/intelligence');
 const { 
   syncIntelligence, 
@@ -60,7 +63,9 @@ app.get('/api/intelligence/stats', (req, res) => {
     interactions: history.count,
     learnedAssets: learned.count,
     model: DEFAULT_MODEL,
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    env: process.env.NODE_ENV || 'development',
+    auth: AUTH_ENABLED ? 'enabled' : 'disabled'
   });
 });
 
@@ -119,27 +124,59 @@ app.post('/api/intelligence/drill', async (req, res) => {
   if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
   const knowledgeGraph = getKnowledgeGraph();
   try {
-    const prompt = `You are a Staff Engineer interviewer. Generate ONE high-stakes technical drill.\nContext: ${extraContext || knowledgeGraph.files[fileId]?.content.slice(0, 3000)}\nRespond ONLY in JSON: { "question": "...", "idealResponse": "..." }`;
-    const text = await generateContent(prompt);
-    res.json(extractJson(text) || { error: "Failed to parse AI response" });
+    const prompt = `You are a Staff Engineer interviewer. Generate ONE high-stakes technical drill.\nContext: ${extraContext || knowledgeGraph.files[fileId]?.content.slice(0, 3000)}`;
+    const text = await generateStructuredContent(prompt, DRILL_SCHEMA);
+    res.json(JSON.parse(text));
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.post('/api/intelligence/evaluate', async (req, res) => {
   const { userAnswer, question, idealResponse, fileId } = req.body;
   try {
-    const prompt = `Staff Interview Evaluation. Q: ${question}\nIdeal: ${idealResponse}\nCandidate: "${userAnswer}"\nEvaluate in JSON: { "score": "X/10", "feedback": "...", "followUp": "..." }`;
-    const text = await generateContent(prompt);
-    const json = extractJson(text);
+    const prompt = `Staff Interview Evaluation. Q: ${question}\nIdeal: ${idealResponse}\nCandidate: "${userAnswer}"`;
+    const text = await generateStructuredContent(prompt, EVAL_SCHEMA);
+    const json = JSON.parse(text);
     if (json && json.score && fileId) {
       const numericScore = parseInt(json.score.split('/')[0]);
       if (!isNaN(numericScore)) {
         db.prepare(`INSERT INTO user_state (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`).run(req.userId, `score-${fileId}`, JSON.stringify({ lastScore: numericScore }));
-        db.prepare(`INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) VALUES (?, 'drill', ?, ?, ?, ?, ?)`).run(req.userId, fileId, question, userAnswer, JSON.stringify(json), numericScore);
+        db.prepare(`INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) VALUES (?, 'drill', ?, ?, ?, ?, ?)`).run(req.userId, fileId, question, userAnswer, text, numericScore);
         learnFromProposal(req.userId, fileId, userAnswer, numericScore);
       }
     }
-    res.json(json || { score: "N/A", feedback: text });
+    res.json(json);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/intelligence/incident', async (req, res) => {
+  const { moduleIds = [] } = req.body;
+  if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
+  const knowledgeGraph = getKnowledgeGraph();
+  let context = moduleIds.map(id => knowledgeGraph.files[id]?.content.slice(0, 1000)).join('\n\n') || "General System Architecture";
+
+  try {
+    const prompt = `You are a Chaos Engineering simulator for a Staff Engineer. Context: ${context}. Generate a critical production incident (P0/P1) based on this architecture.`;
+    const text = await generateStructuredContent(prompt, INCIDENT_SCHEMA);
+    res.json(JSON.parse(text));
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/intelligence/incident/evaluate', async (req, res) => {
+  const { userAnswer, incident } = req.body;
+  if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
+  
+  try {
+    const prompt = `Staff Engineer Incident Post-Mortem.\nIncident: ${incident.title}\nActual Root Cause: ${incident.rootCause}\nIdeal Mitigation: ${incident.idealMitigation}\nCandidate's Response: "${userAnswer}"`;
+    const text = await generateStructuredContent(prompt, POST_MORTEM_SCHEMA);
+    const json = JSON.parse(text);
+
+    if (json && json.score) {
+      const numericScore = parseInt(json.score.split('/')[0]);
+      db.prepare(`INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) 
+                 VALUES (?, 'incident', ?, ?, ?, ?, ?)`)
+        .run(req.userId, incident.title, incident.title, userAnswer, text, isNaN(numericScore) ? 0 : numericScore);
+    }
+    res.json(json);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
@@ -166,7 +203,7 @@ app.get('/api/intelligence/insights', async (req, res) => {
   }
 });
 
-// Other Standard Endpoints
+// Standard Endpoints
 app.get('/api/companies', async (req, res) => {
   const fsNative = require('fs').promises;
   const entries = await fsNative.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
@@ -207,6 +244,44 @@ app.get('/api/intelligence/search', (req, res) => {
   const knowledgeGraph = getKnowledgeGraph();
   const results = searchIndex.search(q, { limit: 10 });
   res.json(results.map(id => ({ id, ...knowledgeGraph.files[id] })));
+});
+
+app.get('/api/portfolio/export', (req, res) => {
+  const rows = db.prepare("SELECT key, value FROM user_state WHERE user_id = ?").all(req.userId);
+  let md = `# Staff Engineer Architectural Portfolio\n\n*Generated by Sentinel-OS*\n\n---\n\n## 🏆 Readiness & Mastery Tracker\n\n`;
+  let hasTrackers = false;
+  rows.forEach(row => {
+    if (row.key.startsWith('tracker-')) {
+      try {
+        const tasks = JSON.parse(row.value);
+        if (tasks && tasks.length > 0) {
+          hasTrackers = true;
+          const parts = row.key.split('-');
+          md += `### ${parts[1].toUpperCase()} - ${parts.slice(2).join('-').toUpperCase()}\n`;
+          tasks.forEach(t => { md += `- [${t.done ? 'x' : ' '}] ${t.text}\n`; });
+          md += `\n`;
+        }
+      } catch (e) {}
+    }
+  });
+  if (!hasTrackers) md += `*No tracker data recorded yet.*\n\n`;
+  md += `## 🧠 AI Drill Evaluations\n\n`;
+  let hasScores = false;
+  rows.forEach(row => {
+    if (row.key.startsWith('score-')) {
+      try {
+        const data = JSON.parse(row.value);
+        if (data && data.lastScore) {
+          hasScores = true;
+          md += `### Module: ${row.key.replace('score-', '')}\n- **Highest Score**: ${data.lastScore}/10\n\n`;
+        }
+      } catch (e) {}
+    }
+  });
+  if (!hasScores) md += `*No AI drill scores recorded yet.*\n\n`;
+  md += `---\n*End of Report*\n`;
+  res.setHeader('Content-Type', 'text/markdown');
+  res.send(md);
 });
 
 app.get(/(.*)/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
