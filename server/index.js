@@ -9,6 +9,7 @@ const { z } = require('zod');
 const morgan = require('morgan');
 const pino = require('pino');
 const { db, initDB } = require('./lib/db');
+const { validateBody, schemas } = require('./lib/validation');
 const { 
   GEMINI_API_KEY, 
   DEFAULT_MODEL, 
@@ -53,13 +54,10 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// --- 🛠️ ENGINEERING BASIC: REQUEST LOGGING ---
 app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-
 app.use(cors());
 app.use(express.json());
 
-// --- HEALTH CHECK ---
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
@@ -67,7 +65,6 @@ app.get('/health', (req, res) => {
 // --- 🛠️ ENGINEERING BASIC: API VERSIONING (v1) ---
 const v1Router = express.Router();
 
-// --- UPSTREAM PROTECTION (Rate Limiting) ---
 const aiRateLimiter = rateLimit({
   windowMs: 60 * 1000, 
   max: 15, 
@@ -208,8 +205,9 @@ v1Router.get('/intelligence/search', (req, res) => {
   res.json(results.map(id => ({ id, ...knowledgeGraph.files[id] })));
 });
 
-v1Router.post('/intelligence/semantic-search', async (req, res) => {
-  const { q, limit = 5 } = req.body;
+// 🛠️ VALIDATED POST ROUTES
+v1Router.post('/intelligence/semantic-search', validateBody(schemas.semanticSearchSchema), async (req, res) => {
+  const { q, limit } = req.body;
   try {
     const vector = await getEmbedding(q);
     const results = db.prepare(`SELECT m.file_id, m.chunk_text, v.distance FROM vec_chunks v JOIN chunks_metadata m ON v.id = m.id WHERE v.vector MATCH ? AND k = ? ORDER BY distance`).all(new Float32Array(vector), limit);
@@ -217,8 +215,8 @@ v1Router.post('/intelligence/semantic-search', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-v1Router.post('/intelligence/drill', aiRateLimiter, async (req, res) => {
-  const { fileId, extraContext = "" } = req.body;
+v1Router.post('/intelligence/drill', aiRateLimiter, validateBody(schemas.drillRequestSchema), async (req, res) => {
+  const { fileId, extraContext } = req.body;
   if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
   try {
     const prompt = `You are a Staff Engineer interviewer. Generate ONE high-stakes technical drill.\nContext: ${extraContext || knowledgeGraph.files[fileId]?.content.slice(0, 3000)}`;
@@ -227,7 +225,7 @@ v1Router.post('/intelligence/drill', aiRateLimiter, async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-v1Router.post('/intelligence/evaluate', aiRateLimiter, async (req, res) => {
+v1Router.post('/intelligence/evaluate', aiRateLimiter, validateBody(schemas.evaluateRequestSchema), async (req, res) => {
   const { userAnswer, question, idealResponse, fileId } = req.body;
   try {
     const prompt = `Staff Interview Evaluation. Q: ${question}\nIdeal: ${idealResponse}\nCandidate: "${userAnswer}"`;
@@ -245,8 +243,8 @@ v1Router.post('/intelligence/evaluate', aiRateLimiter, async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-v1Router.post('/intelligence/incident', aiRateLimiter, async (req, res) => {
-  const { moduleIds = [] } = req.body;
+v1Router.post('/intelligence/incident', aiRateLimiter, validateBody(schemas.incidentRequestSchema), async (req, res) => {
+  const { moduleIds } = req.body;
   if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
   let context = moduleIds.map(id => knowledgeGraph.files[id]?.content.slice(0, 1000)).join('\n\n') || "General System Architecture";
   try {
@@ -256,7 +254,7 @@ v1Router.post('/intelligence/incident', aiRateLimiter, async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-v1Router.post('/intelligence/incident/evaluate', aiRateLimiter, async (req, res) => {
+v1Router.post('/intelligence/incident/evaluate', aiRateLimiter, validateBody(schemas.incidentEvaluateSchema), async (req, res) => {
   const { userAnswer, incident } = req.body;
   try {
     const prompt = `Staff Engineer Incident Post-Mortem.\nIncident: ${incident.title}\nActual Root Cause: ${incident.rootCause}\nIdeal Mitigation: ${incident.idealMitigation}\nCandidate's Response: "${userAnswer}"`;
@@ -270,6 +268,7 @@ v1Router.post('/intelligence/incident/evaluate', aiRateLimiter, async (req, res)
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// --- DOSSIER & STATE ENDPOINTS ---
 v1Router.get('/dossier/:companyId', async (req, res) => {
   const fsNative = require('fs').promises;
   const matter = require('gray-matter');
@@ -291,11 +290,6 @@ v1Router.get('/companies', async (req, res) => {
   const fsNative = require('fs').promises;
   const entries = await fsNative.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
   res.json(entries.filter(d => d.isDirectory()).map(d => ({ id: d.name, name: d.name.toUpperCase() })));
-});
-
-v1Router.get('/intelligence/history', (req, res) => {
-  const rows = db.prepare("SELECT * FROM interaction_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 50").all(req.userId);
-  res.json(rows.map(r => ({ ...r, evaluation: JSON.parse(r.evaluation) })));
 });
 
 v1Router.get('/state/:key', (req, res) => {
@@ -349,15 +343,10 @@ v1Router.get('/portfolio/export', (req, res) => {
 // --- MOUNT VERSIONED API ---
 app.use('/api/v1', v1Router);
 
-/**
- * 🛠️ ENGINEERING BASIC: CACHE CONTROL
- */
 app.use(express.static(FRONTEND_DIST, {
   maxAge: '1y',
   setHeaders: (res, path) => {
-    if (path.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache');
-    }
+    if (path.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
   }
 }));
 
@@ -368,9 +357,6 @@ const server = app.listen(PORT, () => {
   spawnRAGWorker();
 });
 
-/**
- * 🛠️ ENGINEERING BASIC: GRACEFUL SHUTDOWN
- */
 function gracefulShutdown() {
   logger.info("🛑 Signal received. Shutting down gracefully...");
   server.close(() => {
