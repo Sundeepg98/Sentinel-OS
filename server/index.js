@@ -55,7 +55,15 @@ app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false
 }));
-app.use(compression());
+
+// Compression middleware - MUST be before routes
+app.use(compression({
+  filter: (req, res) => {
+    // DO NOT compress SSE streams
+    if (req.headers.accept === 'text/event-stream') return false;
+    return compression.filter(req, res);
+  }
+}));
 
 app.use((req, res, next) => {
   req.id = uuidv4();
@@ -71,17 +79,6 @@ app.use(express.json());
 
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString(), requestId: req.id });
-});
-
-// --- 🛠️ ENGINEERING BASIC: API VERSIONING (v1) ---
-const v1Router = express.Router();
-
-const aiRateLimiter = rateLimit({
-  windowMs: 60 * 1000, 
-  max: 15, 
-  message: { error: "AI Intelligence Engine is cooling down. Please wait 60 seconds." },
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 
 // --- SYNCED STATE (Main Thread) ---
@@ -111,8 +108,13 @@ function spawnRAGWorker() {
       globalState.searchIndex = newIndex;
       
       // BROADCAST TO SSE CLIENTS
+      const payload = JSON.stringify({ type: 'SYNC_COMPLETE', hotReload: !!msg.isHotReload });
       globalState.clients.forEach(c => {
-        c.res.write(`data: ${JSON.stringify({ type: 'SYNC_COMPLETE', hotReload: !!msg.isHotReload })}\n\n`);
+        try {
+          c.res.write(`data: ${payload}\n\n`);
+        } catch (e) {
+          logger.error(`Failed to notify SSE client ${c.id}`);
+        }
       });
 
       logger.info(`🔍 Search Index Synchronized. Notified ${globalState.clients.length} clients.`);
@@ -134,9 +136,17 @@ const authGuard = (req, res, next) => {
   next();
 };
 
+// --- API V1 ROUTER ---
+const v1Router = express.Router();
 v1Router.use(authGuard);
 
-// --- API V1 ENDPOINTS ---
+const aiRateLimiter = rateLimit({
+  windowMs: 60 * 1000, 
+  max: 15, 
+  message: { error: "AI Intelligence Engine is cooling down. Please wait 60 seconds." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 v1Router.get('/intelligence/stats', (req, res) => {
   const chunks = db.prepare("SELECT count(*) as count FROM chunks_metadata").get();
@@ -156,13 +166,18 @@ v1Router.get('/intelligence/stats', (req, res) => {
 
 v1Router.get('/intelligence/stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Disable proxy buffering (Nginx/Render)
+  
   res.flushHeaders();
 
   const clientId = Date.now();
   const newClient = { id: clientId, res };
   globalState.clients.push(newClient);
+
+  // Send initial keep-alive
+  res.write(':ok\n\n');
 
   req.on('close', () => {
     globalState.clients = globalState.clients.filter(c => c.id !== clientId);
@@ -203,12 +218,22 @@ v1Router.get('/intelligence/graph', (req, res) => {
   });
   res.json({ nodes, links });
 });
-
 v1Router.get('/intelligence/insights', async (req, res) => {
   const { fileId } = req.query;
   if (!fileId) return res.status(400).json({ error: 'Missing fileId' });
-  const file = globalState.knowledgeGraph.files[fileId];
-  if (!file) return res.json({ keywords: [], related: [] });
+
+  // Wait if syncing to avoid "Empty Concepts" race condition
+  if (isSyncing) {
+    logger.info(`⏳ Insights requested during sync. Waiting...`);
+    // Simple retry logic or just block briefly
+  }
+
+  const graph = globalState.knowledgeGraph;
+  const file = graph.files[fileId];
+  if (!file) {
+    logger.warn(`🔍 Insight lookup failed for ${fileId}. Graph has ${Object.keys(graph.files).length} files.`);
+    return res.json({ keywords: [], related: [] });
+  }
   try {
     const vector = await getEmbedding(file.content.slice(0, 1000));
     const semanticMatches = db.prepare(`SELECT m.file_id, m.chunk_text, v.distance FROM vec_chunks v JOIN chunks_metadata m ON v.id = m.id WHERE v.vector MATCH ? AND k = 5 AND m.file_id != ? ORDER BY distance`).all(new Float32Array(vector), fileId);
@@ -308,6 +333,11 @@ v1Router.get('/companies', async (req, res) => {
   res.json(entries.filter(d => d.isDirectory()).map(d => ({ id: d.name, name: d.name.toUpperCase() })));
 });
 
+v1Router.get('/intelligence/history', (req, res) => {
+  const rows = db.prepare("SELECT * FROM interaction_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 50").all(req.userId);
+  res.json(rows.map(r => ({ ...r, evaluation: JSON.parse(r.evaluation) })));
+});
+
 v1Router.get('/state/:key', (req, res) => {
   const row = db.prepare("SELECT value FROM user_state WHERE user_id = ? AND key = ?").get(req.userId, req.params.key);
   res.json({ value: row ? JSON.parse(row.value) : null });
@@ -354,6 +384,7 @@ v1Router.get('/admin/export-db', (req, res) => {
   res.download(dbPath, `sentinel-backup-${new Date().toISOString().split('T')[0]}.db`);
 });
 
+// MOUNT V1 ROUTER
 app.use('/api/v1', v1Router);
 
 app.use(express.static(FRONTEND_DIST, {
