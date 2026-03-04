@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MousePointer2, Square, Circle, Minus, Type, Trash2, RotateCcw, Download } from 'lucide-react';
+import { MousePointer2, Square, Circle, Minus, Trash2, RotateCcw } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface Element {

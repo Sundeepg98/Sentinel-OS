@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Brain, Sparkles, Hash, Loader2, Send, Mic, MicOff, PenTool, X } from 'lucide-react';
+import { Brain, Sparkles, Hash, Loader2, Mic, MicOff, PenTool, X } from 'lucide-react';
 import { Whiteboard } from './Whiteboard';
 import { cn } from '../lib/utils';
 
@@ -194,7 +194,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
                         {isRecording ? <Mic size={14} /> : <MicOff size={14} />}
                       </button>
                     </div>
-                    <button onClick={submitMitigation} disabled={evalLoading || !userAnswer.trim()} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[11px] font-bold transition-all uppercase tracking-widest disabled:opacity-50">
+                    <button onClick={submitAnswer} disabled={evalLoading || !userAnswer.trim()} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[11px] font-bold transition-all uppercase tracking-widest disabled:opacity-50">
                       {evalLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Submit Response'}
                     </button>
                   </>
