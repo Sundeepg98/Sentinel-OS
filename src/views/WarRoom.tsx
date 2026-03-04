@@ -211,7 +211,7 @@ export const WarRoom = () => {
               className="border-r border-white/5 overflow-hidden bg-black"
             >
               <div className="h-full p-4">
-                <Whiteboard />
+                <Whiteboard sessionId={`warroom-${incident?.title || 'general'}`} />
               </div>
             </motion.div>
           )}

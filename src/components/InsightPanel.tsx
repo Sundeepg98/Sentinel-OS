@@ -176,7 +176,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
             <div className="flex gap-4 min-h-[350px]">
               {showCanvas && (
                 <div className="flex-1 border border-white/10 rounded-lg overflow-hidden bg-black shadow-inner">
-                  <Whiteboard />
+                  <Whiteboard sessionId={`module-${fullId}`} />
                 </div>
               )}
               

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MousePointer2, Square, Circle, Minus, Trash2, RotateCcw } from 'lucide-react';
+import { MousePointer2, Square, Circle, Minus, Type, Trash2, RotateCcw, Download } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface Element {
@@ -14,12 +14,32 @@ interface Element {
   color: string;
 }
 
-export const Whiteboard = () => {
+export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [elements, setElements] = useState<Element[]>([]);
   const [tool, setTool] = useState<Element['type']>('pencil');
-  const [isDrawing, setIsRecording] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
   const [currentElement, setCurrentElement] = useState<Element | null>(null);
+  const [textInput, setTextInput] = useState<{ x: number, y: number } | null>(null);
+  const [inputValue, setInputValue] = useState('');
+
+  // --- PERSISTENCE: LOAD ---
+  useEffect(() => {
+    fetch(`/api/state/whiteboard-${sessionId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.value) setElements(data.value);
+      });
+  }, [sessionId]);
+
+  // --- PERSISTENCE: SAVE ---
+  const saveWhiteboard = (newElements: Element[]) => {
+    fetch(`/api/state/whiteboard-${sessionId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: newElements })
+    });
+  };
 
   const drawElement = (ctx: CanvasRenderingContext2D, element: Element) => {
     ctx.strokeStyle = element.color;
@@ -50,6 +70,10 @@ export const Whiteboard = () => {
         ctx.lineTo(element.x! + element.width!, element.y! + element.height!);
         ctx.stroke();
         break;
+      case 'text':
+        ctx.font = '14px JetBrains Mono, monospace';
+        ctx.fillText(element.text || '', element.x!, element.y!);
+        break;
     }
   };
 
@@ -59,11 +83,14 @@ export const Whiteboard = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set resolution
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * window.devicePixelRatio;
-    canvas.height = rect.height * window.devicePixelRatio;
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    const rect = canvas.parentElement?.getBoundingClientRect();
+    if (rect) {
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     elements.forEach(el => drawElement(ctx, el));
@@ -71,12 +98,19 @@ export const Whiteboard = () => {
   }, [elements, currentElement]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (textInput) return; // Wait for text input to finish
+
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    setIsRecording(true);
+    if (tool === 'text') {
+      setTextInput({ x, y });
+      return;
+    }
+
+    setIsDrawing(true);
     const id = Date.now();
     
     if (tool === 'pencil') {
@@ -109,43 +143,92 @@ export const Whiteboard = () => {
 
   const handleMouseUp = () => {
     if (currentElement) {
-      setElements([...elements, currentElement]);
+      const newElements = [...elements, currentElement];
+      setElements(newElements);
+      saveWhiteboard(newElements);
     }
-    setIsRecording(false);
+    setIsDrawing(false);
     setCurrentElement(null);
   };
 
+  const handleTextSubmit = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && textInput && inputValue.trim()) {
+      const newElement: Element = {
+        id: Date.now(),
+        type: 'text',
+        x: textInput.x,
+        y: textInput.y,
+        text: inputValue,
+        color: '#22d3ee'
+      };
+      const newElements = [...elements, newElement];
+      setElements(newElements);
+      saveWhiteboard(newElements);
+      setTextInput(null);
+      setInputValue('');
+    } else if (e.key === 'Escape') {
+      setTextInput(null);
+      setInputValue('');
+    }
+  };
+
+  const downloadCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const link = document.createElement('a');
+    link.download = `architectural-diagram-${sessionId}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
+
+  const clearCanvas = () => {
+    setElements([]);
+    saveWhiteboard([]);
+  };
+
+  const undo = () => {
+    const newElements = elements.slice(0, -1);
+    setElements(newElements);
+    saveWhiteboard(newElements);
+  };
+
   return (
-    <div className="flex flex-col h-full bg-[#050505] rounded-xl border border-white/10 overflow-hidden shadow-2xl">
+    <div className="flex flex-col h-full bg-[#050505] rounded-xl border border-white/10 overflow-hidden shadow-2xl relative">
       {/* TOOLBAR */}
-      <div className="flex items-center gap-2 px-4 py-2 bg-black/40 border-b border-white/5 overflow-x-auto">
-        {[
-          { id: 'pencil', icon: MousePointer2, label: 'Draw' },
-          { id: 'rect', icon: Square, label: 'Block' },
-          { id: 'circle', icon: Circle, label: 'Node' },
-          { id: 'line', icon: Minus, label: 'Link' },
-        ].map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTool(t.id as any)}
-            className={cn(
-              "p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider",
-              tool === t.id ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "text-neutral-500 hover:text-white"
-            )}
-          >
-            <t.icon size={14} />
-            <span className="hidden sm:inline">{t.label}</span>
+      <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-white/5 overflow-x-auto">
+        <div className="flex items-center gap-2">
+          {[
+            { id: 'pencil', icon: MousePointer2, label: 'Draw' },
+            { id: 'rect', icon: Square, label: 'Block' },
+            { id: 'circle', icon: Circle, label: 'Node' },
+            { id: 'line', icon: Minus, label: 'Link' },
+            { id: 'text', icon: Type, label: 'Label' },
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTool(t.id as any)}
+              className={cn(
+                "p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider",
+                tool === t.id ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "text-neutral-500 hover:text-white"
+              )}
+            >
+              <t.icon size={14} />
+              <span className="hidden sm:inline">{t.label}</span>
+            </button>
+          ))}
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <button onClick={undo} className="p-2 text-neutral-500 hover:text-white transition-colors" title="Undo">
+            <RotateCcw size={14} />
           </button>
-        ))}
-        
-        <div className="h-4 w-px bg-white/10 mx-2" />
-        
-        <button onClick={() => setElements(elements.slice(0, -1))} className="p-2 text-neutral-500 hover:text-white transition-colors">
-          <RotateCcw size={14} />
-        </button>
-        <button onClick={() => setElements([])} className="p-2 text-neutral-500 hover:text-rose-400 transition-colors">
-          <Trash2 size={14} />
-        </button>
+          <button onClick={downloadCanvas} className="p-2 text-neutral-500 hover:text-white transition-colors" title="Export PNG">
+            <Download size={14} />
+          </button>
+          <button onClick={clearCanvas} className="p-2 text-neutral-500 hover:text-rose-400 transition-colors" title="Clear All">
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
 
       {/* CANVAS */}
@@ -158,7 +241,25 @@ export const Whiteboard = () => {
           className="w-full h-full"
         />
         
-        {elements.length === 0 && !currentElement && (
+        {/* TEXT INPUT OVERLAY */}
+        {textInput && (
+          <div 
+            className="absolute z-50"
+            style={{ left: textInput.x, top: textInput.y - 10 }}
+          >
+            <input
+              autoFocus
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              onKeyDown={handleTextSubmit}
+              onBlur={() => { setTextInput(null); setInputValue(''); }}
+              className="bg-[#0a0a0a] border border-cyan-500/50 rounded px-2 py-1 text-xs text-cyan-400 outline-none shadow-[0_0_15px_rgba(34,211,238,0.2)] font-mono"
+              placeholder="Labeling..."
+            />
+          </div>
+        )}
+
+        {elements.length === 0 && !currentElement && !textInput && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <p className="text-neutral-700 font-mono text-[10px] uppercase tracking-[0.2em]">Architect's Drawing Surface</p>
           </div>
