@@ -138,8 +138,8 @@ async function syncIntelligence() {
 
 module.exports = { 
   syncIntelligence, 
-  knowledgeGraph, 
-  searchIndex, 
+  getKnowledgeGraph: () => knowledgeGraph, 
+  getSearchIndex: () => searchIndex, 
   parsePlaybook, 
   parseChecklist,
   INTELLIGENCE_DIR

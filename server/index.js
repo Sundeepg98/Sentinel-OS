@@ -11,8 +11,8 @@ const {
 } = require('./lib/intelligence');
 const { 
   syncIntelligence, 
-  knowledgeGraph, 
-  searchIndex, 
+  getKnowledgeGraph, 
+  getSearchIndex, 
   INTELLIGENCE_DIR 
 } = require('./lib/harvester');
 
@@ -79,6 +79,7 @@ app.get('/api/intelligence/graph', (req, res) => {
   });
 
   const learnedModules = db.prepare("SELECT DISTINCT file_id, metadata FROM chunks_metadata WHERE file_id LIKE 'learned/%'").all();
+  const knowledgeGraph = getKnowledgeGraph();
 
   Object.entries(knowledgeGraph.files).forEach(([id, data]) => {
     const trackerKey = `tracker-${data.company}-${id.split('/').pop().replace('.md', '').toLowerCase()}`;
@@ -116,6 +117,7 @@ app.post('/api/intelligence/semantic-search', async (req, res) => {
 app.post('/api/intelligence/drill', async (req, res) => {
   const { fileId, extraContext = "" } = req.body;
   if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
+  const knowledgeGraph = getKnowledgeGraph();
   try {
     const prompt = `You are a Staff Engineer interviewer. Generate ONE high-stakes technical drill.\nContext: ${extraContext || knowledgeGraph.files[fileId]?.content.slice(0, 3000)}\nRespond ONLY in JSON: { "question": "...", "idealResponse": "..." }`;
     const text = await generateContent(prompt);
@@ -139,6 +141,29 @@ app.post('/api/intelligence/evaluate', async (req, res) => {
     }
     res.json(json || { score: "N/A", feedback: text });
   } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.get('/api/intelligence/insights', async (req, res) => {
+  const { fileId } = req.query;
+  if (!fileId) return res.status(400).json({ error: 'Missing fileId' });
+  const knowledgeGraph = getKnowledgeGraph();
+  const file = knowledgeGraph.files[fileId];
+  if (!file) return res.json({ keywords: [], related: [] });
+  try {
+    const vector = await getEmbedding(file.content.slice(0, 1000));
+    const semanticMatches = db.prepare(`
+      SELECT m.file_id, m.chunk_text, v.distance 
+      FROM vec_chunks v
+      JOIN chunks_metadata m ON v.id = m.id
+      WHERE v.vector MATCH ? AND k = 5 AND m.file_id != ?
+      ORDER BY distance
+    `).all(new Float32Array(vector), fileId);
+    const related = semanticMatches.map(m => ({ fileId: m.file_id, company: m.file_id.split('/')[0], sharedKeyword: 'semantic similarity' }));
+    res.json({ keywords: file.keywords, related });
+  } catch (e) { 
+    console.warn("Insights failed, using fallback keywords only.");
+    res.json({ keywords: file.keywords, related: [] }); 
+  }
 });
 
 // Other Standard Endpoints
@@ -173,6 +198,15 @@ app.get('/api/state/:key', (req, res) => {
 app.post('/api/state/:key', (req, res) => {
   db.prepare(`INSERT INTO user_state (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`).run(req.userId, req.params.key, JSON.stringify(req.body.value));
   res.json({ success: true });
+});
+
+app.get('/api/intelligence/search', (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.json([]);
+  const searchIndex = getSearchIndex();
+  const knowledgeGraph = getKnowledgeGraph();
+  const results = searchIndex.search(q, { limit: 10 });
+  res.json(results.map(id => ({ id, ...knowledgeGraph.files[id] })));
 });
 
 app.get(/(.*)/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
