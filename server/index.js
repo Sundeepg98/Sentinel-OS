@@ -46,7 +46,7 @@ db.exec(`
 
   CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
     id INTEGER PRIMARY KEY,
-    vector FLOAT[768]
+    vector FLOAT[3072]
   );
 `);
 
@@ -71,14 +71,17 @@ function extractKeywords(text) {
 
 async function getEmbedding(text) {
   const key = process.env.GEMINI_API_KEY;
-  if (!key) return new Array(768).fill(0);
+  if (!key) return new Array(3072).fill(0);
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${key}`;
-    const response = await axios.post(url, { content: { parts: [{ text }] } });
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${key}`;
+    const response = await axios.post(url, {
+      content: { parts: [{ text }] },
+      taskType: "RETRIEVAL_DOCUMENT"
+    });
     return response.data.embedding.values;
   } catch (e) {
     console.error('Embedding Error:', e.response?.data || e.message);
-    return new Array(768).fill(0);
+    return new Array(3072).fill(0);
   }
 }
 
@@ -119,12 +122,14 @@ async function syncIntelligence() {
         const currentHash = getFileHash(fileContent);
 
         const cached = db.prepare("SELECT content_hash, keywords, label FROM intelligence_cache WHERE file_id = ?").get(fileId);
+        const vectorRow = db.prepare(`SELECT count(*) as count FROM chunks_metadata m JOIN vec_chunks v ON m.id = v.id WHERE m.file_id = ?`).get(fileId);
+        
         let keywords, label;
-        if (cached && cached.content_hash === currentHash) {
+        if (cached && cached.content_hash === currentHash && (vectorRow?.count || 0) > 0) {
           keywords = JSON.parse(cached.keywords);
           label = cached.label;
         } else {
-          console.log(`📡 Processing: ${fileId} (Update detected)`);
+          console.log(`📡 Processing: ${fileId}`);
           keywords = extractKeywords(content + ' ' + (data.label || ''));
           label = data.label || fileName;
           db.prepare(`INSERT INTO intelligence_cache (file_id, content_hash, label, company, keywords) VALUES (?, ?, ?, ?, ?) 
@@ -149,15 +154,18 @@ async function processFileVectors(fileId, content, metadata) {
   try {
     const oldChunks = db.prepare("SELECT id FROM chunks_metadata WHERE file_id = ?").all(fileId);
     if (oldChunks.length > 0) {
-      const oldIds = oldChunks.map(c => c.id);
+      const oldIds = oldChunks.map(c => Number(c.id));
       db.prepare(`DELETE FROM vec_chunks WHERE id IN (${oldIds.join(',')})`).run();
       db.prepare(`DELETE FROM chunks_metadata WHERE file_id = ?`).run(fileId);
     }
     const chunks = chunkMarkdown(content);
     for (const chunk of chunks) {
       const vector = await getEmbedding(chunk);
-      const result = db.prepare(`INSERT INTO chunks_metadata (file_id, chunk_text, metadata) VALUES (?, ?, ?)`).run(fileId, chunk, JSON.stringify(metadata));
-      db.prepare(`INSERT INTO vec_chunks (id, vector) VALUES (?, ?)`).run(result.lastInsertRowid, new Float32Array(vector));
+      // TRANSACTIONAL ATOMIC INSERT: Use last_insert_rowid() to prevent JS type conversion issues
+      db.transaction(() => {
+        db.prepare(`INSERT INTO chunks_metadata (file_id, chunk_text, metadata) VALUES (?, ?, ?)`).run(fileId, chunk, JSON.stringify(metadata));
+        db.prepare(`INSERT INTO vec_chunks (id, vector) SELECT last_insert_rowid(), ?`).run(new Float32Array(vector));
+      })();
     }
     console.log(`🧠 Vectorized: ${fileId}`);
   } catch (e) { console.error(`Vectorization Error [${fileId}]:`, e.message); }
@@ -191,39 +199,71 @@ app.get('/api/intelligence/search', (req, res) => {
   res.json(results.map(id => ({ id, ...knowledgeGraph.files[id] })));
 });
 
+app.post('/api/intelligence/semantic-search', async (req, res) => {
+  const { q, limit = 5 } = req.body;
+  try {
+    const vector = await getEmbedding(q);
+    const results = db.prepare(`
+      SELECT m.file_id, m.chunk_text, v.distance 
+      FROM vec_chunks v
+      JOIN chunks_metadata m ON v.id = m.id
+      WHERE v.vector MATCH ? AND k = ?
+      ORDER BY distance
+    `).all(new Float32Array(vector), limit);
+    res.json(results);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/intelligence/drill', async (req, res) => {
-  const { fileId, model = 'gemini-2.5-flash' } = req.body;
+  const { fileId, extraContext = "" } = req.body;
   const key = process.env.GEMINI_API_KEY;
   if (!key) return res.status(500).json({ error: "API Key Missing" });
   try {
-    const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${key}`;
-    const payload = { contents: [{ parts: [{ text: `Staff Engineer drill. Q & Ideal response JSON format. Context: ${knowledgeGraph.files[fileId]?.content.slice(0, 3000)}` }] }] };
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+    const payload = { contents: [{ parts: [{ text: `Staff drill question. Context: ${extraContext || knowledgeGraph.files[fileId]?.content.slice(0, 3000)}. JSON expected.` }] }] };
     const response = await axios.post(url, payload);
-    const jsonMatch = response.data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/);
-    res.json(JSON.parse(jsonMatch[0]));
+    const text = response.data.candidates[0].content.parts[0].text;
+    res.json(JSON.parse(text.match(/\{[\s\S]*\}/)[0]));
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const activeChats = new Map();
-
 app.post('/api/intelligence/evaluate', async (req, res) => {
-  const { userAnswer, sessionId, question, idealResponse, model = 'gemini-2.5-flash' } = req.body;
+  const { userAnswer, sessionId, question, idealResponse } = req.body;
   const key = process.env.GEMINI_API_KEY;
   if (!key) return res.status(500).json({ error: "API Key Missing" });
   try {
     const genAI = new GoogleGenerativeAI(key);
-    const gemini = genAI.getGenerativeModel({ model });
+    const gemini = genAI.getGenerativeModel({ model: "models/gemini-1.5-flash" });
     let chat = activeChats.get(sessionId);
     if (!chat) {
-      chat = gemini.startChat({ history: [{ role: "user", parts: [{ text: `Staff Interview. Q: ${question}. Criteria: ${idealResponse}` }] }, { role: "model", parts: [{ text: "Acknowledged." }] }] });
+      chat = gemini.startChat({ history: [{ role: "user", parts: [{ text: `Staff Interview Mode. Q: ${question}. Criteria: ${idealResponse}` }] }, { role: "model", parts: [{ text: "Understood." }] }] });
       activeChats.set(sessionId, chat);
     }
-    const result = await chat.sendMessage(`Proposal: "${userAnswer}". JSON format evaluation.`);
+    const result = await chat.sendMessage(`Proposal: "${userAnswer}". Evaluate in JSON.`);
     const text = (await result.response).text();
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    res.json(jsonMatch ? JSON.parse(jsonMatch[0]) : { score: "N/A", feedback: text });
+    res.json(JSON.parse(text.match(/\{[\s\S]*\}/)[0]));
   } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.get('/api/intelligence/insights', async (req, res) => {
+  const { fileId } = req.query;
+  if (!fileId) return res.status(400).json({ error: 'Missing fileId' });
+  const file = knowledgeGraph.files[fileId];
+  if (!file) return res.json({ keywords: [], related: [] });
+  try {
+    const vector = await getEmbedding(file.content.slice(0, 1000));
+    const semanticMatches = db.prepare(`
+      SELECT m.file_id, m.chunk_text, v.distance 
+      FROM vec_chunks v
+      JOIN chunks_metadata m ON v.id = m.id
+      WHERE v.vector MATCH ? AND k = 5 AND m.file_id != ?
+      ORDER BY distance
+    `).all(new Float32Array(vector), fileId);
+    const related = semanticMatches.map(m => ({ fileId: m.file_id, company: m.file_id.split('/')[0], sharedKeyword: 'semantic similarity' }));
+    res.json({ keywords: file.keywords, related });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/companies', async (req, res) => {

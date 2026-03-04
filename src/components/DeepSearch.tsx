@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, Command, SearchCode } from 'lucide-react';
+import { Search, X, Command, SearchCode, Brain } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDossierContext } from '../App';
+import { cn } from '../lib/utils';
 
 interface SearchResult {
   id: string; // "company/module.md"
@@ -19,6 +20,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchMode, setSearchMode] = useState<'keyword' | 'semantic'>('keyword');
   const { setCompany } = useDossierContext();
 
   useEffect(() => {
@@ -42,8 +44,25 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
     const fetchResults = async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/intelligence/search?q=${encodeURIComponent(query)}`);
-        const data = await res.json();
+        let res, data;
+        if (searchMode === 'keyword') {
+          res = await fetch(`/api/intelligence/search?q=${encodeURIComponent(query)}`);
+          data = await res.json();
+        } else {
+          // HIT THE RAG ENDPOINT
+          res = await fetch('/api/intelligence/semantic-search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ q: query, limit: 10 })
+          });
+          const rawData = await res.json();
+          data = rawData.map((item: any) => ({
+            id: item.file_id,
+            label: item.file_id.split('/').pop().replace('.md', ''),
+            company: item.file_id.split('/')[0],
+            snippet: item.chunk_text
+          }));
+        }
         setResults(data);
       } catch (err) {
         console.error('Search failed', err);
@@ -54,7 +73,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
 
     const debounce = setTimeout(fetchResults, 300);
     return () => clearTimeout(debounce);
-  }, [query]);
+  }, [query, searchMode]);
 
   const handleSelect = (res: SearchResult) => {
     const [companyId, fileName] = res.id.split('/');
@@ -104,12 +123,34 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
                 <Search className="text-neutral-400" size={20} />
                 <input 
                   autoFocus
-                  placeholder="Search globally across all company profiles..."
+                  placeholder={searchMode === 'keyword' ? "Search keywords (e.g., 'Redis', 'V8')..." : "Search by meaning (e.g., 'How to handle high traffic?')..."}
                   className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-neutral-600 text-[15px]"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
-                <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-white/[0.05] rounded-md transition-colors">
+                
+                <div className="flex items-center bg-white/[0.03] p-1 rounded-lg border border-white/5 gap-1">
+                  <button 
+                    onClick={() => setSearchMode('keyword')}
+                    className={cn(
+                      "px-2 py-1 rounded text-[10px] font-bold uppercase transition-all",
+                      searchMode === 'keyword' ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/20" : "text-neutral-600 hover:text-neutral-400"
+                    )}
+                  >
+                    Keyword
+                  </button>
+                  <button 
+                    onClick={() => setSearchMode('semantic')}
+                    className={cn(
+                      "px-2 py-1 rounded text-[10px] font-bold uppercase transition-all",
+                      searchMode === 'semantic' ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "text-neutral-600 hover:text-neutral-400"
+                    )}
+                  >
+                    Semantic
+                  </button>
+                </div>
+
+                <button onClick={() => setIsOpen(false)} className="ml-2 p-1 hover:bg-white/[0.05] rounded-md transition-colors">
                   <X className="text-neutral-500 hover:text-white" size={18} />
                 </button>
               </div>
@@ -124,7 +165,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
                         className="w-full text-left p-3 rounded-lg hover:bg-white/[0.03] group transition-colors flex items-start gap-4 border border-transparent hover:border-white/[0.05]"
                       >
                         <div className="mt-1 p-2 bg-[#0a0a0a] border border-white/[0.08] rounded-md text-neutral-500 group-hover:text-cyan-400 group-hover:border-cyan-500/30 transition-colors shadow-sm">
-                          <SearchCode size={16} />
+                          {searchMode === 'keyword' ? <SearchCode size={16} /> : <Brain size={16} />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
@@ -133,7 +174,9 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
                               {res.company}
                             </span>
                           </div>
-                          <p className="text-[12px] text-neutral-500 line-clamp-1 leading-relaxed">{res.id}</p>
+                          <p className="text-[12px] text-neutral-500 line-clamp-2 leading-relaxed font-mono italic opacity-80">
+                            {res.snippet || res.id}
+                          </p>
                         </div>
                       </button>
                     ))}
@@ -144,7 +187,9 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
                       <Search className={isSearching ? "w-5 h-5 text-cyan-500 animate-pulse" : "w-5 h-5 text-neutral-600"} />
                     </div>
                     <p className="text-neutral-500 text-[14px]">
-                      {query.length < 2 ? 'Start typing to search across all dossiers...' : (isSearching ? 'Searching...' : 'No results found for this query.')}
+                      {query.length < 2 ? (
+                        searchMode === 'keyword' ? 'Start typing to search across all dossiers...' : 'Type a technical question or concept...'
+                      ) : (isSearching ? 'Analyzing semantic vectors...' : 'No results found for this query.')}
                     </p>
                   </div>
                 )}

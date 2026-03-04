@@ -49,12 +49,26 @@ export const ArchitectArena: React.FC = () => {
     setEvalData(null);
     setUserAnswer('');
     try {
+      // 1. SEMANTIC CROSS-POLLINATION
+      // Search for technical segments that bridge the pinned modules
+      const searchRes = await fetch('/api/intelligence/semantic-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          q: modules.map(m => m.label).join(" and "), 
+          limit: 5 
+        })
+      });
+      const semanticContext = await searchRes.json();
+      const crossDossierContext = semanticContext.map((c: any) => c.chunk_text).join("\n\n---\n\n");
+
+      // 2. GENERATE DRILL WITH SEMANTIC DEPTH
       const res = await fetch('/api/intelligence/drill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          fileId: arenaIds[0], // primary context
-          extraContext: modules.map(m => m.content).join("\n\n"), // combine all
+          fileId: arenaIds[0], 
+          extraContext: `PRIMARY MODULES:\n${modules.map(m => m.content).join("\n\n")}\n\nSEMANTICALLY RETRIEVED BRIDGING CONTEXT:\n${crossDossierContext}`,
           isSynthesis: true 
         })
       });
