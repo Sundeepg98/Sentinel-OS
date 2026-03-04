@@ -4,6 +4,8 @@ const path = require('path');
 const { Worker } = require('worker_threads');
 const { Index } = require('flexsearch');
 const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+const { z } = require('zod');
 const { db, initDB } = require('./lib/db');
 const { 
   GEMINI_API_KEY, 
@@ -17,23 +19,64 @@ const {
 } = require('./lib/intelligence');
 const { 
   getKnowledgeGraph, 
+  getSearchIndex, 
   INTELLIGENCE_DIR 
 } = require('./lib/harvester');
 
+/**
+ * 🛠️ ENGINEERING BASIC: ENV VALIDATION
+ * Ensure critical environment variables exist before the app starts.
+ */
+const envSchema = z.object({
+  GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
+  PORT: z.string().default("3002"),
+  NODE_ENV: z.enum(["development", "staging", "production"]).default("development"),
+  AUTH_ENABLED: z.string().optional().transform(v => v === 'true')
+});
+
+const env = envSchema.parse(process.env);
+
 const app = express();
-const PORT = process.env.PORT || 3002;
+const PORT = env.PORT;
 const FRONTEND_DIST = path.join(__dirname, '..', 'dist');
 
 // Initialize Core Systems
 initDB();
+
+/**
+ * 🛠️ ENGINEERING BASIC: SECURITY HEADERS
+ * Hardens the app against common web vulnerabilities.
+ */
+app.use(helmet({
+  contentSecurityPolicy: false, // Disabled to allow Three.js/Postprocessing assets
+  crossOriginEmbedderPolicy: false
+}));
+
 app.use(cors());
 app.use(express.json());
-app.use(express.static(FRONTEND_DIST));
+
+// --- HEALTH CHECK ---
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+/**
+ * 🛠️ ENGINEERING BASIC: CACHE CONTROL
+ * Explicitly set headers for static assets to improve load performance.
+ */
+app.use(express.static(FRONTEND_DIST, {
+  maxAge: '1y',
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 // --- UPSTREAM PROTECTION (Rate Limiting) ---
 const aiRateLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 15, // Match Gemini Free Tier (15 RPM)
+  windowMs: 60 * 1000, 
+  max: 15, 
   message: { error: "AI Intelligence Engine is cooling down. Please wait 60 seconds." },
   standardHeaders: true,
   legacyHeaders: false,
@@ -67,7 +110,6 @@ function spawnRAGWorker() {
       console.log(`📡 Main Loop: Hydrating Intelligence from Worker (${msg.duration}s)`);
       knowledgeGraph = msg.knowledgeGraph;
       
-      // RE-BUILD SEARCH INDEX IN MAIN THREAD
       const newIndex = new Index({ preset: 'score', tokenize: 'forward' });
       Object.entries(knowledgeGraph.files).forEach(([id, file]) => {
         newIndex.add(id, file.content);
@@ -83,9 +125,7 @@ function spawnRAGWorker() {
     isSyncing = false;
   });
 
-  worker.on('exit', (code) => {
-    isSyncing = false;
-  });
+  worker.on('exit', () => { isSyncing = false; });
 }
 
 // --- INTELLIGENCE FEEDBACK LOOP ---
@@ -115,6 +155,8 @@ app.get('/api/intelligence/stats', (req, res) => {
     learnedAssets: learned.count,
     model: DEFAULT_MODEL,
     uptime: process.uptime(),
+    env: env.NODE_ENV,
+    auth: env.AUTH_ENABLED ? 'enabled' : 'disabled',
     isSyncing
   });
 });
@@ -161,18 +203,10 @@ app.get('/api/intelligence/insights', async (req, res) => {
   if (!file) return res.json({ keywords: [], related: [] });
   try {
     const vector = await getEmbedding(file.content.slice(0, 1000));
-    const semanticMatches = db.prepare(`
-      SELECT m.file_id, m.chunk_text, v.distance 
-      FROM vec_chunks v
-      JOIN chunks_metadata m ON v.id = m.id
-      WHERE v.vector MATCH ? AND k = 5 AND m.file_id != ?
-      ORDER BY distance
-    `).all(new Float32Array(vector), fileId);
+    const semanticMatches = db.prepare(`SELECT m.file_id, m.chunk_text, v.distance FROM vec_chunks v JOIN chunks_metadata m ON v.id = m.id WHERE v.vector MATCH ? AND k = 5 AND m.file_id != ? ORDER BY distance`).all(new Float32Array(vector), fileId);
     const related = semanticMatches.map(m => ({ fileId: m.file_id, company: m.file_id.split('/')[0], sharedKeyword: 'semantic similarity' }));
     res.json({ keywords: file.keywords, related });
-  } catch (e) { 
-    res.json({ keywords: file.keywords, related: [] }); 
-  }
+  } catch (e) { res.json({ keywords: file.keywords, related: [] }); }
 });
 
 app.get('/api/intelligence/search', (req, res) => {
@@ -186,13 +220,7 @@ app.post('/api/intelligence/semantic-search', async (req, res) => {
   const { q, limit = 5 } = req.body;
   try {
     const vector = await getEmbedding(q);
-    const results = db.prepare(`
-      SELECT m.file_id, m.chunk_text, v.distance 
-      FROM vec_chunks v
-      JOIN chunks_metadata m ON v.id = m.id
-      WHERE v.vector MATCH ? AND k = ?
-      ORDER BY distance
-    `).all(new Float32Array(vector), limit);
+    const results = db.prepare(`SELECT m.file_id, m.chunk_text, v.distance FROM vec_chunks v JOIN chunks_metadata m ON v.id = m.id WHERE v.vector MATCH ? AND k = ? ORDER BY distance`).all(new Float32Array(vector), limit);
     res.json(results);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -229,7 +257,6 @@ app.post('/api/intelligence/incident', async (req, res) => {
   const { moduleIds = [] } = req.body;
   if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
   let context = moduleIds.map(id => knowledgeGraph.files[id]?.content.slice(0, 1000)).join('\n\n') || "General System Architecture";
-
   try {
     const prompt = `You are a Chaos Engineering simulator for a Staff Engineer. Context: ${context}. Generate a critical production incident (P0/P1) based on this architecture.`;
     const text = await generateStructuredContent(prompt, INCIDENT_SCHEMA);
@@ -239,18 +266,13 @@ app.post('/api/intelligence/incident', async (req, res) => {
 
 app.post('/api/intelligence/incident/evaluate', async (req, res) => {
   const { userAnswer, incident } = req.body;
-  if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
-  
   try {
     const prompt = `Staff Engineer Incident Post-Mortem.\nIncident: ${incident.title}\nActual Root Cause: ${incident.rootCause}\nIdeal Mitigation: ${incident.idealMitigation}\nCandidate's Response: "${userAnswer}"`;
     const text = await generateStructuredContent(prompt, POST_MORTEM_SCHEMA);
     const json = JSON.parse(text);
-
     if (json && json.score) {
       const numericScore = parseInt(json.score.split('/')[0]);
-      db.prepare(`INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) 
-                 VALUES (?, 'incident', ?, ?, ?, ?, ?)`)
-        .run(req.userId, incident.title, incident.title, userAnswer, text, isNaN(numericScore) ? 0 : numericScore);
+      db.prepare(`INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) VALUES (?, 'incident', ?, ?, ?, ?, ?)`).run(req.userId, incident.title, incident.title, userAnswer, text, isNaN(numericScore) ? 0 : numericScore);
     }
     res.json(json);
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -333,7 +355,31 @@ app.get('/api/portfolio/export', (req, res) => {
 });
 
 app.get(/(.*)/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
-app.listen(PORT, () => {
+
+const server = app.listen(PORT, () => {
   console.log(`Intelligence Engine ACTIVE on ${PORT}`);
   spawnRAGWorker();
 });
+
+/**
+ * 🛠️ ENGINEERING BASIC: GRACEFUL SHUTDOWN
+ * Ensure DB connections and server handles are closed cleanly.
+ */
+function gracefulShutdown() {
+  console.log("🛑 Signal received. Shutting down gracefully...");
+  server.close(() => {
+    console.log("📡 Express server closed.");
+    db.close();
+    console.log("🗄️ SQLite connection closed.");
+    process.exit(0);
+  });
+  
+  // Force close after 10s
+  setTimeout(() => {
+    console.error("⚠️ Forcefully shutting down.");
+    process.exit(1);
+  }, 10000);
+}
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
