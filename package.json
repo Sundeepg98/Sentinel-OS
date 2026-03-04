@@ -19,6 +19,7 @@
     "axios": "^1.13.6",
     "better-sqlite3": "^12.6.2",
     "clsx": "^2.1.1",
+    "compression": "^1.8.1",
     "crypto-js": "^4.2.0",
     "d3-force": "^3.0.0",
     "d3-force-3d": "^3.0.6",
@@ -42,6 +43,7 @@
     "three": "^0.183.2",
     "three-spritetext": "^1.10.0",
     "three-stdlib": "^2.36.1",
+    "uuid": "^13.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

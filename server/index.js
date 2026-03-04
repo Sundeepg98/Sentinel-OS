@@ -5,6 +5,8 @@ const { Worker } = require('worker_threads');
 const { Index } = require('flexsearch');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
+const compression = require('compression');
+const { v4: uuidv4 } = require('uuid');
 const { z } = require('zod');
 const morgan = require('morgan');
 const pino = require('pino');
@@ -49,17 +51,33 @@ const FRONTEND_DIST = path.join(__dirname, '..', 'dist');
 // Initialize Core Systems
 initDB();
 
+/**
+ * 🛠️ ENGINEERING BASIC: PERFORMANCE & SECURITY
+ */
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false
 }));
+app.use(compression()); // Gzip compression for faster asset delivery
 
-app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+/**
+ * 🛠️ ENGINEERING BASIC: REQUEST CORRELATION
+ */
+app.use((req, res, next) => {
+  req.id = uuidv4();
+  res.setHeader('X-Request-ID', req.id);
+  next();
+});
+
+// Use Morgan with Request ID for traceability
+morgan.token('id', (req) => req.id);
+app.use(morgan(':id :method :url :status :res[content-length] - :response-time ms'));
+
 app.use(cors());
 app.use(express.json());
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+  res.json({ status: 'healthy', timestamp: new Date().toISOString(), requestId: req.id });
 });
 
 // --- 🛠️ ENGINEERING BASIC: API VERSIONING (v1) ---
@@ -160,8 +178,9 @@ v1Router.get('/intelligence/graph', (req, res) => {
   });
 
   const learnedModules = db.prepare("SELECT DISTINCT file_id, metadata FROM chunks_metadata WHERE file_id LIKE 'learned/%'").all();
+  const graph = getKnowledgeGraph();
 
-  Object.entries(knowledgeGraph.files).forEach(([id, data]) => {
+  Object.entries(graph.files).forEach(([id, data]) => {
     const trackerKey = `tracker-${data.company}-${id.split('/').pop().replace('.md', '').toLowerCase()}`;
     const moduleTasks = trackers[trackerKey] || [];
     const trackerReadiness = moduleTasks.length > 0 ? (moduleTasks.filter(t => t.done).length / moduleTasks.length) * 0.5 : 0;
@@ -176,7 +195,7 @@ v1Router.get('/intelligence/graph', (req, res) => {
     if (meta.originalModule) links.push({ source: meta.originalModule, target: lm.file_id, type: 'learned-from' });
   });
 
-  Object.entries(knowledgeGraph.concepts).forEach(([concept, files]) => {
+  Object.entries(graph.concepts).forEach(([concept, files]) => {
     if (files.length > 1) {
       nodes.push({ id: `concept:${concept}`, label: concept, group: 'concept', company: 'global', val: 8 });
       files.forEach(f => links.push({ source: f.fileId, target: `concept:${concept}`, keyword: concept }));
@@ -188,7 +207,8 @@ v1Router.get('/intelligence/graph', (req, res) => {
 v1Router.get('/intelligence/insights', async (req, res) => {
   const { fileId } = req.query;
   if (!fileId) return res.status(400).json({ error: 'Missing fileId' });
-  const file = knowledgeGraph.files[fileId];
+  const graph = getKnowledgeGraph();
+  const file = graph.files[fileId];
   if (!file) return res.json({ keywords: [], related: [] });
   try {
     const vector = await getEmbedding(file.content.slice(0, 1000));
@@ -205,7 +225,6 @@ v1Router.get('/intelligence/search', (req, res) => {
   res.json(results.map(id => ({ id, ...knowledgeGraph.files[id] })));
 });
 
-// 🛠️ VALIDATED POST ROUTES
 v1Router.post('/intelligence/semantic-search', validateBody(schemas.semanticSearchSchema), async (req, res) => {
   const { q, limit } = req.body;
   try {
@@ -218,8 +237,9 @@ v1Router.post('/intelligence/semantic-search', validateBody(schemas.semanticSear
 v1Router.post('/intelligence/drill', aiRateLimiter, validateBody(schemas.drillRequestSchema), async (req, res) => {
   const { fileId, extraContext } = req.body;
   if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
+  const graph = getKnowledgeGraph();
   try {
-    const prompt = `You are a Staff Engineer interviewer. Generate ONE high-stakes technical drill.\nContext: ${extraContext || knowledgeGraph.files[fileId]?.content.slice(0, 3000)}`;
+    const prompt = `You are a Staff Engineer interviewer. Generate ONE high-stakes technical drill.\nContext: ${extraContext || graph.files[fileId]?.content.slice(0, 3000)}`;
     const text = await generateStructuredContent(prompt, DRILL_SCHEMA);
     res.json(JSON.parse(text));
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -246,7 +266,8 @@ v1Router.post('/intelligence/evaluate', aiRateLimiter, validateBody(schemas.eval
 v1Router.post('/intelligence/incident', aiRateLimiter, validateBody(schemas.incidentRequestSchema), async (req, res) => {
   const { moduleIds } = req.body;
   if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
-  let context = moduleIds.map(id => knowledgeGraph.files[id]?.content.slice(0, 1000)).join('\n\n') || "General System Architecture";
+  const graph = getKnowledgeGraph();
+  let context = moduleIds.map(id => graph.files[id]?.content.slice(0, 1000)).join('\n\n') || "General System Architecture";
   try {
     const prompt = `You are a Chaos Engineering simulator for a Staff Engineer. Context: ${context}. Generate a critical production incident (P0/P1) based on this architecture.`;
     const text = await generateStructuredContent(prompt, INCIDENT_SCHEMA);
@@ -268,7 +289,6 @@ v1Router.post('/intelligence/incident/evaluate', aiRateLimiter, validateBody(sch
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// --- DOSSIER & STATE ENDPOINTS ---
 v1Router.get('/dossier/:companyId', async (req, res) => {
   const fsNative = require('fs').promises;
   const matter = require('gray-matter');
@@ -290,6 +310,11 @@ v1Router.get('/companies', async (req, res) => {
   const fsNative = require('fs').promises;
   const entries = await fsNative.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
   res.json(entries.filter(d => d.isDirectory()).map(d => ({ id: d.name, name: d.name.toUpperCase() })));
+});
+
+v1Router.get('/intelligence/history', (req, res) => {
+  const rows = db.prepare("SELECT * FROM interaction_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 50").all(req.userId);
+  res.json(rows.map(r => ({ ...r, evaluation: JSON.parse(r.evaluation) })));
 });
 
 v1Router.get('/state/:key', (req, res) => {
@@ -351,6 +376,24 @@ app.use(express.static(FRONTEND_DIST, {
 }));
 
 app.get(/(.*)/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
+
+/**
+ * 🛠️ ENGINEERING BASIC: GLOBAL ERROR HANDLER
+ */
+app.use((err, req, res, next) => {
+  logger.error({ 
+    id: req.id,
+    path: req.path,
+    message: err.message,
+    stack: env.NODE_ENV !== 'production' ? err.stack : undefined
+  }, '💥 Unhandled Server Error');
+
+  res.status(err.status || 500).json({
+    error: "Internal Server Error",
+    message: env.NODE_ENV !== 'production' ? err.message : "An unexpected error occurred.",
+    requestId: req.id
+  });
+});
 
 const server = app.listen(PORT, () => {
   logger.info(`Intelligence Engine ACTIVE on ${PORT}`);
