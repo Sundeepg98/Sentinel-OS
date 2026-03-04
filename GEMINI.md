@@ -8,7 +8,7 @@ This file contains critical engineering standards and "memories" discovered duri
   `Get-NetTCPConnection -LocalPort [PORT] | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }`
 
 ## 🧠 Intelligence Engine (Gemini API)
-- **Model Naming:** The `GoogleGenerativeAI` SDK (v1beta) requires **fully qualified** model strings. Use `models/gemini-1.5-flash` or `models/gemini-pro`.
+- **Model Naming:** The `GoogleGenerativeAI` SDK (v1beta) and raw API calls should prioritize the latest flash model. Use `gemini-2.5-flash` or `gemini-pro`. 
 - **Lazy Initialization:** Initialize the GenerativeAI instance *inside* the request handler or via a getter function to ensure environment variables (via `dotenv`) are fully loaded before use.
 
 ## 🌐 Networking & Routing

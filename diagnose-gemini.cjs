@@ -30,9 +30,9 @@ async function diagnoseGemini() {
 
   // Test 2: Try to initialize specific model
   try {
-    console.log("\n2. Testing SDK initialization with models/gemini-1.5-flash...");
+    console.log("\n2. Testing SDK initialization with gemini-2.5-flash...");
     const genAI = new GoogleGenerativeAI(key);
-    const model = genAI.getGenerativeModel({ model: "models/gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const result = await model.generateContent("test");
     console.log("SUCCESS! SDK call completed.");
   } catch (e) {

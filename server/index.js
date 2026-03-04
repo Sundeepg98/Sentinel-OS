@@ -69,6 +69,19 @@ function extractKeywords(text) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
 }
 
+// Helper: Surgically extract and parse JSON from AI responses
+function extractJson(text) {
+  try {
+    const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start === -1 || end === -1) return null;
+    return JSON.parse(cleaned.substring(start, end + 1));
+  } catch (e) {
+    return null;
+  }
+}
+
 async function getEmbedding(text) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return new Array(3072).fill(0);
@@ -161,7 +174,6 @@ async function processFileVectors(fileId, content, metadata) {
     const chunks = chunkMarkdown(content);
     for (const chunk of chunks) {
       const vector = await getEmbedding(chunk);
-      // TRANSACTIONAL ATOMIC INSERT: Use last_insert_rowid() to prevent JS type conversion issues
       db.transaction(() => {
         db.prepare(`INSERT INTO chunks_metadata (file_id, chunk_text, metadata) VALUES (?, ?, ?)`).run(fileId, chunk, JSON.stringify(metadata));
         db.prepare(`INSERT INTO vec_chunks (id, vector) SELECT last_insert_rowid(), ?`).run(new Float32Array(vector));
@@ -174,8 +186,7 @@ async function processFileVectors(fileId, content, metadata) {
 setTimeout(syncIntelligence, 500);
 
 app.get('/api/intelligence/graph', (req, res) => {
-  const nodes = [];
-  const links = [];
+  const nodes = []; const links = [];
   const rows = db.prepare("SELECT key, value FROM user_state WHERE key LIKE 'tracker-%'").all();
   const readinessMap = {};
   rows.forEach(row => { try { const tasks = JSON.parse(row.value); readinessMap[row.key] = tasks.filter(t => t.done).length / tasks.length; } catch (e) {} });
@@ -220,30 +231,24 @@ app.post('/api/intelligence/drill', async (req, res) => {
   if (!key) return res.status(500).json({ error: "API Key Missing" });
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
-    const payload = { contents: [{ parts: [{ text: `Staff drill question. Context: ${extraContext || knowledgeGraph.files[fileId]?.content.slice(0, 3000)}. JSON expected.` }] }] };
+    const payload = { contents: [{ parts: [{ text: `Staff drill question for ${fileId}. Respond ONLY in JSON: { "question": "...", "idealResponse": "..." }` }] }] };
     const response = await axios.post(url, payload);
     const text = response.data.candidates[0].content.parts[0].text;
-    res.json(JSON.parse(text.match(/\{[\s\S]*\}/)[0]));
+    res.json(extractJson(text) || { error: "Failed to parse AI response" });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-const activeChats = new Map();
 app.post('/api/intelligence/evaluate', async (req, res) => {
-  const { userAnswer, sessionId, question, idealResponse } = req.body;
+  const { userAnswer, question, idealResponse } = req.body;
   const key = process.env.GEMINI_API_KEY;
   if (!key) return res.status(500).json({ error: "API Key Missing" });
   try {
-    const genAI = new GoogleGenerativeAI(key);
-    const gemini = genAI.getGenerativeModel({ model: "models/gemini-1.5-flash" });
-    let chat = activeChats.get(sessionId);
-    if (!chat) {
-      chat = gemini.startChat({ history: [{ role: "user", parts: [{ text: `Staff Interview Mode. Q: ${question}. Criteria: ${idealResponse}` }] }, { role: "model", parts: [{ text: "Understood." }] }] });
-      activeChats.set(sessionId, chat);
-    }
-    const result = await chat.sendMessage(`Proposal: "${userAnswer}". Evaluate in JSON.`);
-    const text = (await result.response).text();
-    res.json(JSON.parse(text.match(/\{[\s\S]*\}/)[0]));
+    // Standardizing on 2.5-flash via axios since it's the verified model
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+    const payload = { contents: [{ parts: [{ text: `Evaluate answer. Q: ${question}. Ideal: ${idealResponse}. Candidate: ${userAnswer}. Respond in JSON: { "score": "X/10", "feedback": "...", "followUp": "..." }` }] }] };
+    const response = await axios.post(url, payload);
+    const text = response.data.candidates[0].content.parts[0].text;
+    res.json(extractJson(text) || { score: "N/A", feedback: text });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
