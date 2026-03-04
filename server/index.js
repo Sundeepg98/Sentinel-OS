@@ -18,6 +18,7 @@ const PORT = process.env.PORT || 3002;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const DEFAULT_MODEL = "gemini-2.5-flash"; 
 const EMBEDDING_MODEL = "gemini-embedding-001";
+const AUTH_ENABLED = process.env.AUTH_ENABLED === 'true';
 
 const getGenAI = () => new GoogleGenerativeAI(GEMINI_API_KEY || '');
 
@@ -26,12 +27,14 @@ const dbFile = path.join(__dirname, 'sentinel.db');
 const db = new Database(dbFile);
 sqliteVec.load(db);
 
-// Initialize Tables
+// Initialize Tables with Multi-Tenant Support
 db.exec(`
   CREATE TABLE IF NOT EXISTS user_state (
-    key TEXT PRIMARY KEY,
+    user_id TEXT DEFAULT 'local-admin',
+    key TEXT,
     value TEXT NOT NULL,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(user_id, key)
   );
   
   CREATE TABLE IF NOT EXISTS intelligence_cache (
@@ -57,8 +60,42 @@ db.exec(`
   );
 `);
 
+// Self-healing check for legacy schema (missing user_id)
+try {
+  db.prepare("SELECT user_id FROM user_state LIMIT 1").get();
+} catch (e) {
+  console.warn("⚠️ Migrating user_state to multi-tenant schema...");
+  db.transaction(() => {
+    db.exec(`ALTER TABLE user_state RENAME TO user_state_old;`);
+    db.exec(`
+      CREATE TABLE user_state (
+        user_id TEXT DEFAULT 'local-admin',
+        key TEXT,
+        value TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(user_id, key)
+      );
+    `);
+    db.exec(`INSERT INTO user_state (key, value, updated_at) SELECT key, value, updated_at FROM user_state_old;`);
+    db.exec(`DROP TABLE user_state_old;`);
+  })();
+}
+
 app.use(cors());
 app.use(express.json());
+
+// Auth Middleware (No-Blocker Strategy)
+const authGuard = (req, res, next) => {
+  if (!AUTH_ENABLED) {
+    req.userId = 'local-admin';
+    return next();
+  }
+  // TODO: Implement Clerk middleware here later
+  req.userId = 'local-admin'; 
+  next();
+};
+
+app.use(authGuard);
 
 const INTELLIGENCE_DIR = path.join(__dirname, '..', 'intelligence');
 const FRONTEND_DIST = path.join(__dirname, '..', 'dist');
