@@ -16,7 +16,7 @@ import { Loader2, AlertCircle, Network, Swords, Terminal } from 'lucide-react';
 import { Suspense, lazy } from 'react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { cn } from './lib/utils';
-import { ToastProvider } from './components/Toast';
+import { ToastProvider } from './hooks/useToast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 const KnowledgeGraph = lazy(() => import('./components/KnowledgeGraph').then(module => ({ default: module.KnowledgeGraph })));
