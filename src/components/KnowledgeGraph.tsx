@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import ForceGraph3D from 'react-force-graph-3d';
 import { useDossierContext } from '../App';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Network, X, Maximize2, Zap, Cpu, Loader2 } from 'lucide-react';
+import { Network, X, Maximize2, Zap, Cpu } from 'lucide-react';
 import * as THREE from 'three';
 import SpriteText from 'three-spritetext';
 import { 
@@ -30,7 +30,6 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   const [hoveredNode, setHoveredNode] = useState<any | null>(null);
   const [highlightNodes, setHighlightNodes] = useState(new Set());
   const [highlightLinks, setHighlightLinks] = useState(new Set());
-  const [isDataReady, setIsDataReady] = useState(false);
   const hasInitialZoomed = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -41,50 +40,33 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
       setHoveredNode(null);
       setHighlightNodes(new Set());
       setHighlightLinks(new Set());
-      setIsDataReady(false);
     }
   }, [isOpen]);
 
-  // Self-Healing Data Pipeline
+  // Load and pre-process data
   useEffect(() => {
-    let pollTimer: number;
-    const fetchData = async () => {
-      if (!isOpen) return;
-      try {
-        const res = await fetch('/api/intelligence/graph');
-        const data = await res.json();
-        
-        if (!data.nodes || data.nodes.length <= 1) {
-          pollTimer = window.setTimeout(fetchData, 2000);
-          return;
-        }
-
-        const nodesById = Object.fromEntries(data.nodes.map((n: any) => [n.id.trim(), { ...n, neighbors: [], links: [] }]));
-        data.links.forEach((link: any) => {
-          const a = nodesById[(typeof link.source === 'string' ? link.source : link.source.id).trim()];
-          const b = nodesById[(typeof link.target === 'string' ? link.target : link.target.id).trim()];
-          if (a && b) {
-            a.neighbors.push(b);
-            b.neighbors.push(a);
-            a.links.push(link);
-            b.links.push(link);
-          }
+    if (isOpen) {
+      fetch('/api/intelligence/graph')
+        .then(res => res.json())
+        .then(data => {
+          const nodesById = Object.fromEntries(data.nodes.map((n: any) => [n.id, { ...n, neighbors: [], links: [] }]));
+          data.links.forEach((link: any) => {
+            const a = nodesById[link.source];
+            const b = nodesById[link.target];
+            if (a && b) {
+              a.neighbors.push(b);
+              b.neighbors.push(a);
+              a.links.push(link);
+              b.links.push(link);
+            }
+          });
+          const weightedNodes = Object.values(nodesById).map((n: any) => ({
+            ...n,
+            weight: n.group === 'module' ? 10 : Math.min(Math.max(n.neighbors.length || 1, 2), 8)
+          }));
+          setGraphData({ nodes: weightedNodes, links: data.links });
         });
-
-        const weightedNodes = Object.values(nodesById).map((n: any) => ({
-          ...n,
-          weight: n.group === 'module' ? 12 : Math.min(Math.max((n.neighbors?.length || 0) * 1.5, 3), 8)
-        }));
-
-        setGraphData({ nodes: weightedNodes, links: data.links });
-        setIsDataReady(true);
-      } catch (err) {
-        pollTimer = window.setTimeout(fetchData, 3000);
-      }
-    };
-
-    fetchData();
-    return () => clearTimeout(pollTimer);
+    }
   }, [isOpen]);
 
   useEffect(() => {
@@ -257,24 +239,16 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
 
         <div className="flex-1 relative overflow-hidden rounded-b-2xl" ref={containerRef}>
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.05)_0%,transparent_70%)] pointer-events-none" />
-          
-          {!isDataReady ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/20 backdrop-blur-sm">
-              <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
-              <p className="text-neutral-500 font-mono text-[10px] uppercase tracking-[0.2em] animate-pulse">Synchronizing Neural Data...</p>
-            </div>
-          ) : (
-            <ForceGraph3D
-              ref={graphRef} width={dimensions.width} height={dimensions.height} graphData={graphData}
-              nodeThreeObject={nodeThreeObject} linkCurvature={0.2}
-              linkColor={(link: any) => highlightLinks.has(link) ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.05)'}
-              linkWidth={(link: any) => highlightLinks.has(link) ? 2 : 0.5}
-              linkDirectionalParticles={(link: any) => (highlightLinks.has(link) || highlightLinks.size === 0) ? 3 : 0}
-              linkDirectionalParticleWidth={2} linkDirectionalParticleSpeed={0.005}
-              backgroundColor="rgba(0,0,0,0)" enableNodeDrag={false} onNodeClick={handleNodeClick}
-              warmupTicks={100} cooldownTicks={0} onNodeHover={handleNodeHover}
-            />
-          )}
+          <ForceGraph3D
+            ref={graphRef} width={dimensions.width} height={dimensions.height} graphData={graphData}
+            nodeThreeObject={nodeThreeObject} linkCurvature={0.2}
+            linkColor={(link: any) => highlightLinks.has(link) ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.05)'}
+            linkWidth={(link: any) => highlightLinks.has(link) ? 2 : 0.5}
+            linkDirectionalParticles={(link: any) => (highlightLinks.has(link) || highlightLinks.size === 0) ? 3 : 0}
+            linkDirectionalParticleWidth={2} linkDirectionalParticleSpeed={0.005}
+            backgroundColor="rgba(0,0,0,0)" enableNodeDrag={false} onNodeClick={handleNodeClick}
+            warmupTicks={100} cooldownTicks={0} onNodeHover={handleNodeHover}
+          />
 
           <AnimatePresence>
             {hoveredNode && (

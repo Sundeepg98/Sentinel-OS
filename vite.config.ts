@@ -22,7 +22,8 @@ export default defineConfig({
               id.includes('three') || 
               id.includes('react-force-graph') || 
               id.includes('d3-force') ||
-              id.includes('3d-force-graph')
+              id.includes('3d-force-graph') ||
+              id.includes('postprocessing')
             ) {
               return 'visualization-bundle';
             }
