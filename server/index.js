@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { Worker } = require('worker_threads');
 const { db, initDB } = require('./lib/db');
 const { 
   GEMINI_API_KEY, 
@@ -13,7 +14,6 @@ const {
   POST_MORTEM_SCHEMA
 } = require('./lib/intelligence');
 const { 
-  syncIntelligence, 
   getKnowledgeGraph, 
   getSearchIndex, 
   INTELLIGENCE_DIR 
@@ -36,6 +36,32 @@ const authGuard = (req, res, next) => {
   next();
 };
 app.use(authGuard);
+
+// --- RAG WORKER ISOLATION ---
+let isSyncing = false;
+function spawnRAGWorker() {
+  if (isSyncing) return;
+  isSyncing = true;
+  
+  const worker = new Worker(path.join(__dirname, 'lib', 'rag-worker.js'));
+  
+  worker.on('message', (msg) => {
+    if (msg.status === 'complete') {
+      console.log(`📡 Main Loop: Intelligence Synced (${msg.duration}s)`);
+    }
+    isSyncing = false;
+  });
+
+  worker.on('error', (err) => {
+    console.error('🧵 Worker Error:', err);
+    isSyncing = false;
+  });
+
+  worker.on('exit', (code) => {
+    if (code !== 0) console.error(`🧵 Worker stopped with exit code ${code}`);
+    isSyncing = false;
+  });
+}
 
 // --- INTELLIGENCE FEEDBACK LOOP ---
 let dynamicChunkId = 999000; 
@@ -65,8 +91,14 @@ app.get('/api/intelligence/stats', (req, res) => {
     model: DEFAULT_MODEL,
     uptime: process.uptime(),
     env: process.env.NODE_ENV || 'development',
-    auth: AUTH_ENABLED ? 'enabled' : 'disabled'
+    auth: AUTH_ENABLED ? 'enabled' : 'disabled',
+    isSyncing
   });
+});
+
+app.post('/api/intelligence/sync', (req, res) => {
+  spawnRAGWorker();
+  res.json({ status: 'Sync initiated' });
 });
 
 app.get('/api/intelligence/history', (req, res) => {
@@ -287,5 +319,5 @@ app.get('/api/portfolio/export', (req, res) => {
 app.get(/(.*)/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
 app.listen(PORT, () => {
   console.log(`Intelligence Engine ACTIVE on ${PORT}`);
-  setTimeout(syncIntelligence, 500);
+  spawnRAGWorker(); // Initial sync on boot
 });
