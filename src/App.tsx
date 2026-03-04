@@ -40,6 +40,7 @@ function App() {
   const [isGraphOpen, setIsGraphOpen] = useState(false);
   const [arenaMode, setArenaMode] = useLocalStorage('arena_mode_active', false);
   const [warRoomMode, setWarRoomMode] = useState(false);
+  const [diagnosticsMode, setDiagnosticsMode] = useState(false);
   const [pinnedIds] = useLocalStorage<string[]>('architect_arena_selection', []);
 
   useEffect(() => {
@@ -50,10 +51,21 @@ function App() {
 
   const activeModule = dossierData.dossier?.modules?.find(m => m.id === activeModuleId);
 
+  const resetViews = () => {
+    setArenaMode(false);
+    setWarRoomMode(false);
+    setDiagnosticsMode(false);
+  };
+
   return (
     <DossierContext.Provider value={{ ...dossierData }}>
       <div className="flex h-screen font-sans text-neutral-200 overflow-hidden selection:bg-cyan-500/30 selection:text-cyan-100 bg-[#050505]">
-        <Sidebar activeModuleId={activeModuleId} setActiveModuleId={(id) => { setActiveModuleId(id); setArenaMode(false); setWarRoomMode(false); }} />
+        <Sidebar 
+          activeModuleId={activeModuleId} 
+          setActiveModuleId={(id) => { setActiveModuleId(id); resetViews(); }} 
+          onDiagnosticsClick={() => { setDiagnosticsMode(true); setArenaMode(false); setWarRoomMode(false); }}
+          diagnosticsActive={diagnosticsMode}
+        />
 
         <main className="flex-1 overflow-y-auto relative flex flex-col">
           <div className="sticky top-0 z-30 w-full px-8 py-4 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/[0.05]">
@@ -79,7 +91,7 @@ function App() {
               <div className="h-4 w-px bg-white/10 mx-1" />
 
               <button 
-                onClick={() => { setArenaMode(!arenaMode); setWarRoomMode(false); }}
+                onClick={() => { setArenaMode(!arenaMode); setWarRoomMode(false); setDiagnosticsMode(false); }}
                 className={cn(
                   "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border shadow-sm",
                   arenaMode 
@@ -92,7 +104,7 @@ function App() {
               </button>
               
               <button 
-                onClick={() => { setWarRoomMode(!warRoomMode); setArenaMode(false); }}
+                onClick={() => { setWarRoomMode(!warRoomMode); setArenaMode(false); setDiagnosticsMode(false); }}
                 className={cn(
                   "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border shadow-sm",
                   warRoomMode 
@@ -111,7 +123,7 @@ function App() {
               >
                 Export Portfolio
               </button>
-              <DeepSearch onSelect={(id) => { setActiveModuleId(id); setArenaMode(false); setWarRoomMode(false); }} />
+              <DeepSearch onSelect={(id) => { setActiveModuleId(id); resetViews(); }} />
             </div>
           </div>
           
@@ -119,7 +131,7 @@ function App() {
             <KnowledgeGraph 
               isOpen={isGraphOpen} 
               onClose={() => setIsGraphOpen(false)} 
-              onSelectModule={(id) => { setActiveModuleId(id); setArenaMode(false); setWarRoomMode(false); }}
+              onSelectModule={(id) => { setActiveModuleId(id); resetViews(); }}
             />
           </Suspense>
           
@@ -143,6 +155,8 @@ function App() {
                 <h3 className="text-white font-semibold">Backend Connection Failed</h3>
                 <p className="text-neutral-500 text-sm text-center">Could not harvest technical profile from the sentinel server. Check if the Node.js backend is running on port 3002.</p>
               </div>
+            ) : diagnosticsMode ? (
+              <Diagnostics />
             ) : warRoomMode ? (
               <WarRoom />
             ) : arenaMode ? (

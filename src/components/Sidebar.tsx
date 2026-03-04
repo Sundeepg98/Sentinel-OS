@@ -7,9 +7,16 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 interface SidebarProps {
   activeModuleId: string;
   setActiveModuleId: (id: string) => void;
+  onDiagnosticsClick: () => void;
+  diagnosticsActive: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeModuleId, setActiveModuleId }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  activeModuleId, 
+  setActiveModuleId, 
+  onDiagnosticsClick,
+  diagnosticsActive
+}) => {
   const { dossier, loading } = useDossierContext();
   const [arenaIds, setArenaIds] = useLocalStorage<string[]>('architect_arena_selection', []);
 
@@ -34,8 +41,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleId, setActiveModul
   }
 
   return (
-    <aside className="w-[280px] bg-[#0a0a0a]/80 backdrop-blur-xl border-r border-white/[0.05] flex-col justify-between hidden md:flex z-20 shrink-0">
-      <div className="overflow-y-auto custom-scrollbar">
+    <aside className="w-[280px] bg-[#0a0a0a]/80 backdrop-blur-xl border-r border-white/[0.05] flex flex-col justify-between hidden md:flex z-20 shrink-0">
+      <div className="overflow-y-auto custom-scrollbar flex-1">
         <div className="p-8 pb-6">
           <h1 className="font-semibold text-lg text-white tracking-tight flex items-center gap-3">
             <div className={cn(
@@ -72,21 +79,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleId, setActiveModul
                 key={mod.id}
                 onClick={() => setActiveModuleId(mod.id)}
                 className={cn(
-                  "w-full flex items-center group gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 border",
-                  activeModuleId === mod.id 
+                  "w-full flex items-center group gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 border text-left",
+                  (activeModuleId === mod.id && !diagnosticsActive)
                     ? "bg-white/[0.06] text-white border-white/[0.08] shadow-sm" 
                     : "bg-transparent text-neutral-400 border-transparent hover:bg-white/[0.02] hover:text-neutral-200"
                 )}
               >
                 <div className={cn(
                   "transition-colors", 
-                  activeModuleId === mod.id 
+                  (activeModuleId === mod.id && !diagnosticsActive)
                     ? (dossier.brandColor === 'cyan' ? "text-cyan-400" : "text-indigo-400") 
                     : "text-neutral-500"
                 )}>
                   <IconComponent size={18} strokeWidth={1.5} />
                 </div>
-                <span className="flex-1 text-left truncate">{mod.label}</span>
+                <span className="flex-1 truncate">{mod.label}</span>
                 
                 <div 
                   onClick={(e) => togglePin(e, fullId)}
@@ -104,7 +111,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeModuleId, setActiveModul
         </nav>
       </div>
       
-      <div className="p-6 border-t border-white/[0.05]">
+      <div className="p-4 border-t border-white/[0.05] space-y-4">
+        <button
+          onClick={onDiagnosticsClick}
+          className={cn(
+            "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border",
+            diagnosticsActive 
+              ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.1)]" 
+              : "bg-white/[0.02] border-white/[0.05] text-neutral-500 hover:text-white hover:border-white/10"
+          )}
+        >
+          <Icons.Activity size={16} />
+          System Status
+        </button>
+
         <div className="bg-gradient-to-r from-neutral-900 to-neutral-950 p-4 rounded-xl border border-white/[0.05]">
           <p className="text-xs text-neutral-400 leading-relaxed">
             Engineering Dossier v2.5.0<br/>
