@@ -5,14 +5,22 @@ const path = require('path');
 const matter = require('gray-matter');
 const { Index } = require('flexsearch');
 const natural = require('natural');
-const axios = require('axios');
 const Database = require('better-sqlite3');
 const sqliteVec = require('sqlite-vec');
 const crypto = require('crypto');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3002;
+
+// --- INTELLIGENCE STANDARDS ---
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const DEFAULT_MODEL = "gemini-2.5-flash"; 
+const EMBEDDING_MODEL = "gemini-embedding-001";
+
+// Initialize inside handlers to ensure ENV is loaded
+const getGenAI = () => new GoogleGenerativeAI(GEMINI_API_KEY || '');
 
 // --- PERSISTENCE ENGINE INITIALIZATION ---
 const dbFile = path.join(__dirname, 'sentinel.db');
@@ -60,6 +68,8 @@ app.use(express.static(FRONTEND_DIST));
 const searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
 let knowledgeGraph = { concepts: {}, files: {} };
 
+// --- SDK-BASED INTELLIGENCE UTILITIES ---
+
 function extractKeywords(text) {
   const tokenizer = new natural.WordTokenizer();
   const words = tokenizer.tokenize(text.toLowerCase());
@@ -69,31 +79,32 @@ function extractKeywords(text) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
 }
 
-// Helper: Surgically extract and parse JSON from AI responses
 function extractJson(text) {
   try {
     const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
     const start = cleaned.indexOf('{');
     const end = cleaned.lastIndexOf('}');
     if (start === -1 || end === -1) return null;
-    return JSON.parse(cleaned.substring(start, end + 1));
+    const jsonStr = cleaned.substring(start, end + 1);
+    return JSON.parse(jsonStr);
   } catch (e) {
+    console.warn("AI JSON Extraction failed:", e.message);
     return null;
   }
 }
 
 async function getEmbedding(text) {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return new Array(3072).fill(0);
+  if (!GEMINI_API_KEY) return new Array(3072).fill(0);
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${key}`;
-    const response = await axios.post(url, {
+    const genAI = getGenAI();
+    const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
+    const result = await model.embedContent({
       content: { parts: [{ text }] },
       taskType: "RETRIEVAL_DOCUMENT"
     });
-    return response.data.embedding.values;
+    return result.embedding.values;
   } catch (e) {
-    console.error('Embedding Error:', e.response?.data || e.message);
+    console.error('Embedding Error:', e.message);
     return new Array(3072).fill(0);
   }
 }
@@ -185,6 +196,8 @@ async function processFileVectors(fileId, content, metadata) {
 
 setTimeout(syncIntelligence, 500);
 
+// --- API ENDPOINTS ---
+
 app.get('/api/intelligence/graph', (req, res) => {
   const nodes = []; const links = [];
   const rows = db.prepare("SELECT key, value FROM user_state WHERE key LIKE 'tracker-%'").all();
@@ -227,29 +240,43 @@ app.post('/api/intelligence/semantic-search', async (req, res) => {
 
 app.post('/api/intelligence/drill', async (req, res) => {
   const { fileId, extraContext = "" } = req.body;
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return res.status(500).json({ error: "API Key Missing" });
+  if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
-    const payload = { contents: [{ parts: [{ text: `Staff drill question for ${fileId}. Respond ONLY in JSON: { "question": "...", "idealResponse": "..." }` }] }] };
-    const response = await axios.post(url, payload);
-    const text = response.data.candidates[0].content.parts[0].text;
-    res.json(extractJson(text) || { error: "Failed to parse AI response" });
-  } catch (error) { res.status(500).json({ error: error.message }); }
+    const genAI = getGenAI();
+    const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
+    const prompt = `You are a Staff Engineer interviewer. Generate ONE high-stakes technical drill.
+          Context: ${extraContext || knowledgeGraph.files[fileId]?.content.slice(0, 3000)}
+          Respond ONLY in JSON: { "question": "...", "idealResponse": "..." }`;
+    const result = await model.generateContent(prompt);
+    const text = (await result.response).text();
+    const json = extractJson(text);
+    if (!json) throw new Error("Could not parse AI response as JSON");
+    res.json(json);
+  } catch (error) { 
+    console.error("Drill Error:", error.message);
+    res.status(500).json({ error: error.message }); 
+  }
 });
 
 app.post('/api/intelligence/evaluate', async (req, res) => {
   const { userAnswer, question, idealResponse } = req.body;
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return res.status(500).json({ error: "API Key Missing" });
+  if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
   try {
-    // Standardizing on 2.5-flash via axios since it's the verified model
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
-    const payload = { contents: [{ parts: [{ text: `Evaluate answer. Q: ${question}. Ideal: ${idealResponse}. Candidate: ${userAnswer}. Respond in JSON: { "score": "X/10", "feedback": "...", "followUp": "..." }` }] }] };
-    const response = await axios.post(url, payload);
-    const text = response.data.candidates[0].content.parts[0].text;
-    res.json(extractJson(text) || { score: "N/A", feedback: text });
-  } catch (error) { res.status(500).json({ error: error.message }); }
+    const genAI = getGenAI();
+    const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
+    const prompt = `Staff Interview Evaluation. 
+          Q: ${question}
+          Ideal criteria: ${idealResponse}
+          Candidate Proposal: "${userAnswer}"
+          Evaluate in JSON: { "score": "X/10", "feedback": "...", "followUp": "..." }`;
+    const result = await model.generateContent(prompt);
+    const text = (await result.response).text();
+    const json = extractJson(text);
+    res.json(json || { score: "N/A", feedback: text });
+  } catch (error) { 
+    console.error("Evaluation Error:", error.message);
+    res.status(500).json({ error: error.message }); 
+  }
 });
 
 app.get('/api/intelligence/insights', async (req, res) => {

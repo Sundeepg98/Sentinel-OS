@@ -12,13 +12,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@tailwindcss/typography": "^0.5.19",
     "3d-force-graph": "^1.79.1",
+    "axios": "^1.13.6",
     "better-sqlite3": "^12.6.2",
     "clsx": "^2.1.1",
     "crypto-js": "^4.2.0",
     "d3-force": "^3.0.0",
     "d3-force-3d": "^3.0.6",
+    "dotenv": "^17.3.1",
     "framer-motion": "^12.34.4",
     "lucide-react": "^0.576.0",
     "postprocessing": "^6.38.3",
