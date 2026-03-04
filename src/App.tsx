@@ -9,9 +9,10 @@ import { MarkdownView } from './views/MarkdownView';
 import { DeepSearch } from './components/DeepSearch';
 import { InsightPanel } from './components/InsightPanel';
 import { ArchitectArena } from './views/ArchitectArena';
+import { WarRoom } from './views/WarRoom';
 import { useDossier } from './hooks/useDossier';
 import type { CompanyDossier } from './types';
-import { Loader2, AlertCircle, Network, Swords } from 'lucide-react';
+import { Loader2, AlertCircle, Network, Swords, Terminal } from 'lucide-react';
 import { Suspense, lazy } from 'react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { cn } from './lib/utils';
@@ -38,6 +39,7 @@ function App() {
   const [activeModuleId, setActiveModuleId] = useState<string>('');
   const [isGraphOpen, setIsGraphOpen] = useState(false);
   const [arenaMode, setArenaMode] = useLocalStorage('arena_mode_active', false);
+  const [warRoomMode, setWarRoomMode] = useState(false);
   const [pinnedIds] = useLocalStorage<string[]>('architect_arena_selection', []);
 
   useEffect(() => {
@@ -51,7 +53,7 @@ function App() {
   return (
     <DossierContext.Provider value={{ ...dossierData }}>
       <div className="flex h-screen font-sans text-neutral-200 overflow-hidden selection:bg-cyan-500/30 selection:text-cyan-100 bg-[#050505]">
-        <Sidebar activeModuleId={activeModuleId} setActiveModuleId={(id) => { setActiveModuleId(id); setArenaMode(false); }} />
+        <Sidebar activeModuleId={activeModuleId} setActiveModuleId={(id) => { setActiveModuleId(id); setArenaMode(false); setWarRoomMode(false); }} />
 
         <main className="flex-1 overflow-y-auto relative flex flex-col">
           <div className="sticky top-0 z-30 w-full px-8 py-4 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/[0.05]">
@@ -77,7 +79,7 @@ function App() {
               <div className="h-4 w-px bg-white/10 mx-1" />
 
               <button 
-                onClick={() => setArenaMode(!arenaMode)}
+                onClick={() => { setArenaMode(!arenaMode); setWarRoomMode(false); }}
                 className={cn(
                   "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border shadow-sm",
                   arenaMode 
@@ -88,6 +90,19 @@ function App() {
                 <Swords size={14} />
                 Arena {pinnedIds.length > 0 && `(${pinnedIds.length})`}
               </button>
+              
+              <button 
+                onClick={() => { setWarRoomMode(!warRoomMode); setArenaMode(false); }}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border shadow-sm",
+                  warRoomMode 
+                    ? "bg-rose-600 border-rose-500 text-white shadow-[0_0_20px_rgba(225,29,72,0.3)]" 
+                    : "bg-white/[0.03] border-white/[0.08] text-neutral-400 hover:text-rose-400 hover:border-rose-500/30"
+                )}
+              >
+                <Terminal size={14} />
+                War Room
+              </button>
             </div>
             <div className="flex items-center gap-4">
               <button
@@ -96,7 +111,7 @@ function App() {
               >
                 Export Portfolio
               </button>
-              <DeepSearch onSelect={(id) => { setActiveModuleId(id); setArenaMode(false); }} />
+              <DeepSearch onSelect={(id) => { setActiveModuleId(id); setArenaMode(false); setWarRoomMode(false); }} />
             </div>
           </div>
           
@@ -104,7 +119,7 @@ function App() {
             <KnowledgeGraph 
               isOpen={isGraphOpen} 
               onClose={() => setIsGraphOpen(false)} 
-              onSelectModule={(id) => { setActiveModuleId(id); setArenaMode(false); }}
+              onSelectModule={(id) => { setActiveModuleId(id); setArenaMode(false); setWarRoomMode(false); }}
             />
           </Suspense>
           
@@ -128,6 +143,8 @@ function App() {
                 <h3 className="text-white font-semibold">Backend Connection Failed</h3>
                 <p className="text-neutral-500 text-sm text-center">Could not harvest technical profile from the sentinel server. Check if the Node.js backend is running on port 3002.</p>
               </div>
+            ) : warRoomMode ? (
+              <WarRoom />
             ) : arenaMode ? (
               <ArchitectArena />
             ) : (

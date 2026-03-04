@@ -370,6 +370,66 @@ app.post('/api/intelligence/evaluate', async (req, res) => {
   }
 });
 
+app.post('/api/intelligence/incident', async (req, res) => {
+  const { moduleIds = [] } = req.body;
+  if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
+  
+  let context = "General System Architecture";
+  if (moduleIds.length > 0) {
+    context = moduleIds.map(id => knowledgeGraph.files[id]?.content.slice(0, 1000)).join('\n\n');
+  }
+
+  try {
+    const genAI = getGenAI();
+    const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
+    const prompt = `You are a Chaos Engineering simulator for a Staff Engineer. 
+          Context: ${context}
+          Generate a critical production incident (P0/P1) based on this architecture.
+          Respond ONLY in JSON matching this exact structure:
+          {
+            "title": "Short descriptive title (e.g., SMTP Queue Overflow)",
+            "description": "2-sentence summary of what the monitoring alerts are showing.",
+            "logs": ["FATAL ERROR: xyz", "connection refused to redis:6379", "latency spiked 4000ms"],
+            "rootCause": "The actual hidden architectural reason for the failure.",
+            "idealMitigation": "What the Staff Engineer should immediately do to stop the bleeding and then fix permanently."
+          }`;
+    const result = await model.generateContent(prompt);
+    const text = (await result.response).text();
+    const json = extractJson(text);
+    if (!json) throw new Error("Could not parse Incident JSON");
+    res.json(json);
+  } catch (error) { 
+    console.error("Incident Generation Error:", error.message);
+    res.status(500).json({ error: error.message }); 
+  }
+});
+
+app.post('/api/intelligence/incident/evaluate', async (req, res) => {
+  const { userAnswer, incident } = req.body;
+  if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
+  
+  try {
+    const genAI = getGenAI();
+    const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
+    const prompt = `Staff Engineer Incident Post-Mortem.
+          Incident: ${incident.title}
+          Actual Root Cause: ${incident.rootCause}
+          Ideal Mitigation: ${incident.idealMitigation}
+          
+          Candidate's Response: "${userAnswer}"
+          
+          Evaluate their crisis management and technical accuracy.
+          Respond ONLY in JSON: { "score": "X/10", "feedback": "...", "missedSteps": ["...", "..."] }`;
+    const result = await model.generateContent(prompt);
+    const text = (await result.response).text();
+    const json = extractJson(text);
+    res.json(json || { score: "N/A", feedback: text, missedSteps: [] });
+  } catch (error) { 
+    console.error("Incident Eval Error:", error.message);
+    res.status(500).json({ error: error.message }); 
+  }
+});
+
 app.get('/api/intelligence/insights', async (req, res) => {
   const { fileId } = req.query;
   if (!fileId) return res.status(400).json({ error: 'Missing fileId' });
