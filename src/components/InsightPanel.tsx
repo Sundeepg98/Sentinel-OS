@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Brain, Link as LinkIcon, Sparkles, Hash, Loader2, ChevronDown, ChevronUp, Send } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Brain, Link as LinkIcon, Sparkles, Hash, Loader2, ChevronDown, ChevronUp, Send, Mic, MicOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
 
@@ -41,6 +41,51 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   const [evalData, setEvalData] = useState<EvalData | null>(null);
   const [evalLoading, setEvalLoading] = useState(false);
   const [sessionId, setSessionId] = useState('');
+
+  // --- VOICE ARTICULATION LAYER ---
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+
+      recognitionRef.current.onresult = (event: any) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            setUserAnswer(prev => prev + (prev.length > 0 && !prev.endsWith(' ') ? ' ' : '') + event.results[i][0].transcript);
+          }
+        }
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        setIsRecording(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsRecording(false);
+      };
+    }
+  }, []);
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+    } else {
+      if (recognitionRef.current) {
+        recognitionRef.current.start();
+        setIsRecording(true);
+      } else {
+        alert("Speech Recognition is not supported in this browser. Please use Chrome or Edge.");
+      }
+    }
+  };
+  // --------------------------------
 
   useEffect(() => {
     async function fetchInsights() {
@@ -161,12 +206,25 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
             
             {!evalData ? (
               <div className="space-y-3">
-                <textarea 
-                  placeholder="Draft your architectural response..."
-                  value={userAnswer}
-                  onChange={(e) => setUserAnswer(e.target.value)}
-                  className="w-full bg-white/[0.02] border border-white/[0.05] rounded-lg p-3 text-[12px] text-white placeholder:text-neutral-600 min-h-[100px] outline-none focus:border-indigo-500/50 transition-colors resize-none"
-                />
+                <div className="relative">
+                  <textarea 
+                    placeholder="Speak or draft your architectural response..."
+                    value={userAnswer}
+                    onChange={(e) => setUserAnswer(e.target.value)}
+                    className="w-full bg-white/[0.02] border border-white/[0.05] rounded-lg p-3 pr-12 text-[12px] text-white placeholder:text-neutral-600 min-h-[100px] outline-none focus:border-indigo-500/50 transition-colors resize-none"
+                  />
+                  <button
+                    onClick={toggleRecording}
+                    className={`absolute top-2 right-2 p-2 rounded-md transition-all ${
+                      isRecording 
+                        ? 'bg-rose-500/20 text-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)] animate-pulse' 
+                        : 'bg-white/[0.05] text-neutral-500 hover:text-white hover:bg-white/[0.1]'
+                    }`}
+                    title={isRecording ? "Stop Recording" : "Start Voice Articulation"}
+                  >
+                    {isRecording ? <Mic size={14} /> : <MicOff size={14} />}
+                  </button>
+                </div>
                 <button 
                   onClick={submitAnswer}
                   disabled={evalLoading || !userAnswer.trim()}

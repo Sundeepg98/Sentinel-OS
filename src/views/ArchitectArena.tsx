@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Swords, Brain, Loader2, Send, X, ShieldAlert, CheckCircle2, ChevronUp, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Swords, Brain, Loader2, Send, X, ShieldAlert, CheckCircle2, ChevronUp, ChevronDown, Mic, MicOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 
@@ -20,6 +20,51 @@ export const ArchitectArena: React.FC = () => {
   const [evalLoading, setEvalLoading] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [sessionId, setSessionId] = useState('');
+
+  // --- VOICE ARTICULATION LAYER ---
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+
+      recognitionRef.current.onresult = (event: any) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            setUserAnswer(prev => prev + (prev.length > 0 && !prev.endsWith(' ') ? ' ' : '') + event.results[i][0].transcript);
+          }
+        }
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        setIsRecording(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsRecording(false);
+      };
+    }
+  }, []);
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+    } else {
+      if (recognitionRef.current) {
+        recognitionRef.current.start();
+        setIsRecording(true);
+      } else {
+        alert("Speech Recognition is not supported in this browser. Please use Chrome or Edge.");
+      }
+    }
+  };
+  // --------------------------------
 
   useEffect(() => {
     if (arenaIds.length === 0) {
@@ -190,12 +235,25 @@ export const ArchitectArena: React.FC = () => {
             {/* Response Section */}
             {!evalData ? (
               <div className="space-y-4">
-                <textarea 
-                  value={userAnswer}
-                  onChange={(e) => setUserAnswer(e.target.value)}
-                  placeholder="Detail your architectural approach, trade-offs, and integration logic..."
-                  className="w-full min-h-[250px] bg-[#080808] border border-white/[0.05] rounded-2xl p-6 text-white placeholder:text-neutral-700 outline-none focus:border-indigo-500/30 transition-all text-[15px] leading-relaxed shadow-inner"
-                />
+                <div className="relative">
+                  <textarea 
+                    value={userAnswer}
+                    onChange={(e) => setUserAnswer(e.target.value)}
+                    placeholder="Speak or type your architectural approach, trade-offs, and integration logic..."
+                    className="w-full min-h-[250px] bg-[#080808] border border-white/[0.05] rounded-2xl p-6 pr-16 text-white placeholder:text-neutral-700 outline-none focus:border-indigo-500/30 transition-all text-[15px] leading-relaxed shadow-inner"
+                  />
+                  <button
+                    onClick={toggleRecording}
+                    className={`absolute top-4 right-4 p-3 rounded-full transition-all ${
+                      isRecording 
+                        ? 'bg-rose-500/20 text-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.4)] animate-pulse' 
+                        : 'bg-white/[0.02] text-neutral-500 hover:bg-white/[0.05] hover:text-white border border-white/[0.05]'
+                    }`}
+                    title={isRecording ? "Stop Recording" : "Start Voice Articulation"}
+                  >
+                    {isRecording ? <Mic size={20} /> : <MicOff size={20} />}
+                  </button>
+                </div>
                 <button 
                   onClick={submitAnswer}
                   disabled={evalLoading || !userAnswer.trim()}
