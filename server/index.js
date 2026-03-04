@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const { Worker } = require('worker_threads');
 const { Index } = require('flexsearch');
+const rateLimit = require('express-rate-limit');
 const { db, initDB } = require('./lib/db');
 const { 
   GEMINI_API_KEY, 
@@ -28,6 +29,19 @@ initDB();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(FRONTEND_DIST));
+
+// --- UPSTREAM PROTECTION (Rate Limiting) ---
+const aiRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 15, // Match Gemini Free Tier (15 RPM)
+  message: { error: "AI Intelligence Engine is cooling down. Please wait 60 seconds." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use('/api/intelligence/drill', aiRateLimiter);
+app.use('/api/intelligence/evaluate', aiRateLimiter);
+app.use('/api/intelligence/incident', aiRateLimiter);
 
 // Auth Middleware
 const authGuard = (req, res, next) => {
