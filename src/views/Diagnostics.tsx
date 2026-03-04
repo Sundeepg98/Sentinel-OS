@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Activity, Database, Brain, Cpu, Clock, RefreshCw, CheckCircle2, Shield } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { cn } from '../lib/utils';
 
@@ -9,30 +10,21 @@ interface Stats {
   learnedAssets: number;
   model: string;
   uptime: number;
+  env: string;
+  auth: string;
+  isSyncing: boolean;
 }
 
 export const Diagnostics: React.FC = () => {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchStats = async () => {
-    setLoading(true);
-    try {
+  const { data: stats, isLoading, refetch, isFetching } = useQuery<Stats>({
+    queryKey: ['stats'],
+    queryFn: async () => {
       const res = await fetch('/api/v1/intelligence/stats');
-      const data = await res.json();
-      setStats(data);
-    } catch (e) {
-      console.error('Failed to fetch stats', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 30000); // Every 30s
-    return () => clearInterval(interval);
-  }, []);
+      if (!res.ok) throw new Error('Failed to fetch stats');
+      return res.json();
+    },
+    refetchInterval: 30000, // Auto-refresh every 30s
+  });
 
   const formatUptime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -54,10 +46,10 @@ export const Diagnostics: React.FC = () => {
           <p className="text-neutral-500 text-xs mt-2 font-mono uppercase tracking-widest">Real-time Intelligence Engine Monitoring</p>
         </div>
         <button 
-          onClick={fetchStats}
+          onClick={() => refetch()}
           className="p-2 hover:bg-white/5 rounded-lg text-neutral-400 transition-colors"
         >
-          <RefreshCw className={cn("w-5 h-5", loading && "animate-spin")} />
+          <RefreshCw className={cn("w-5 h-5", (isLoading || isFetching) && "animate-spin")} />
         </button>
       </div>
 
@@ -100,25 +92,27 @@ export const Diagnostics: React.FC = () => {
               <span className="text-xs text-cyan-400 font-bold font-mono">{stats?.model}</span>
             </div>
             <div className="flex justify-between items-center p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
-              <span className="text-xs text-neutral-500 font-mono">VECTOR_DIMENSIONS</span>
-              <span className="text-xs text-indigo-400 font-bold font-mono">3072-D</span>
+              <span className="text-xs text-neutral-500 font-mono">ENVIRONMENT</span>
+              <span className="text-xs text-indigo-400 font-bold font-mono uppercase">{stats?.env || 'unknown'}</span>
             </div>
             <div className="flex justify-between items-center p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
-              <span className="text-xs text-neutral-500 font-mono">RECOVERY_MODE</span>
-              <span className="text-xs text-emerald-400 font-bold font-mono">AUTOMATIC</span>
+              <span className="text-xs text-neutral-500 font-mono">AUTH_LOCKDOWN</span>
+              <span className={cn("text-xs font-bold font-mono uppercase", stats?.auth === 'enabled' ? "text-emerald-400" : "text-amber-400")}>
+                {stats?.auth || 'disabled'}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* RECENT ACTIVITY LOGS STUB */}
+        {/* SECURITY & INTEGRITY */}
         <div className="bg-[#0d0d0d] border border-white/[0.05] rounded-2xl p-6 space-y-6 shadow-2xl">
           <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
             <Shield size={16} className="text-rose-500" /> Security & Integrity
           </h3>
           <div className="space-y-4 font-mono text-[10px] text-neutral-600">
             <div className="flex gap-3">
-              <span className="text-emerald-500">[OK]</span>
-              <span>RAG SYNCHRONIZATION STABLE</span>
+              <span className={cn(stats?.isSyncing ? "text-amber-500" : "text-emerald-500")}>[{stats?.isSyncing ? 'BUSY' : 'OK'}]</span>
+              <span>RAG SYNCHRONIZATION {stats?.isSyncing ? 'ACTIVE' : 'STABLE'}</span>
             </div>
             <div className="flex gap-3">
               <span className="text-emerald-500">[OK]</span>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Brain, Sparkles, Hash, Loader2, Mic, MicOff, PenTool, X } from 'lucide-react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Whiteboard } from './Whiteboard';
 import { cn } from '../lib/utils';
 import { useToast } from '../hooks/useToast';
@@ -36,18 +37,77 @@ const getUUID = () => {
 
 export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   const { toast } = useToast();
-  const [data, setData] = useState<InsightData | null>(null);
-  const [loading, setLoading] = useState(false);
   const [drill, setDrill] = useState<DrillData | null>(null);
-  const [drillLoading, setDrillLoading] = useState(false);
   const [userAnswer, setUserAnswer] = useState('');
   const [evalData, setEvalData] = useState<EvalData | null>(null);
-  const [evalLoading, setEvalLoading] = useState(false);
   const [sessionId, setSessionId] = useState(getUUID());
   const [showCanvas, setShowCanvas] = useState(false);
 
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
+
+  // 1. Fetch Insights (Keywords & Related)
+  const { data, isLoading: loading } = useQuery<InsightData>({
+    queryKey: ['insights', fullId],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/intelligence/insights?fileId=${encodeURIComponent(fullId)}`);
+      if (!res.ok) throw new Error('Insights failed');
+      return res.json();
+    },
+    enabled: !!fullId,
+  });
+
+  // Reset state when fullId changes
+  useEffect(() => {
+    setDrill(null);
+    setEvalData(null);
+    setUserAnswer('');
+    setShowCanvas(false);
+    setSessionId(getUUID());
+  }, [fullId]);
+
+  // 2. Drill Mutation
+  const drillMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/v1/intelligence/drill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: fullId })
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      return json as DrillData;
+    },
+    onSuccess: (data) => setDrill(data),
+    onError: (error: any) => toast(error.message || "Failed to generate drill", "error"),
+  });
+
+  // 3. Evaluation Mutation
+  const evalMutation = useMutation({
+    mutationFn: async () => {
+      if (!drill) return;
+      const res = await fetch('/api/v1/intelligence/evaluate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          fileId: fullId,
+          question: drill.question, 
+          idealResponse: drill.idealResponse, 
+          userAnswer,
+          sessionId 
+        })
+      });
+      if (!res.ok) throw new Error('Eval failed');
+      return res.json() as EvalData;
+    },
+    onSuccess: (data) => {
+      if (data) {
+        setEvalData(data);
+        toast("Evaluation complete.", "success");
+      }
+    },
+    onError: (error: any) => toast(error.message || "Failed to evaluate", "error"),
+  });
 
   useEffect(() => {
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
@@ -80,73 +140,6 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
     }
   };
 
-  useEffect(() => {
-    async function fetchInsights() {
-      setLoading(true);
-      setDrill(null);
-      setEvalData(null);
-      setUserAnswer('');
-      setShowCanvas(false);
-      setSessionId(getUUID());
-      try {
-        const response = await fetch(`/api/v1/intelligence/insights?fileId=${encodeURIComponent(fullId)}`);
-        if (response.ok) {
-          const json = await response.json();
-          setData(json);
-        }
-      } catch (e) {
-        console.error('Insights failed', e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    if (fullId) fetchInsights();
-  }, [fullId]);
-
-  const generateDrill = async () => {
-    setDrillLoading(true);
-    setEvalData(null);
-    setUserAnswer('');
-    try {
-      const response = await fetch('/api/v1/intelligence/drill', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileId: fullId })
-      });
-      const json = await response.json();
-      if (json.error) toast(json.error, "error"); else setDrill(json);
-    } catch (e) {
-      toast("Failed to generate technical drill.", "error");
-    } finally {
-      setDrillLoading(false);
-    }
-  };
-
-  const submitAnswer = async () => {
-    if (!drill || !userAnswer.trim()) return;
-    setEvalLoading(true);
-    try {
-      const response = await fetch('/api/v1/intelligence/evaluate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          fileId: fullId,
-          question: drill.question, 
-          idealResponse: drill.idealResponse, 
-          userAnswer,
-          sessionId 
-        })
-      });
-      const json = await response.json();
-      setEvalData(json);
-      toast("Evaluation complete.", "success");
-    } catch (e) {
-      toast("Failed to evaluate proposal.", "error");
-    } finally {
-      setEvalLoading(false);
-    }
-  };
-
   return (
     <div className={cn("shrink-0 flex flex-col gap-6 animate-in fade-in duration-700 pb-10 transition-all duration-500", showCanvas ? "w-[700px]" : "w-80")}>
       <div className="bg-[#0d0d0d] border border-indigo-500/20 rounded-xl p-5 shadow-2xl relative overflow-hidden">
@@ -169,12 +162,12 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
 
         {!drill ? (
           <button 
-            onClick={generateDrill}
-            disabled={drillLoading || !fullId}
+            onClick={() => drillMutation.mutate()}
+            disabled={drillMutation.isPending || !fullId}
             className="w-full py-3 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 rounded-lg text-indigo-200 text-[12px] font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {drillLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain size={14} />}
-            {drillLoading ? 'Analyzing...' : 'Generate Mock Question'}
+            {drillMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain size={14} />}
+            {drillMutation.isPending ? 'Analyzing...' : 'Generate Mock Question'}
           </button>
         ) : (
           <div className="flex flex-col gap-4">
@@ -201,8 +194,8 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
                         {isRecording ? <Mic size={14} /> : <MicOff size={14} />}
                       </button>
                     </div>
-                    <button onClick={submitAnswer} disabled={evalLoading || !userAnswer.trim()} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[11px] font-bold transition-all uppercase tracking-widest disabled:opacity-50">
-                      {evalLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Submit Response'}
+                    <button onClick={() => evalMutation.mutate()} disabled={evalMutation.isPending || !userAnswer.trim()} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[11px] font-bold transition-all uppercase tracking-widest disabled:opacity-50">
+                      {evalMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Submit Response'}
                     </button>
                   </>
                 ) : (

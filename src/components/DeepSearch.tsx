@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, Command, SearchCode, Brain } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import { useDossierContext } from '../App';
 import { cn } from '../lib/utils';
 
@@ -18,8 +19,6 @@ interface DeepSearchProps {
 export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [searchMode, setSearchMode] = useState<'keyword' | 'semantic'>('keyword');
   const { setCompany } = useDossierContext();
 
@@ -35,56 +34,40 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  useEffect(() => {
-    if (query.length < 2) {
-      setResults([]);
-      return;
-    }
-
-    const fetchResults = async () => {
-      setIsSearching(true);
-      try {
-        let res, data;
-        if (searchMode === 'keyword') {
-          res = await fetch(`/api/v1/intelligence/search?q=${encodeURIComponent(query)}`);
-          data = await res.json();
-        } else {
-          // HIT THE RAG ENDPOINT
-          res = await fetch('/api/v1/intelligence/semantic-search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ q: query, limit: 10 })
-          });
-          const rawData = await res.json();
-          data = rawData.map((item: any) => ({
-            id: item.file_id,
-            label: item.file_id.split('/').pop().replace('.md', ''),
-            company: item.file_id.split('/')[0],
-            snippet: item.chunk_text
-          }));
-        }
-        setResults(data);
-      } catch (err) {
-        console.error('Search failed', err);
-      } finally {
-        setIsSearching(false);
+  const { data: results = [], isFetching: isSearching } = useQuery<SearchResult[]>({
+    queryKey: ['search', query, searchMode],
+    queryFn: async () => {
+      if (query.length < 2) return [];
+      
+      if (searchMode === 'keyword') {
+        const res = await fetch(`/api/v1/intelligence/search?q=${encodeURIComponent(query)}`);
+        return res.json();
+      } else {
+        const res = await fetch('/api/v1/intelligence/semantic-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ q: query, limit: 10 })
+        });
+        const rawData = await res.json();
+        return rawData.map((item: any) => ({
+          id: item.file_id,
+          label: item.file_id.split('/').pop().replace('.md', ''),
+          company: item.file_id.split('/')[0],
+          snippet: item.chunk_text
+        }));
       }
-    };
-
-    const debounce = setTimeout(fetchResults, 300);
-    return () => clearTimeout(debounce);
-  }, [query, searchMode]);
+    },
+    enabled: query.length >= 2,
+    placeholderData: (previousData) => previousData, // Maintain UI during debounce/fetch
+  });
 
   const handleSelect = (res: SearchResult) => {
     const [companyId, fileName] = res.id.split('/');
     const moduleId = fileName.replace('.md', '');
-    
     setCompany(companyId);
-    // Slight delay to allow company state to update before selecting module
     setTimeout(() => {
       onSelect(moduleId);
     }, 100);
-    
     setIsOpen(false);
   };
 

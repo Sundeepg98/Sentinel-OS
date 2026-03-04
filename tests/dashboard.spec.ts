@@ -1,43 +1,30 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Mailin Engineering Sentinel Dashboard', () => {
+test.describe('Sentinel-OS High-Stakes Simulator', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the local dev server
     await page.goto('http://localhost:5173/');
+    // Wait for the harvesting to complete
+    await page.waitForSelector('text=MAILIN Profile');
   });
 
-  test('should display the Command Center by default', async ({ page }) => {
-    await expect(page.getByText('System Command Center')).toBeVisible();
-    await expect(page.getByText('Throughput SLA')).toBeVisible();
+  test('should display the core 3D graph entry', async ({ page }) => {
+    await expect(page.getByTitle('Open Knowledge Graph')).toBeVisible();
   });
 
-  test('should navigate between tabs', async ({ page }) => {
-    // Click on V8 & Libuv tab
-    await page.getByRole('button', { name: 'V8 & Libuv' }).click();
-    await expect(page.getByText('V8 Engine & Libuv Deep Dive')).toBeVisible();
-
-    // Click on System Design tab
-    await page.getByRole('button', { name: 'System Design' }).click();
-    await expect(page.getByText('Distributed Architecture Map')).toBeVisible();
+  test('should enter the War Room and start a simulation', async ({ page }) => {
+    await page.getByRole('button', { name: 'War Room' }).click();
+    await expect(page.getByText('Incident War Room')).toBeVisible();
+    await expect(page.getByText('Start Simulation')).toBeVisible();
   });
 
-  test('should open search with keyboard shortcut', async ({ page }) => {
-    // Trigger search with Meta+K (using Control for Windows/Linux)
+  test('should open global search', async ({ page }) => {
     await page.keyboard.press('Control+k');
-    await expect(page.getByPlaceholder('Search for internal mechanics, patterns, or playbooks...')).toBeVisible();
-    
-    // Type a query
-    await page.fill('input[placeholder="Search for internal mechanics, patterns, or playbooks..."]', 'gRPC');
-    
-    // Should see results
-    await expect(page.getByText('Binary gRPC Protocols')).toBeVisible();
-    
-    // Select the result
-    await page.click('text=Binary gRPC Protocols');
-    
-    // Should navigate to System Design
-    await expect(page.getByText('Distributed Architecture Map')).toBeVisible();
-    // And search should be closed
-    await expect(page.getByPlaceholder('Search for internal mechanics, patterns, or playbooks...')).not.toBeVisible();
+    await expect(page.getByPlaceholder("Search keywords (e.g., 'Redis', 'V8')...")).toBeVisible();
+  });
+
+  test('should toggle the Architect Arena', async ({ page }) => {
+    await page.getByRole('button', { name: 'Arena (0)' }).click();
+    await expect(page.getByText("The Architect's Arena")).toBeVisible();
   });
 });

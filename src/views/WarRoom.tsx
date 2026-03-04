@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Terminal, AlertTriangle, Clock, Shield, Play, Send, Loader2, RefreshCw, PenTool, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useMutation } from '@tanstack/react-query';
 import { useDossierContext } from '../App';
 import { Whiteboard } from '../components/Whiteboard';
 import { cn } from '../lib/utils';
@@ -64,18 +65,10 @@ export const WarRoom = () => {
     }
   }, [status, timeLeft]);
 
-  const generateIncident = async () => {
-    setStatus('generating');
-    setIncident(null);
-    setVisibleLogs([]);
-    setTimeLeft(180);
-    setEvaluation(null);
-    setUserMitigation('');
-    setShowCanvas(false);
-
-    const moduleIds = dossier?.modules?.map(m => m.fullId).slice(0, 3) || [];
-    
-    try {
+  // 1. Incident Generation Mutation
+  const incidentMutation = useMutation({
+    mutationFn: async () => {
+      const moduleIds = dossier?.modules?.map(m => m.fullId).slice(0, 3) || [];
       const res = await fetch('/api/v1/intelligence/incident', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,35 +76,47 @@ export const WarRoom = () => {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
+      return data as Incident;
+    },
+    onSuccess: (data) => {
       setIncident(data);
       setStatus('active');
+      setVisibleLogs([]);
+      setTimeLeft(180);
+      setEvaluation(null);
+      setUserMitigation('');
+      setShowCanvas(false);
       toast("P0 Incident Triggered. Secure the perimeter.", "info");
-    } catch (e: any) {
+    },
+    onError: (e: any) => {
       toast("Chaos Synthesis Failed: " + e.message, "error");
       setStatus('idle');
     }
-  };
+  });
 
-  const submitMitigation = async () => {
-    if (!incident || !userMitigation.trim()) return;
-    setStatus('evaluating');
-    clearInterval(timerRef.current);
-
-    try {
+  // 2. Mitigation Evaluation Mutation
+  const evalMutation = useMutation({
+    mutationFn: async () => {
+      if (!incident) return;
       const res = await fetch('/api/v1/intelligence/incident/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ incident, userAnswer: userMitigation })
       });
       const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      return data as Evaluation;
+    },
+    onSuccess: (data) => {
       setEvaluation(data);
       setStatus('completed');
       toast("Incident Evaluation Received.", "success");
-    } catch (e: any) {
+    },
+    onError: (e: any) => {
       toast("Post-Mortem Failure: " + e.message, "error");
       setStatus('completed');
     }
-  };
+  });
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -162,7 +167,10 @@ export const WarRoom = () => {
               <Shield className="w-16 h-16 text-neutral-600 mb-6" />
               <h3 className="text-xl font-bold text-white mb-2">Simulate a Production Outage</h3>
               <p className="text-neutral-400 max-w-md mb-8">The AI will generate a critical infrastructure failure based on your dossier. You have 3 minutes to diagnose the streaming logs and propose a fix.</p>
-              <button onClick={generateIncident} className="px-6 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-lg font-bold uppercase tracking-widest flex items-center gap-2 transition-all">
+              <button 
+                onClick={() => { setStatus('generating'); incidentMutation.mutate(); }} 
+                className="px-6 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-lg font-bold uppercase tracking-widest flex items-center gap-2 transition-all"
+              >
                 <Play size={18} /> Start Simulation
               </button>
             </div>
@@ -234,11 +242,11 @@ export const WarRoom = () => {
                 disabled={status !== 'active'}
               />
               <button 
-                onClick={submitMitigation}
-                disabled={status !== 'active' || !userMitigation.trim()}
+                onClick={() => evalMutation.mutate()}
+                disabled={status !== 'active' || !userMitigation.trim() || evalMutation.isPending}
                 className="mt-4 w-full py-3 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-all uppercase tracking-widest text-xs"
               >
-                {status === 'evaluating' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send size={16} />}
+                {evalMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send size={16} />}
                 Deploy Fix
               </button>
             </div>
