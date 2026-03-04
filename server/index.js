@@ -23,8 +23,6 @@ const {
   POST_MORTEM_SCHEMA
 } = require('./lib/intelligence');
 const { 
-  getKnowledgeGraph, 
-  getSearchIndex, 
   INTELLIGENCE_DIR 
 } = require('./lib/harvester');
 
@@ -51,25 +49,18 @@ const FRONTEND_DIST = path.join(__dirname, '..', 'dist');
 // Initialize Core Systems
 initDB();
 
-/**
- * 🛠️ ENGINEERING BASIC: PERFORMANCE & SECURITY
- */
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false
 }));
-app.use(compression()); // Gzip compression for faster asset delivery
+app.use(compression());
 
-/**
- * 🛠️ ENGINEERING BASIC: REQUEST CORRELATION
- */
 app.use((req, res, next) => {
   req.id = uuidv4();
   res.setHeader('X-Request-ID', req.id);
   next();
 });
 
-// Use Morgan with Request ID for traceability
 morgan.token('id', (req) => req.id);
 app.use(morgan(':id :method :url :status :res[content-length] - :response-time ms'));
 
@@ -92,8 +83,11 @@ const aiRateLimiter = rateLimit({
 });
 
 // --- SYNCED STATE (Main Thread) ---
-let knowledgeGraph = { concepts: {}, files: {} };
-let searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
+// Using a reference object to avoid stale closures in worker callbacks
+const globalState = {
+  knowledgeGraph: { concepts: {}, files: {} },
+  searchIndex: new Index({ preset: 'score', tokenize: 'forward' })
+};
 
 // --- RAG WORKER ISOLATION ---
 let isSyncing = false;
@@ -105,15 +99,15 @@ function spawnRAGWorker() {
   
   worker.on('message', (msg) => {
     if (msg.status === 'complete') {
-      logger.info(`📡 Intelligence Hydrated from Worker (${msg.duration}s)`);
-      knowledgeGraph = msg.knowledgeGraph;
+      logger.info(`📡 Main Loop: Hydrating Intelligence from Worker (${msg.duration}s)`);
+      globalState.knowledgeGraph = msg.knowledgeGraph;
       
       const newIndex = new Index({ preset: 'score', tokenize: 'forward' });
-      Object.entries(knowledgeGraph.files).forEach(([id, file]) => {
+      Object.entries(globalState.knowledgeGraph.files).forEach(([id, file]) => {
         newIndex.add(id, file.content);
       });
-      searchIndex = newIndex;
-      logger.info(`🔍 Search Index Synchronized.`);
+      globalState.searchIndex = newIndex;
+      logger.info(`🔍 Search Index Synchronized. Total Files: ${Object.keys(globalState.knowledgeGraph.files).length}`);
       isSyncing = false;
     }
   });
@@ -178,9 +172,8 @@ v1Router.get('/intelligence/graph', (req, res) => {
   });
 
   const learnedModules = db.prepare("SELECT DISTINCT file_id, metadata FROM chunks_metadata WHERE file_id LIKE 'learned/%'").all();
-  const graph = getKnowledgeGraph();
 
-  Object.entries(graph.files).forEach(([id, data]) => {
+  Object.entries(globalState.knowledgeGraph.files).forEach(([id, data]) => {
     const trackerKey = `tracker-${data.company}-${id.split('/').pop().replace('.md', '').toLowerCase()}`;
     const moduleTasks = trackers[trackerKey] || [];
     const trackerReadiness = moduleTasks.length > 0 ? (moduleTasks.filter(t => t.done).length / moduleTasks.length) * 0.5 : 0;
@@ -195,7 +188,7 @@ v1Router.get('/intelligence/graph', (req, res) => {
     if (meta.originalModule) links.push({ source: meta.originalModule, target: lm.file_id, type: 'learned-from' });
   });
 
-  Object.entries(graph.concepts).forEach(([concept, files]) => {
+  Object.entries(globalState.knowledgeGraph.concepts).forEach(([concept, files]) => {
     if (files.length > 1) {
       nodes.push({ id: `concept:${concept}`, label: concept, group: 'concept', company: 'global', val: 8 });
       files.forEach(f => links.push({ source: f.fileId, target: `concept:${concept}`, keyword: concept }));
@@ -207,8 +200,7 @@ v1Router.get('/intelligence/graph', (req, res) => {
 v1Router.get('/intelligence/insights', async (req, res) => {
   const { fileId } = req.query;
   if (!fileId) return res.status(400).json({ error: 'Missing fileId' });
-  const graph = getKnowledgeGraph();
-  const file = graph.files[fileId];
+  const file = globalState.knowledgeGraph.files[fileId];
   if (!file) return res.json({ keywords: [], related: [] });
   try {
     const vector = await getEmbedding(file.content.slice(0, 1000));
@@ -221,8 +213,8 @@ v1Router.get('/intelligence/insights', async (req, res) => {
 v1Router.get('/intelligence/search', (req, res) => {
   const { q } = req.query;
   if (!q) return res.json([]);
-  const results = searchIndex.search(q, { limit: 10 });
-  res.json(results.map(id => ({ id, ...knowledgeGraph.files[id] })));
+  const results = globalState.searchIndex.search(q, { limit: 10 });
+  res.json(results.map(id => ({ id, ...globalState.knowledgeGraph.files[id] })));
 });
 
 v1Router.post('/intelligence/semantic-search', validateBody(schemas.semanticSearchSchema), async (req, res) => {
@@ -237,9 +229,8 @@ v1Router.post('/intelligence/semantic-search', validateBody(schemas.semanticSear
 v1Router.post('/intelligence/drill', aiRateLimiter, validateBody(schemas.drillRequestSchema), async (req, res) => {
   const { fileId, extraContext } = req.body;
   if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
-  const graph = getKnowledgeGraph();
   try {
-    const prompt = `You are a Staff Engineer interviewer. Generate ONE high-stakes technical drill.\nContext: ${extraContext || graph.files[fileId]?.content.slice(0, 3000)}`;
+    const prompt = `You are a Staff Engineer interviewer. Generate ONE high-stakes technical drill.\nContext: ${extraContext || globalState.knowledgeGraph.files[fileId]?.content.slice(0, 3000)}`;
     const text = await generateStructuredContent(prompt, DRILL_SCHEMA);
     res.json(JSON.parse(text));
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -266,8 +257,7 @@ v1Router.post('/intelligence/evaluate', aiRateLimiter, validateBody(schemas.eval
 v1Router.post('/intelligence/incident', aiRateLimiter, validateBody(schemas.incidentRequestSchema), async (req, res) => {
   const { moduleIds } = req.body;
   if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
-  const graph = getKnowledgeGraph();
-  let context = moduleIds.map(id => graph.files[id]?.content.slice(0, 1000)).join('\n\n') || "General System Architecture";
+  let context = moduleIds.map(id => globalState.knowledgeGraph.files[id]?.content.slice(0, 1000)).join('\n\n') || "General System Architecture";
   try {
     const prompt = `You are a Chaos Engineering simulator for a Staff Engineer. Context: ${context}. Generate a critical production incident (P0/P1) based on this architecture.`;
     const text = await generateStructuredContent(prompt, INCIDENT_SCHEMA);
@@ -365,16 +355,11 @@ v1Router.get('/portfolio/export', (req, res) => {
   res.send(md);
 });
 
-/**
- * 🛠️ ENGINEERING BASIC: STATE PORTABILITY
- * Allows the user to download the entire persistent database for local backup.
- */
 v1Router.get('/admin/export-db', (req, res) => {
   const dbPath = path.join(__dirname, 'sentinel.db');
   res.download(dbPath, `sentinel-backup-${new Date().toISOString().split('T')[0]}.db`);
 });
 
-// --- MOUNT VERSIONED API ---
 app.use('/api/v1', v1Router);
 
 app.use(express.static(FRONTEND_DIST, {
@@ -386,22 +371,9 @@ app.use(express.static(FRONTEND_DIST, {
 
 app.get(/(.*)/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
 
-/**
- * 🛠️ ENGINEERING BASIC: GLOBAL ERROR HANDLER
- */
 app.use((err, req, res, next) => {
-  logger.error({ 
-    id: req.id,
-    path: req.path,
-    message: err.message,
-    stack: env.NODE_ENV !== 'production' ? err.stack : undefined
-  }, '💥 Unhandled Server Error');
-
-  res.status(err.status || 500).json({
-    error: "Internal Server Error",
-    message: env.NODE_ENV !== 'production' ? err.message : "An unexpected error occurred.",
-    requestId: req.id
-  });
+  logger.error({ id: req.id, path: req.path, message: err.message, stack: env.NODE_ENV !== 'production' ? err.stack : undefined }, '💥 Unhandled Server Error');
+  res.status(err.status || 500).json({ error: "Internal Server Error", message: env.NODE_ENV !== 'production' ? err.message : "An unexpected error occurred.", requestId: req.id });
 });
 
 const server = app.listen(PORT, () => {
@@ -411,16 +383,8 @@ const server = app.listen(PORT, () => {
 
 function gracefulShutdown() {
   logger.info("🛑 Signal received. Shutting down gracefully...");
-  server.close(() => {
-    logger.info("📡 Express server closed.");
-    db.close();
-    logger.info("🗄️ SQLite connection closed.");
-    process.exit(0);
-  });
-  setTimeout(() => {
-    logger.error("⚠️ Forcefully shutting down.");
-    process.exit(1);
-  }, 10000);
+  server.close(() => { logger.info("📡 Express server closed."); db.close(); logger.info("🗄️ SQLite connection closed."); process.exit(0); });
+  setTimeout(() => { logger.error("⚠️ Forcefully shutting down."); process.exit(1); }, 10000);
 }
 
 process.on('SIGTERM', gracefulShutdown);
