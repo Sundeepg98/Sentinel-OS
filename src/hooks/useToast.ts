@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -23,7 +23,7 @@ export const useToast = () => {
   return context;
 };
 
-export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const toast = useCallback((message: string, type: ToastType = 'info') => {
@@ -54,7 +54,6 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 "bg-indigo-500/10 border-indigo-500/20 text-indigo-200"
               )}
             >
-              {/* Pulse Accent */}
               <div className={cn(
                 "absolute top-0 left-0 w-1 h-full",
                 t.type === 'error' ? "bg-rose-500" : t.type === 'success' ? "bg-emerald-500" : "bg-indigo-500"
