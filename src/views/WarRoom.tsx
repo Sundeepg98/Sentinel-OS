@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Terminal, AlertTriangle, Clock, Shield, Play, Send, Loader2, RefreshCw } from 'lucide-react';
+import { Terminal, AlertTriangle, Clock, Shield, Play, Send, Loader2, RefreshCw, PenTool, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDossierContext } from '../App';
+import { Whiteboard } from '../components/Whiteboard';
 import { cn } from '../lib/utils';
 
 interface Incident {
@@ -26,26 +27,24 @@ export const WarRoom = () => {
   const [timeLeft, setTimeLeft] = useState(180); // 3 minutes
   const [userMitigation, setUserMitigation] = useState('');
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
+  const [showCanvas, setShowCanvas] = useState(false);
   
   const logsEndRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<any>(null);
 
-  // Auto-scroll logs
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [visibleLogs]);
 
-  // Stream logs effect
   useEffect(() => {
     if (status === 'active' && incident && visibleLogs.length < incident.logs.length) {
       const timeout = setTimeout(() => {
         setVisibleLogs(prev => [...prev, incident.logs[prev.length]]);
-      }, Math.random() * 800 + 400); // Random delay between 400-1200ms
+      }, Math.random() * 800 + 400);
       return () => clearTimeout(timeout);
     }
   }, [status, incident, visibleLogs]);
 
-  // Countdown timer
   useEffect(() => {
     if (status === 'active' && timeLeft > 0) {
       timerRef.current = setInterval(() => {
@@ -69,6 +68,7 @@ export const WarRoom = () => {
     setTimeLeft(180);
     setEvaluation(null);
     setUserMitigation('');
+    setShowCanvas(false);
 
     const moduleIds = dossier?.modules?.map(m => m.fullId).slice(0, 3) || [];
     
@@ -117,29 +117,41 @@ export const WarRoom = () => {
   return (
     <div className="flex flex-col h-full bg-[#0a0a0a] rounded-xl border border-white/10 overflow-hidden relative shadow-2xl">
       
-      {/* HEADER */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-black/50">
         <div className="flex items-center gap-3">
           <Terminal className="text-cyan-400" size={20} />
           <h2 className="text-lg font-bold text-white uppercase tracking-widest">Incident War Room</h2>
         </div>
         
-        {status === 'active' && (
-          <div className={cn(
-            "flex items-center gap-2 px-4 py-1.5 rounded-full font-mono text-sm font-bold animate-pulse",
-            timeLeft < 60 ? "bg-rose-500/20 text-rose-400" : "bg-amber-500/20 text-amber-400"
-          )}>
-            <Clock size={16} />
-            T-MINUS {formatTime(timeLeft)}
-          </div>
-        )}
+        <div className="flex items-center gap-4">
+          {(status === 'active' || status === 'completed') && (
+            <button 
+              onClick={() => setShowCanvas(!showCanvas)}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border",
+                showCanvas ? "bg-cyan-500 text-black border-cyan-400" : "bg-white/5 border-white/10 text-neutral-400 hover:text-white"
+              )}
+            >
+              {showCanvas ? <X size={14} /> : <PenTool size={14} />}
+              {showCanvas ? 'Close Canvas' : 'Architect Canvas'}
+            </button>
+          )}
+
+          {status === 'active' && (
+            <div className={cn(
+              "flex items-center gap-2 px-4 py-1.5 rounded-full font-mono text-sm font-bold animate-pulse",
+              timeLeft < 60 ? "bg-rose-500/20 text-rose-400" : "bg-amber-500/20 text-amber-400"
+            )}>
+              <Clock size={16} />
+              T-MINUS {formatTime(timeLeft)}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* MAIN CONTENT */}
       <div className="flex-1 flex overflow-hidden">
         
-        {/* LEFT PANEL: Terminal & Context */}
-        <div className="flex-1 flex flex-col border-r border-white/5">
+        <div className={cn("flex flex-col border-r border-white/5 transition-all duration-500", showCanvas ? "flex-1" : "flex-[2]")}>
           {status === 'idle' ? (
             <div className="flex-1 flex flex-col items-center justify-center p-10 text-center">
               <Shield className="w-16 h-16 text-neutral-600 mb-6" />
@@ -156,7 +168,6 @@ export const WarRoom = () => {
             </div>
           ) : (
             <>
-              {/* Context Bar */}
               <div className="p-4 bg-rose-500/5 border-b border-rose-500/10">
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="text-rose-500 shrink-0 mt-1" size={18} />
@@ -167,7 +178,6 @@ export const WarRoom = () => {
                 </div>
               </div>
 
-              {/* Streaming Terminal */}
               <div className="flex-1 bg-[#050505] p-6 overflow-y-auto font-mono text-sm">
                 <AnimatePresence>
                   {visibleLogs.map((log, i) => (
@@ -192,10 +202,24 @@ export const WarRoom = () => {
           )}
         </div>
 
-        {/* RIGHT PANEL: Input & Evaluation */}
-        <div className="w-96 flex flex-col bg-neutral-900/30 relative">
+        <AnimatePresence>
+          {showCanvas && (
+            <motion.div 
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: '50%', opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              className="border-r border-white/5 overflow-hidden bg-black"
+            >
+              <div className="h-full p-4">
+                <Whiteboard />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className={cn("transition-all duration-500 bg-neutral-900/30 relative", showCanvas ? "w-80" : "w-96")}>
           {(status === 'active' || status === 'evaluating') && (
-            <div className="flex-1 flex flex-col p-6">
+            <div className="flex-1 flex flex-col p-6 h-full">
               <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-4">Mitigation Console</h3>
               <textarea
                 value={userMitigation}
@@ -216,7 +240,7 @@ export const WarRoom = () => {
           )}
 
           {status === 'completed' && evaluation && (
-            <div className="flex-1 flex flex-col p-6 overflow-y-auto animate-in slide-in-from-right-4 duration-500">
+            <div className="flex-1 flex flex-col p-6 overflow-y-auto animate-in slide-in-from-right-4 duration-500 h-full">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-sm font-bold text-white uppercase tracking-widest">Post-Mortem</h3>
                 <span className={cn(
@@ -231,7 +255,7 @@ export const WarRoom = () => {
                   <p className="text-sm text-neutral-200 leading-relaxed">{evaluation.feedback}</p>
                 </div>
                 
-                {evaluation.missedSteps.length > 0 && (
+                {evaluation.missedSteps && evaluation.missedSteps.length > 0 && (
                   <div>
                     <h4 className="text-xs font-bold text-rose-500 uppercase mb-2">Critical Misses</h4>
                     <ul className="list-disc pl-4 space-y-1">
