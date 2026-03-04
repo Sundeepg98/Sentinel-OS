@@ -97,7 +97,7 @@ export const WarRoom = () => {
   // 2. Mitigation Evaluation Mutation
   const evalMutation = useMutation({
     mutationFn: async () => {
-      if (!incident) return;
+      if (!incident) throw new Error('No active incident');
       const res = await fetch('/api/v1/intelligence/incident/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

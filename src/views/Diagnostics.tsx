@@ -45,12 +45,21 @@ export const Diagnostics: React.FC = () => {
           </h2>
           <p className="text-neutral-500 text-xs mt-2 font-mono uppercase tracking-widest">Real-time Intelligence Engine Monitoring</p>
         </div>
-        <button 
-          onClick={() => refetch()}
-          className="p-2 hover:bg-white/5 rounded-lg text-neutral-400 transition-colors"
-        >
-          <RefreshCw className={cn("w-5 h-5", (isLoading || isFetching) && "animate-spin")} />
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => window.open('/api/v1/admin/export-db', '_blank')}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-[10px] font-bold text-emerald-400 hover:bg-emerald-500/20 transition-all uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+            title="Download full SQLite database"
+          >
+            <Database size={14} /> Backup State
+          </button>
+          <button 
+            onClick={() => refetch()}
+            className="p-2 hover:bg-white/5 rounded-lg text-neutral-400 transition-colors"
+          >
+            <RefreshCw className={cn("w-5 h-5", (isLoading || isFetching) && "animate-spin")} />
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

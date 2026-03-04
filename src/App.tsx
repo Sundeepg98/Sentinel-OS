@@ -45,6 +45,16 @@ function App() {
   const [diagnosticsMode, setDiagnosticsMode] = useState(false);
   const [pinnedIds] = useLocalStorage<string[]>('architect_arena_selection', []);
 
+  // Sync Status Polling
+  const { data: stats } = useQuery({
+    queryKey: ['sync-status'],
+    queryFn: async () => {
+      const res = await fetch('/api/v1/intelligence/stats');
+      return res.json();
+    },
+    refetchInterval: 5000,
+  });
+
   useEffect(() => {
     if (dossierData.dossier?.modules && dossierData.dossier.modules.length > 0) {
       setActiveModuleId(dossierData.dossier.modules[0].id);
@@ -92,6 +102,13 @@ function App() {
                 </button>
 
                 <div className="h-4 w-px bg-white/10 mx-1" />
+
+                {stats?.isSyncing && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-lg animate-pulse">
+                    <Loader2 size={12} className="text-cyan-400 animate-spin" />
+                    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">Intelligence Sync Active</span>
+                  </div>
+                )}
 
                 <button 
                   onClick={() => { setArenaMode(!arenaMode); setWarRoomMode(false); setDiagnosticsMode(false); }}

@@ -365,6 +365,15 @@ v1Router.get('/portfolio/export', (req, res) => {
   res.send(md);
 });
 
+/**
+ * 🛠️ ENGINEERING BASIC: STATE PORTABILITY
+ * Allows the user to download the entire persistent database for local backup.
+ */
+v1Router.get('/admin/export-db', (req, res) => {
+  const dbPath = path.join(__dirname, 'sentinel.db');
+  res.download(dbPath, `sentinel-backup-${new Date().toISOString().split('T')[0]}.db`);
+});
+
 // --- MOUNT VERSIONED API ---
 app.use('/api/v1', v1Router);
 
