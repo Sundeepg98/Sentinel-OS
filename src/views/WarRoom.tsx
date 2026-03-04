@@ -76,7 +76,7 @@ export const WarRoom = () => {
     const moduleIds = dossier?.modules?.map(m => m.fullId).slice(0, 3) || [];
     
     try {
-      const res = await fetch('/api/intelligence/incident', {
+      const res = await fetch('/api/v1/intelligence/incident', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ moduleIds })
@@ -98,7 +98,7 @@ export const WarRoom = () => {
     clearInterval(timerRef.current);
 
     try {
-      const res = await fetch('/api/intelligence/incident/evaluate', {
+      const res = await fetch('/api/v1/intelligence/incident/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ incident, userAnswer: userMitigation })

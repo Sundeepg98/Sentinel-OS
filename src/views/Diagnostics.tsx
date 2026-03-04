@@ -18,7 +18,7 @@ export const Diagnostics: React.FC = () => {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/intelligence/stats');
+      const res = await fetch('/api/v1/intelligence/stats');
       const data = await res.json();
       setStats(data);
     } catch (e) {

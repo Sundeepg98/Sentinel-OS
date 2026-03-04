@@ -12,7 +12,7 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
 
   // Sync from cloud on mount
   useEffect(() => {
-    fetch(`/api/state/${key}`)
+    fetch(`/api/v1/state/${key}`)
       .then(res => res.json())
       .then(data => {
         if (data.value !== null && data.value !== undefined) {
@@ -30,7 +30,7 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       
       // Debounce the cloud write slightly
       const timeoutId = setTimeout(() => {
-        fetch(`/api/state/${key}`, {
+        fetch(`/api/v1/state/${key}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: storedValue })

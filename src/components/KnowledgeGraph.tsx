@@ -54,7 +54,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
 
   useEffect(() => {
     if (isOpen) {
-      fetch('/api/intelligence/graph')
+      fetch('/api/v1/intelligence/graph')
         .then(res => res.json())
         .then(data => {
           const nodesById = Object.fromEntries(data.nodes.map((n: any) => [n.id, { ...n, neighbors: [], links: [] }]));

@@ -77,7 +77,7 @@ export const ArchitectArena: React.FC = () => {
       setLoading(true);
       try {
         // We reuse the search endpoint or a custom multi-fetch to get raw content
-        const res = await fetch(`/api/intelligence/search?q=*`); // placeholder logic
+        const res = await fetch(`/api/v1/intelligence/search?q=*`); // placeholder logic
         const allData = await res.json();
         setModules(allData.filter((d: any) => arenaIds.includes(d.id)));
       } catch (e) {
@@ -96,7 +96,7 @@ export const ArchitectArena: React.FC = () => {
     try {
       // 1. SEMANTIC CROSS-POLLINATION
       // Search for technical segments that bridge the pinned modules
-      const searchRes = await fetch('/api/intelligence/semantic-search', {
+      const searchRes = await fetch('/api/v1/intelligence/semantic-search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -108,7 +108,7 @@ export const ArchitectArena: React.FC = () => {
       const crossDossierContext = semanticContext.map((c: any) => c.chunk_text).join("\n\n---\n\n");
 
       // 2. GENERATE DRILL WITH SEMANTIC DEPTH
-      const res = await fetch('/api/intelligence/drill', {
+      const res = await fetch('/api/v1/intelligence/drill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -130,7 +130,7 @@ export const ArchitectArena: React.FC = () => {
     if (!drill || !userAnswer.trim()) return;
     setEvalLoading(true);
     try {
-      const res = await fetch('/api/intelligence/evaluate', {
+      const res = await fetch('/api/v1/intelligence/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

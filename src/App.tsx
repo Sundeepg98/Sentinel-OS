@@ -121,10 +121,9 @@ function App() {
               </div>
               <div className="flex items-center gap-4">
                 <button
-                  onClick={() => window.open('/api/portfolio/export', '_blank')}
+                  onClick={() => window.open('/api/v1/portfolio/export', '_blank')}
                   className="text-xs font-semibold text-neutral-400 hover:text-white transition-colors uppercase tracking-widest px-3 py-1.5 border border-white/5 hover:border-white/20 rounded-lg bg-white/[0.02]"
-                >
-                  Export Portfolio
+                >                  Export Portfolio
                 </button>
                 <DeepSearch onSelect={(id) => { setActiveModuleId(id); resetViews(); }} />
               </div>

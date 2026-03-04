@@ -20,7 +20,7 @@ export function useDossier() {
   useEffect(() => {
     async function discover() {
       try {
-        const response = await fetch('/api/companies');
+        const response = await fetch('/api/v1/companies');
         if (response.ok) {
           const data = await response.json();
           setAllCompanies(data);
@@ -42,7 +42,7 @@ export function useDossier() {
     async function fetchDossier() {
       setLoading(true);
       try {
-        const response = await fetch(`/api/dossier/${companyId}`);
+        const response = await fetch(`/api/v1/dossier/${companyId}`);
         if (!response.ok) throw new Error('Fetch failed');
         const data = await response.json();
         setDossier(data);

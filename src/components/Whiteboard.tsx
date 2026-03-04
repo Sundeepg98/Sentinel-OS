@@ -25,7 +25,7 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
 
   // --- PERSISTENCE: LOAD ---
   useEffect(() => {
-    fetch(`/api/state/whiteboard-${sessionId}`)
+    fetch(`/api/v1/state/whiteboard-${sessionId}`)
       .then(res => res.json())
       .then(data => {
         if (data.value) setElements(data.value);
@@ -34,7 +34,7 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
 
   // --- PERSISTENCE: SAVE ---
   const saveWhiteboard = (newElements: Element[]) => {
-    fetch(`/api/state/whiteboard-${sessionId}`, {
+    fetch(`/api/v1/state/whiteboard-${sessionId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ value: newElements })

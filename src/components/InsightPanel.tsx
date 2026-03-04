@@ -89,7 +89,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
       setShowCanvas(false);
       setSessionId(getUUID());
       try {
-        const response = await fetch(`/api/intelligence/insights?fileId=${encodeURIComponent(fullId)}`);
+        const response = await fetch(`/api/v1/intelligence/insights?fileId=${encodeURIComponent(fullId)}`);
         if (response.ok) {
           const json = await response.json();
           setData(json);
@@ -108,7 +108,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
     setEvalData(null);
     setUserAnswer('');
     try {
-      const response = await fetch('/api/intelligence/drill', {
+      const response = await fetch('/api/v1/intelligence/drill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileId: fullId })
@@ -126,7 +126,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
     if (!drill || !userAnswer.trim()) return;
     setEvalLoading(true);
     try {
-      const response = await fetch('/api/intelligence/evaluate', {
+      const response = await fetch('/api/v1/intelligence/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

@@ -19,7 +19,7 @@ export const Tracker: React.FC = () => {
 
   // Sync with backend on mount
   React.useEffect(() => {
-    fetch(`/api/state/tracker-${dossier.id}-${activeModule.id}`)
+    fetch(`/api/v1/state/tracker-${dossier.id}-${activeModule.id}`)
       .then(res => res.json())
       .then(data => {
         if (data.value) setTasks(data.value);
@@ -31,7 +31,7 @@ export const Tracker: React.FC = () => {
     setTasks(newTasks);
     
     // Persist to backend for Heatmap
-    fetch(`/api/state/tracker-${dossier.id}-${activeModule.id}`, {
+    fetch(`/api/v1/state/tracker-${dossier.id}-${activeModule.id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ value: newTasks })

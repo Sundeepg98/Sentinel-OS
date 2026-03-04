@@ -46,11 +46,11 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
       try {
         let res, data;
         if (searchMode === 'keyword') {
-          res = await fetch(`/api/intelligence/search?q=${encodeURIComponent(query)}`);
+          res = await fetch(`/api/v1/intelligence/search?q=${encodeURIComponent(query)}`);
           data = await res.json();
         } else {
           // HIT THE RAG ENDPOINT
-          res = await fetch('/api/intelligence/semantic-search', {
+          res = await fetch('/api/v1/intelligence/semantic-search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ q: query, limit: 10 })
