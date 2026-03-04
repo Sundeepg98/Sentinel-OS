@@ -94,6 +94,9 @@ async function syncIntelligence() {
   const newGraph = { concepts: {}, files: {} };
   // Reset the search index to prevent duplication during hot-reloads
   searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
+  
+  const activeFileIds = new Set();
+
   try {
     const companies = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
     for (const company of companies.filter(d => d.isDirectory())) {
@@ -104,6 +107,8 @@ async function syncIntelligence() {
         const fileContent = await fs.readFile(filePath, 'utf-8');
         const { content, data } = matter(fileContent);
         const fileId = `${company.name}/${fileName}`;
+        activeFileIds.add(fileId);
+        
         const currentHash = getFileHash(fileContent);
 
         const cached = db.prepare("SELECT content_hash, keywords, label FROM intelligence_cache WHERE file_id = ?").get(fileId);
@@ -131,6 +136,23 @@ async function syncIntelligence() {
         });
       }
     }
+
+    // 🧹 PURGE ORPHANED FILES (The Delete Bug Fix)
+    const cachedFiles = db.prepare("SELECT file_id FROM intelligence_cache").all();
+    for (const row of cachedFiles) {
+      if (!activeFileIds.has(row.file_id)) {
+        console.log(`🗑️ [RAG Worker] Purging deleted file from database: ${row.file_id}`);
+        // Delete vectors
+        const oldChunks = db.prepare("SELECT id FROM chunks_metadata WHERE file_id = ?").all(row.file_id);
+        if (oldChunks.length > 0) {
+          const oldIds = oldChunks.map(c => Number(c.id));
+          db.prepare(`DELETE FROM vec_chunks WHERE id IN (${oldIds.join(',')})`).run();
+        }
+        db.prepare(`DELETE FROM chunks_metadata WHERE file_id = ?`).run(row.file_id);
+        db.prepare(`DELETE FROM intelligence_cache WHERE file_id = ?`).run(row.file_id);
+      }
+    }
+
     knowledgeGraph = newGraph;
     console.log(`✅ Intelligence Engine ACTIVE.`);
   } catch (e) { console.error('Sync Error:', e.message); }

@@ -47,7 +47,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   const recognitionRef = useRef<any>(null);
 
   // 1. Fetch Insights (Keywords & Related)
-  const { data, isLoading: loading } = useQuery<InsightData>({
+  const { data, isLoading, isFetching } = useQuery<InsightData>({
     queryKey: ['insights', fullId],
     queryFn: async () => {
       const res = await fetch(`/api/v1/intelligence/insights?fileId=${encodeURIComponent(fullId)}`);
@@ -55,7 +55,10 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
       return res.json();
     },
     enabled: !!fullId,
+    placeholderData: (previousData) => previousData, // Keeps concepts visible during hot-reloads
   });
+
+  const loading = isLoading; // Use isLoading for initial load, ignore background isFetching for UI blinking
 
   // Reset state when fullId changes
   useEffect(() => {
