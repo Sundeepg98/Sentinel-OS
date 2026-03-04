@@ -315,6 +315,9 @@ app.get('/api/intelligence/graph', (req, res) => {
     if (row.key.startsWith('score-')) scores[row.key.replace('score-', '')] = JSON.parse(row.value);
   });
 
+  // Also fetch "Learned" nodes from chunks_metadata
+  const learnedModules = db.prepare("SELECT DISTINCT file_id, metadata FROM chunks_metadata WHERE file_id LIKE 'learned/%'").all();
+
   Object.entries(knowledgeGraph.files).forEach(([id, data]) => {
     const trackerKey = `tracker-${data.company}-${id.split('/').pop().replace('.md', '').toLowerCase()}`;
     const moduleTasks = trackers[trackerKey] || [];
@@ -325,8 +328,35 @@ app.get('/api/intelligence/graph', (req, res) => {
     const scoreReadiness = (moduleScore / 10) * 0.5;
     const readiness = trackerReadiness + scoreReadiness;
 
-    nodes.push({ id, label: data.label, group: 'module', company: data.company, val: 15, readiness });
+    nodes.push({ 
+      id, 
+      label: data.label, 
+      group: 'module', 
+      company: data.company, 
+      val: 15, 
+      readiness,
+      blastRadius: data.keywords.length // Initial blast radius based on keyword density
+    });
   });
+
+  // Add Learned nodes to the graph
+  learnedModules.forEach(lm => {
+    const meta = JSON.parse(lm.metadata);
+    nodes.push({
+      id: lm.file_id,
+      label: `💡 Learned: ${lm.file_id.split('/').pop()}`,
+      group: lm.file_id.startsWith('learned/') ? 'learned' : 'module',
+      company: 'user',
+      val: 10,
+      readiness: 1,
+      learned: true,
+      originalModule: meta.originalModule
+    });
+    if (meta.originalModule) {
+      links.push({ source: meta.originalModule, target: lm.file_id, type: 'learned-from' });
+    }
+  });
+
   Object.entries(knowledgeGraph.concepts).forEach(([concept, files]) => {
     if (files.length > 1) {
       nodes.push({ id: `concept:${concept}`, label: concept, group: 'concept', company: 'global', val: 8 });
