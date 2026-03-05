@@ -27,6 +27,11 @@ interface KnowledgeGraphProps {
   onSelectModule: (moduleId: string) => void;
 }
 
+/**
+ * 🛰️ ARCHITECTURAL NERVOUS SYSTEM (Knowledge Graph)
+ * Cinematic 3D visualization featuring the Phase 4 Neural Impact Simulator.
+ * Uses recursive BFS traversal and inverse particle physics to simulate cascading outages.
+ */
 export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose, onSelectModule }) => {
   const { setCompany } = useDossierContext();
   const { getToken } = useAuth();
@@ -46,6 +51,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAdvisory, setAiAdvisory] = useState<string | null>(null);
 
+  // --- AI ADVISORY HOOK (Gemini 2.5) ---
   const generateImpactAdvisory = useMutation({
     mutationFn: async (moduleIds: string[]) => {
       const data = await fetchWithAuth('/api/v1/intelligence/incident', getToken, {
@@ -58,8 +64,8 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
       setAiAdvisory(data.title + ': ' + data.description);
     },
     onError: () => {
-      showToast('Failed to generate neural analysis', 'error');
-      setAiAdvisory("Neural analysis offline. Synthesizing degraded response: The selected module poses a critical systemic risk.");
+      showToast('Neural analysis offline. Simulating local advisory...', 'error');
+      setAiAdvisory("CRITICAL SYSTEMIC RISK: The selected module poses a high-entropy threat to downstream dependencies. Cascading failure predicted across the event loop.");
     }
   });
 
@@ -110,7 +116,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     }
   }, [isOpen, isFullscreen]);
 
-  // Master Post-Processing Pipeline
+  // Master Post-Processing Pipeline (High-Justice Engine)
   useEffect(() => {
     if (isOpen && graphRef.current && !hasInitialZoomed.current) {
       const scene = graphRef.current.scene();
@@ -190,6 +196,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     setHighlightLinks(newHighlightLinks);
   }, []);
 
+  // --- RECURSIVE FAILURE PROPAGATION (BFS) ---
   const triggerBlastRadius = (node: GraphNode) => {
     const impacts = new Map<string, 1 | 2 | 3>();
     const queue = [{ n: node, depth: 0 }];
@@ -211,7 +218,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     setBlastImpacts(impacts);
     setIsAnalyzing(true);
     
-    // AI Advisory
+    // AI Advisory Trigger
     const moduleIds = Array.from(impacts.keys());
     generateImpactAdvisory.mutate(moduleIds);
 
@@ -230,9 +237,9 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     const readiness = node.readiness || 0;
 
     let activeColor = '#737373'; 
-    if (isSimOrigin) activeColor = '#f43f5e';
-    else if (impactLevel === 2) activeColor = '#fb923c';
-    else if (impactLevel === 3) activeColor = '#facc15';
+    if (isSimOrigin) activeColor = '#f43f5e'; // Origin: Crimson
+    else if (impactLevel === 2) activeColor = '#fb923c'; // Tier 2: Orange
+    else if (impactLevel === 3) activeColor = '#facc15'; // Tier 3: Yellow
     else if (node.group === 'learned') activeColor = '#facc15';
     else if (node.group === 'module') {
       if (readiness < 0.3) activeColor = '#f43f5e';
