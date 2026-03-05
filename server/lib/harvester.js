@@ -6,37 +6,11 @@ const natural = require('natural');
 const crypto = require('crypto');
 const { db } = require('./db');
 const { getEmbedding } = require('./intelligence');
+const { parsePlaybook, parseChecklist } = require('./parsers');
 
 const INTELLIGENCE_DIR = path.join(__dirname, '..', '..', 'intelligence');
 let knowledgeGraph = { concepts: {}, files: {} };
 let searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
-
-function parsePlaybook(content) {
-  // Enhanced regex to handle CRLF and different spacing
-  const sections = content.split(/## Q:/).filter(s => s.trim().length > 0);
-  return sections.map(s => {
-    const lines = s.split('\n');
-    const question = lines[0].trim();
-    
-    // Using [\s\S] to match across multiple lines and including potential CRLF (\r?\n)
-    const trapMatch = s.match(/### The Trap Response\r?\n([\s\S]*?)(?=###|$)/i);
-    const whyMatch = s.match(/### Why it fails\r?\n([\s\S]*?)(?=###|$)/i);
-    const optimalMatch = s.match(/### Optimal Staff Response\r?\n([\s\S]*?)(?=###|$)/i);
-    
-    return { 
-      q: question, 
-      trap: trapMatch ? trapMatch[1].trim() : "", 
-      trapWhy: whyMatch ? whyMatch[1].trim() : "", 
-      optimal: optimalMatch ? optimalMatch[1].trim() : "" 
-    };
-  }).filter(p => p.q);
-}
-
-function parseChecklist(content) {
-  const lines = content.split('\n');
-  let id = 1;
-  return lines.filter(l => l.trim().startsWith('-')).map(l => ({ id: id++, text: l.replace(/^-\s*(\[[\sxX]\])?\s*/, '').trim(), done: l.includes('[x]') || l.includes('[X]') })).filter(t => t.text.length > 0);
-}
 
 function extractKeywords(text) {
   try {
@@ -101,11 +75,8 @@ async function processFileVectors(fileId, content, metadata) {
 async function syncIntelligence() {
   console.log('🔄 Sentinel Intelligence Sync: Scanning...');
   const newGraph = { concepts: {}, files: {} };
-  // Reset the search index to prevent duplication during hot-reloads
   searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
-  
   const activeFileIds = new Set();
-
   try {
     const companies = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
     for (const company of companies.filter(d => d.isDirectory())) {
@@ -117,12 +88,9 @@ async function syncIntelligence() {
         const { content, data } = matter(fileContent);
         const fileId = `${company.name}/${fileName}`;
         activeFileIds.add(fileId);
-        
         const currentHash = getFileHash(fileContent);
-
         const cached = db.prepare("SELECT content_hash, keywords, label FROM intelligence_cache WHERE file_id = ?").get(fileId);
         const vectorRow = db.prepare(`SELECT count(*) as count FROM chunks_metadata m JOIN vec_chunks v ON m.id = v.id WHERE m.file_id = ?`).get(fileId);
-        
         let keywords, label;
         if (cached && cached.content_hash === currentHash && (vectorRow?.count || 0) > 0) {
           keywords = JSON.parse(cached.keywords);
@@ -130,14 +98,10 @@ async function syncIntelligence() {
         } else {
           keywords = extractKeywords(content + ' ' + (data.label || ''));
           label = data.label || fileName;
-          db.prepare(`INSERT INTO intelligence_cache (file_id, content_hash, label, company, keywords) VALUES (?, ?, ?, ?, ?) 
-                     ON CONFLICT(file_id) DO UPDATE SET content_hash=excluded.content_hash, label=excluded.label, keywords=excluded.keywords, last_processed=CURRENT_TIMESTAMP`)
-            .run(fileId, currentHash, label, company.name, JSON.stringify(keywords));
+          db.prepare(`INSERT INTO intelligence_cache (file_id, content_hash, label, company, keywords) VALUES (?, ?, ?, ?, ?) ON CONFLICT(file_id) DO UPDATE SET content_hash=excluded.content_hash, label=excluded.label, keywords=excluded.keywords, last_processed=CURRENT_TIMESTAMP`).run(fileId, currentHash, label, company.name, JSON.stringify(keywords));
           await processFileVectors(fileId, content, data);
         }
-        
         try { searchIndex.add(fileId, content); } catch(e) {}
-        
         newGraph.files[fileId] = { label, company: company.name, keywords, content };
         keywords.forEach(k => {
           if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
@@ -145,13 +109,9 @@ async function syncIntelligence() {
         });
       }
     }
-
-    // 🧹 PURGE ORPHANED FILES (The Delete Bug Fix)
     const cachedFiles = db.prepare("SELECT file_id FROM intelligence_cache").all();
     for (const row of cachedFiles) {
       if (!activeFileIds.has(row.file_id)) {
-        console.log(`🗑️ [RAG Worker] Purging deleted file from database: ${row.file_id}`);
-        // Delete vectors
         const oldChunks = db.prepare("SELECT id FROM chunks_metadata WHERE file_id = ?").all(row.file_id);
         if (oldChunks.length > 0) {
           const oldIds = oldChunks.map(c => Number(c.id));
@@ -161,17 +121,9 @@ async function syncIntelligence() {
         db.prepare(`DELETE FROM intelligence_cache WHERE file_id = ?`).run(row.file_id);
       }
     }
-
     knowledgeGraph = newGraph;
     console.log(`✅ Intelligence Engine ACTIVE.`);
   } catch (e) { console.error('Sync Error:', e.message); }
 }
 
-module.exports = { 
-  syncIntelligence, 
-  getKnowledgeGraph: () => knowledgeGraph, 
-  getSearchIndex: () => searchIndex, 
-  parsePlaybook, 
-  parseChecklist,
-  INTELLIGENCE_DIR
-};
+module.exports = { syncIntelligence, getKnowledgeGraph: () => knowledgeGraph, getSearchIndex: () => searchIndex, parsePlaybook, parseChecklist, INTELLIGENCE_DIR };
