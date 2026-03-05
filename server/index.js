@@ -255,6 +255,15 @@ v1Router.post('/admin/error-logs', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /intelligence/stats:
+ *   get:
+ *     summary: Retrieve system-wide intelligence telemetry
+ *     responses:
+ *       200:
+ *         description: Standardized envelope with RAG and system stats
+ */
 v1Router.get('/intelligence/stats', async (req, res) => {
   let chunksCount, historyCount, learnedCount;
   
@@ -283,6 +292,15 @@ v1Router.get('/intelligence/stats', async (req, res) => {
   });
 });
 
+/**
+ * @openapi
+ * /intelligence/graph:
+ *   get:
+ *     summary: Generate the 3D Architectural Nervous System data
+ *     responses:
+ *       200:
+ *         description: Nodes and links for the Three.js force-graph
+ */
 v1Router.get('/intelligence/graph', async (req, res) => {
   const nodes = []; const links = [];
   let userRows;
