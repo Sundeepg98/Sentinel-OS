@@ -1,0 +1,300 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - heading "MAILIN _OS" [level=1] [ref=e7]:
+          - img [ref=e9]
+          - text: MAILIN
+          - generic [ref=e12]: _OS
+        - generic [ref=e15]: "Target:"
+      - navigation [ref=e16]:
+        - generic [ref=e18]: Modules
+        - button "Full Master Analysis" [ref=e19]:
+          - img [ref=e21]
+          - generic [ref=e24]: Full Master Analysis
+          - generic "Add to Architect Arena" [ref=e25]:
+            - img [ref=e26]
+        - button "Corporate & AI Strategy" [ref=e28]:
+          - img [ref=e30]
+          - generic [ref=e33]: Corporate & AI Strategy
+          - generic "Add to Architect Arena" [ref=e34]:
+            - img [ref=e35]
+        - button "Deliverability Protocols" [ref=e37]:
+          - img [ref=e39]
+          - generic [ref=e41]: Deliverability Protocols
+          - generic "Add to Architect Arena" [ref=e42]:
+            - img [ref=e43]
+        - button "Distributed Infrastructure" [ref=e45]:
+          - img [ref=e47]
+          - generic [ref=e51]: Distributed Infrastructure
+          - generic "Add to Architect Arena" [ref=e52]:
+            - img [ref=e53]
+        - button "Kernel Performance Tuning" [ref=e55]:
+          - img [ref=e57]
+          - generic [ref=e59]: Kernel Performance Tuning
+          - generic "Add to Architect Arena" [ref=e60]:
+            - img [ref=e61]
+        - button "Node.js Runtime & V8" [ref=e63]:
+          - img [ref=e65]
+          - generic [ref=e68]: Node.js Runtime & V8
+          - generic "Add to Architect Arena" [ref=e69]:
+            - img [ref=e70]
+        - button "Role Benchmarks & Drills" [ref=e72]:
+          - img [ref=e74]
+          - generic [ref=e77]: Role Benchmarks & Drills
+          - generic "Add to Architect Arena" [ref=e78]:
+            - img [ref=e79]
+        - button "Readiness Checklist" [ref=e81]:
+          - img [ref=e83]
+          - generic [ref=e85]: Readiness Checklist
+          - generic "Add to Architect Arena" [ref=e86]:
+            - img [ref=e87]
+    - generic [ref=e89]:
+      - button "System Status" [ref=e90]:
+        - img [ref=e91]
+        - text: System Status
+      - paragraph [ref=e94]:
+        - text: Engineering Dossier v2.5.0
+        - text: "ARCHITECT_MODE: ENABLED"
+  - main [ref=e95]:
+    - generic [ref=e96]:
+      - generic [ref=e97]:
+        - combobox [ref=e98] [cursor=pointer]:
+          - option "GOOGLE Profile"
+          - option "MAILIN Profile" [selected]
+          - option "STRIPE Profile"
+          - option "TURING Profile"
+        - button "Open Knowledge Graph" [ref=e99]:
+          - img [ref=e100]
+        - button "Arena" [ref=e106]:
+          - img [ref=e107]
+          - text: Arena
+        - button "War Room" [ref=e116]:
+          - img [ref=e117]
+          - text: War Room
+      - generic [ref=e119]:
+        - button "Global Search... K" [ref=e120]:
+          - img [ref=e121]
+          - generic [ref=e124]: Global Search...
+          - generic [ref=e125]:
+            - img [ref=e126]
+            - generic [ref=e128]: K
+        - button "Export Portfolio" [ref=e129]
+    - generic [ref=e131]:
+      - generic [ref=e133]:
+        - generic [ref=e134]:
+          - heading "Full Master Analysis" [level=2] [ref=e135]:
+            - img [ref=e137]
+            - text: Full Master Analysis
+          - button "Active Recall" [ref=e140]:
+            - img [ref=e141]
+            - text: Active Recall
+        - generic [ref=e154]:
+          - 'heading "Comprehensive Analysis of Mailin: Corporate Infrastructure, Technical Stack, and Node.js Engineering Evaluation" [level=1] [ref=e155]'
+          - heading "Corporate Background and Market Positioning of Mailin" [level=2] [ref=e156]
+          - paragraph [ref=e157]: "The digital outreach and sales development sector has undergone a structural transformation in recent years, pivoting from volume-centric spam architectures to highly personalized, infrastructure-dependent outbound campaigns. At the vanguard of this shift is Mailin, operating commercially as Mailin.ai, a sophisticated cold email infrastructure platform engineered to maximize deliverability at scale. Founded by Tomer L., an entrepreneur and ex-special forces veteran based in Florida with an extensive background in scaling marketing agencies, Mailin addresses the fundamental bottleneck of modern business-to-business (B2B) communications: the deterioration of internet protocol (IP) and domain reputation. The enterprise operates with a distributed global footprint, maintaining engineering and operational hubs in the United States and India, specifically in regions such as Ghaziabad and Visakhapatnam."
+          - paragraph [ref=e158]: The core value proposition of Mailin revolves around the democratization of private email infrastructure. Historically, organizations scaling outbound email campaigns relied almost exclusively on shared infrastructure providers, predominantly Google Workspace and Microsoft Azure or Outlook. The inherent, mathematically quantifiable flaw in utilizing shared infrastructure for unsolicited outbound communication is the contamination of IP reputation. Within a shared server environment, multiple tenants route traffic through the same subnet and IP addresses. If a single tenant engages in poor sending practices—such as generating high bounce rates or triggering spam complaints—the deliverability rates for all other tenants utilizing that shared infrastructure are symmetrically penalized by major receiving mail transfer agents (MTAs).
+          - paragraph [ref=e159]: Mailin circumvents this systemic vulnerability by provisioning isolated, dedicated servers and private IP addresses for its user base. This architectural decision physically and logically separates sender reputations. By granting users isolated environments, Mailin shifts the responsibility of reputation management entirely to the individual user's sending behavior, rather than penalizing them for the malicious or negligent behavior of a neighboring tenant. This strategic infrastructure deployment has enabled Mailin to achieve significant operational scale. The platform processes over 500 million cold emails per month, with historical aggregate volumes exceeding 1.3 billion emails, generating a six-figure monthly recurring revenue (MRR) for the enterprise.
+          - heading "Business Model, Economic Efficiency, and Product Offerings" [level=2] [ref=e160]
+          - paragraph [ref=e161]: The economic viability of Mailin's operations is directly tethered to its pricing efficiency and automated provisioning protocols. The platform automates the historically manual and error-prone setup of domain name system (DNS) records, specifically handling the configuration of DomainKeys Identified Mail (DKIM), Sender Policy Framework (SPF), and Domain-based Message Authentication, Reporting, and Conformance (DMARC). This automation reduces onboarding time to approximately ten to fifteen minutes, allowing sales development teams to deploy hundreds of mailboxes rapidly without requiring intervention from dedicated dev-ops personnel.
+          - heading "Pricing Architecture" [level=3] [ref=e162]
+          - table [ref=e163]:
+            - rowgroup [ref=e164]:
+              - row "Plan Tier Monthly Cost Included Accounts Core Features and Capabilities" [ref=e165]:
+                - columnheader "Plan Tier" [ref=e166]
+                - columnheader "Monthly Cost" [ref=e167]
+                - columnheader "Included Accounts" [ref=e168]
+                - columnheader "Core Features and Capabilities" [ref=e169]
+            - rowgroup [ref=e170]:
+              - row "Solopreneur $299 200 10-minute onboarding, 1-day delivery, dedicated servers and IPs, automated DNS/DKIM/DMARC/SPF setup, priority support." [ref=e171]:
+                - cell "Solopreneur" [ref=e172]
+                - cell "$299" [ref=e173]
+                - cell "200" [ref=e174]
+                - cell "10-minute onboarding, 1-day delivery, dedicated servers and IPs, automated DNS/DKIM/DMARC/SPF setup, priority support." [ref=e175]
+              - row "Business $749 500 Includes all Solopreneur features scaled for mid-sized agency operations, maintaining an 83% cost reduction compared to Google/Outlook." [ref=e176]:
+                - cell "Business" [ref=e177]
+                - cell "$749" [ref=e178]
+                - cell "500" [ref=e179]
+                - cell "Includes all Solopreneur features scaled for mid-sized agency operations, maintaining an 83% cost reduction compared to Google/Outlook." [ref=e180]
+              - row "Enterprise $1,499 1,000 Ability to purchase additional accounts at $1 each, premium access to new features and AI integrations, holistic deliverability guarantees." [ref=e181]:
+                - cell "Enterprise" [ref=e182]
+                - cell "$1,499" [ref=e183]
+                - cell "1,000" [ref=e184]
+                - cell "Ability to purchase additional accounts at $1 each, premium access to new features and AI integrations, holistic deliverability guarantees." [ref=e185]
+          - paragraph [ref=e186]: This aggressive pricing model—averaging approximately $1.20 to $1.50 per mailbox compared to the standard $7.20 per mailbox charged by Google Workspace—indicates that Mailin's infrastructure relies on highly optimized, low-overhead microservices to maintain profitability. Furthermore, the company integrates advanced tooling to support the entire lifecycle of a cold email campaign. This includes a non-profit email verifier offered at cost, which parses catch-all domains for $14 per 50,000 credits, ensuring that the initial data injected into the outbound pipelines is cryptographically clean and structurally valid.
+          - paragraph [ref=e187]: The platform also embraces modern artificial intelligence workflows. Engineering and marketing documentation reveals deep integrations with large language models, specifically DeepSeek and ChatGPT. Mailin advocates for the use of DeepSeek's Mixture-of-Experts (MoE) architecture to process raw lead data sourced from platforms like Clay or Apollo.io, dynamically generating highly personalized first-liners and optimized calls-to-action (CTAs) before injecting the payload into the Mailin dispatch queues.
+          - heading "Competitive Landscape and Deliverability Architecture" [level=2] [ref=e188]
+          - paragraph [ref=e189]: The infrastructure market supporting outbound communications is highly fragmented and fiercely competitive. Mailin’s architectural design directly competes with standard, general-purpose providers as well as specialized cold email infrastructures such as Mailforge, Sendgrid, Maildoso, and Inframail.
+          - table [ref=e190]:
+            - rowgroup [ref=e191]:
+              - row "Infrastructure Provider Infrastructure Model IP Allocation Strategy Automated DNS Configuration Base Cost Per Mailbox Cold Email Policy" [ref=e192]:
+                - columnheader "Infrastructure Provider" [ref=e193]
+                - columnheader "Infrastructure Model" [ref=e194]
+                - columnheader "IP Allocation Strategy" [ref=e195]
+                - columnheader "Automated DNS Configuration" [ref=e196]
+                - columnheader "Base Cost Per Mailbox" [ref=e197]
+                - columnheader "Cold Email Policy" [ref=e198]
+            - rowgroup [ref=e199]:
+              - row "Mailin Private / Dedicated Servers Dedicated IP Addresses Native, Fully Automated ~$1.20 Actively Supported and Guaranteed" [ref=e200]:
+                - cell "Mailin" [ref=e201]
+                - cell "Private / Dedicated Servers" [ref=e202]
+                - cell "Dedicated IP Addresses" [ref=e203]
+                - cell "Native, Fully Automated" [ref=e204]
+                - cell "~$1.20" [ref=e205]
+                - cell "Actively Supported and Guaranteed" [ref=e206]
+              - row "Google Workspace Shared Cloud Environment Shared IP Pools Manual Configuration Required ~$7.20 Flagged and Subject to Bans" [ref=e207]:
+                - cell "Google Workspace" [ref=e208]
+                - cell "Shared Cloud Environment" [ref=e209]
+                - cell "Shared IP Pools" [ref=e210]
+                - cell "Manual Configuration Required" [ref=e211]
+                - cell "~$7.20" [ref=e212]
+                - cell "Flagged and Subject to Bans" [ref=e213]
+              - row "Mailforge Shared / Reseller Base Shared / Rotated IPs Reseller API Integration ~$3.00 Supported" [ref=e214]:
+                - cell "Mailforge" [ref=e215]
+                - cell "Shared / Reseller Base" [ref=e216]
+                - cell "Shared / Rotated IPs" [ref=e217]
+                - cell "Reseller API Integration" [ref=e218]
+                - cell "~$3.00" [ref=e219]
+                - cell "Supported" [ref=e220]
+              - row "Sendgrid Shared API / Cloud Shared (Dedicated at high tiers) API-Driven Volume Based Strict Compliance / Throttled" [ref=e221]:
+                - cell "Sendgrid" [ref=e222]
+                - cell "Shared API / Cloud" [ref=e223]
+                - cell "Shared (Dedicated at high tiers)" [ref=e224]
+                - cell "API-Driven" [ref=e225]
+                - cell "Volume Based" [ref=e226]
+                - cell "Strict Compliance / Throttled" [ref=e227]
+          - heading "The Technological Stack and Engineering Ecosystem" [level=2] [ref=e228]
+          - paragraph [ref=e229]: To process half a billion emails monthly and maintain real-time monitoring of DNS health across thousands of domains, the underlying engineering stack must be heavily optimized for concurrent, non-blocking operations. An analysis of the required technology stack for engineers at Mailin, alongside adjacent ecosystem players like the cybersecurity firm Mailinblack and open-source parsing projects like node-mailin, reveals a profound reliance on modern, scalable distributed systems.
+          - heading "Backend Infrastructure and Microservices" [level=3] [ref=e230]
+          - paragraph [ref=e231]: Based on comprehensive hiring profiles and architectural necessities for the domain, the technological ecosystem heavily features Node.js, Golang, Java/Spring Boot, and .NET. Node.js, in particular, serves as the industry-standard runtime for building network-heavy, asynchronous applications such as reverse proxies, rate-limiters, and webhook dispatchers.
+          - paragraph [ref=e232]: The infrastructure relies on Kubernetes for container orchestration. As outbound email volume fluctuates unpredictably—often surging during standard business hours in specific time zones—Kubernetes allows the microservices responsible for parsing emails, routing API requests, and handling cryptographic signing to scale dynamically based on immediate CPU and memory load. Communication between these internal microservices is facilitated by gRPC and Protocol Buffers. Unlike traditional Representational State Transfer (REST) architectures that rely on bulky JavaScript Object Notation (JSON) payloads, gRPC utilizes binary serialization, offering significantly lower overhead and faster transmission speeds.
+          - heading "ISP Rate Limiting, Feedback Loops, and Distributed Backpressure" [level=2] [ref=e233]
+          - paragraph [ref=e234]: Cryptographic authentication is merely the baseline requirement; the primary differentiator for high-throughput platforms is the real-time management of sender reputation through automated Feedback Loops (FBLs). An FBL is a specialized telemetry mechanism established between an ISP and an Email Service Provider (ESP). When a recipient actively marks a message as spam, the ISP transmits a structured diagnostic report back to the sending infrastructure.
+          - paragraph [ref=e235]: The ingestion and processing of FBL data must occur in near real-time. If an IP address or domain begins generating a statistically anomalous volume of complaints, the infrastructure must automatically suppress further transmission to those specific recipients to prevent permanent IP blacklisting. A sophisticated system utilizes these FBL reports not merely for suppression, but as dynamic inputs for broader reputation management algorithms, adjusting the logical routing of subsequent campaigns away from degraded IP subnets until the reputation organically recovers.
+          - heading "Backpressure Strategies" [level=3] [ref=e236]
+          - table [ref=e237]:
+            - rowgroup [ref=e238]:
+              - row "Backpressure Strategy Architectural Implementation Primary ISP Target Mitigation" [ref=e239]:
+                - columnheader "Backpressure Strategy" [ref=e240]
+                - columnheader "Architectural Implementation" [ref=e241]
+                - columnheader "Primary ISP Target Mitigation" [ref=e242]
+            - rowgroup [ref=e243]:
+              - row "Leaky Bucket Algorithm Treats outbound queues as a buffer with a fixed output rate. Mitigates Microsoft's strict binary connection limits by ensuring concurrent socket thresholds are never exceeded." [ref=e244]:
+                - cell "Leaky Bucket Algorithm" [ref=e245]
+                - cell "Treats outbound queues as a buffer with a fixed output rate." [ref=e246]
+                - cell "Mitigates Microsoft's strict binary connection limits by ensuring concurrent socket thresholds are never exceeded." [ref=e247]
+              - row "Dynamic Rate Limiting Utilizes sliding window counters in centralized datastores like Redis to dynamically adjust throughput based on real-time 4xx deferral feedback. Adapts to Google's machine-learning throttles, backing off when deferrals spike and accelerating when engagement is high." [ref=e248]:
+                - cell "Dynamic Rate Limiting" [ref=e249]
+                - cell "Utilizes sliding window counters in centralized datastores like Redis to dynamically adjust throughput based on real-time 4xx deferral feedback." [ref=e250]
+                - cell "Adapts to Google's machine-learning throttles, backing off when deferrals spike and accelerating when engagement is high." [ref=e251]
+              - row "Exponential Backoff Introduces progressively longer delays between retry attempts for failed or deferred messages. Prevents retry storms that could trigger permanent blacklisting across Yahoo and corporate firewalls." [ref=e252]:
+                - cell "Exponential Backoff" [ref=e253]
+                - cell "Introduces progressively longer delays between retry attempts for failed or deferred messages." [ref=e254]
+                - cell "Prevents retry storms that could trigger permanent blacklisting across Yahoo and corporate firewalls." [ref=e255]
+              - row "Circuit Breakers Temporarily halts all traffic if a critical failure threshold is breached, allowing the remote system to recover. Prevents cascading failures and total IP bans during widespread ISP outages or severe reputation drops." [ref=e256]:
+                - cell "Circuit Breakers" [ref=e257]
+                - cell "Temporarily halts all traffic if a critical failure threshold is breached, allowing the remote system to recover." [ref=e258]
+                - cell "Prevents cascading failures and total IP bans during widespread ISP outages or severe reputation drops." [ref=e259]
+          - heading "Advanced TCP/IP Tuning and Sysctl Optimization" [level=2] [ref=e260]
+          - paragraph [ref=e261]: Processing hundreds of millions of network requests per month necessitates bypassing the default constraints of the underlying Linux operating system. Performance engineers must utilize the sysctl interface to aggressively tune TCP/IP behavior, extracting maximum capacity from the bare-metal hardware.
+          - table [ref=e262]:
+            - rowgroup [ref=e263]:
+              - row "Kernel Parameter Functional Description High-Throughput Configuration" [ref=e264]:
+                - columnheader "Kernel Parameter" [ref=e265]
+                - columnheader "Functional Description" [ref=e266]
+                - columnheader "High-Throughput Configuration" [ref=e267]
+            - rowgroup [ref=e268]:
+              - row "net.core.somaxconn Dictates the maximum number of queued connection requests bound for a listening socket. 65535 (Increased from default 128)" [ref=e269]:
+                - cell "net.core.somaxconn" [ref=e270]
+                - cell "Dictates the maximum number of queued connection requests bound for a listening socket." [ref=e271]
+                - cell "65535 (Increased from default 128)" [ref=e272]
+              - row "net.core.netdev_max_backlog Determines the maximum number of packets queued on the receive side before the CPU can process them. 65535 (Prevents packet drops during bursty traffic)" [ref=e273]:
+                - cell "net.core.netdev_max_backlog" [ref=e274]
+                - cell "Determines the maximum number of packets queued on the receive side before the CPU can process them." [ref=e275]
+                - cell "65535 (Prevents packet drops during bursty traffic)" [ref=e276]
+              - row "net.ipv4.tcp_max_syn_backlog Limits the number of unacknowledged SYN requests the system will hold in memory. 65535 (Defends against SYN floods and high load)" [ref=e277]:
+                - cell "net.ipv4.tcp_max_syn_backlog" [ref=e278]
+                - cell "Limits the number of unacknowledged SYN requests the system will hold in memory." [ref=e279]
+                - cell "65535 (Defends against SYN floods and high load)" [ref=e280]
+              - row "net.netfilter.nf_conntrack_max Defines the maximum size of the connection tracking table, vital for NAT environments. 1000000 to 2000000" [ref=e281]:
+                - cell "net.netfilter.nf_conntrack_max" [ref=e282]
+                - cell "Defines the maximum size of the connection tracking table, vital for NAT environments." [ref=e283]
+                - cell "1000000 to 2000000" [ref=e284]
+              - row "fs.file-max Controls the global limit of open file descriptors, as every TCP socket requires a distinct file descriptor. 2097152" [ref=e285]:
+                - cell "fs.file-max" [ref=e286]
+                - cell "Controls the global limit of open file descriptors, as every TCP socket requires a distinct file descriptor." [ref=e287]
+                - cell "2097152" [ref=e288]
+          - heading "Node.js Event Loop Mechanics and eBPF Instrumentation" [level=2] [ref=e289]
+          - paragraph [ref=e290]: The processing engine powering these outbound streams relies heavily on Node.js. Node.js operates on a single-threaded, event-driven architecture designed specifically for non-blocking Input/Output (I/O).
+          - heading "Kernel-Level Telemetry with eBPF" [level=3] [ref=e291]
+          - paragraph [ref=e292]:
+            - text: Engineers utilize extended Berkeley Packet Filter (eBPF) technology to instrument the event loop directly at the kernel level. To monitor Node.js latency, eBPF programs attach uprobes to specific functions within the libuv library, primarily
+            - generic [ref=e293]:
+              - generic [ref=e294]:
+                - img [ref=e295]
+                - generic [ref=e297]: snippet
+              - generic [ref=e300]:
+                - generic [ref=e301]: "1"
+                - generic [ref=e302]: uv__io_poll()
+            - text: . By recording nanosecond-precision timestamps when the system enters and exits
+            - generic [ref=e303]:
+              - generic [ref=e304]:
+                - img [ref=e305]
+                - generic [ref=e307]: snippet
+              - generic [ref=e310]:
+                - generic [ref=e311]: "1"
+                - generic [ref=e312]: uv__io_poll()
+            - text: ", the eBPF instrumentation mathematically calculates the exact duration the event loop is blocked by synchronous execution, entirely ignoring the benign time spent idle waiting for traffic."
+          - heading "V8 Engine Internals, Maglev, and Hidden Classes" [level=2] [ref=e313]
+          - paragraph [ref=e314]: To write JavaScript that executes with near-native velocity, principal engineers must comprehend the internal optimization pipelines of Google's V8 engine. The execution pipeline begins with Ignition, an interpreter that parses source code into an Abstract Syntax Tree (AST). Hot functions are routed to V8’s optimizing compiler architecture, which includes Turbofan and the newer Maglev compiler.
+          - heading "Shapes, Maps, and Inline Caching" [level=3] [ref=e315]
+          - paragraph [ref=e316]: At the core of V8's optimization capabilities is its proprietary handling of JavaScript's dynamic object model via "Hidden Classes" (Shapes or Maps). This foundational architecture enables Inline Caches (ICs). When a function repeatedly accesses a property, the IC memorizes the Shape of the object and the exact memory offset of that property. Consequently, engineers writing high-throughput parser microservices must adhere strictly to monomorphic data structures to ensure properties are accessed with the speed of compiled C++.
+          - heading "Strategic Conclusions" [level=2] [ref=e317]
+          - paragraph [ref=e318]: The architecture supporting high-volume, isolated email infrastructure represents a pinnacle of modern distributed systems engineering. The business model of providing private, high-deliverability email infrastructure relies entirely on the uncompromising efficiency, stability, and security of its backend systems. Platforms like Mailin succeed not merely through aggressive pricing or geographical arbitrage, but through the flawless execution of highly complex computer science paradigms.
+      - generic [ref=e320]:
+        - generic [ref=e321]:
+          - generic [ref=e323]:
+            - img [ref=e324]
+            - text: AI Deep Drill
+          - button "Generate Mock Question" [ref=e327]:
+            - img [ref=e328]
+            - text: Generate Mock Question
+        - generic [ref=e336]:
+          - generic [ref=e337]:
+            - img [ref=e338]
+            - text: Key Concepts
+          - generic [ref=e346]:
+            - generic [ref=e347]:
+              - img [ref=e348]
+              - text: mailin
+            - generic [ref=e351]:
+              - img [ref=e352]
+              - text: infrastructure
+            - generic [ref=e355]:
+              - img [ref=e356]
+              - text: email
+            - generic [ref=e359]:
+              - img [ref=e360]
+              - text: shared
+            - generic [ref=e363]:
+              - img [ref=e364]
+              - text: high
+            - generic [ref=e367]:
+              - img [ref=e368]
+              - text: node
+            - generic [ref=e371]:
+              - img [ref=e372]
+              - text: outbound
+            - generic [ref=e375]:
+              - img [ref=e376]
+              - text: reputation
+            - generic [ref=e379]:
+              - img [ref=e380]
+              - text: time
+            - generic [ref=e383]:
+              - img [ref=e384]
+              - text: architecture
+```

@@ -3,7 +3,10 @@ const sqliteVec = require('sqlite-vec');
 const path = require('path');
 const fs = require('fs');
 
-const dbFile = path.join(__dirname, '..', 'sentinel.db');
+// --- 🛠️ ENGINEERING BASIC: DB SEGREGATION ---
+const isTest = process.env.NODE_ENV === 'test';
+const dbFile = isTest ? ':memory:' : path.join(__dirname, '..', 'sentinel.db');
+
 const db = new Database(dbFile);
 sqliteVec.load(db);
 
