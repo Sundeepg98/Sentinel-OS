@@ -6,15 +6,26 @@ import { motion } from 'framer-motion';
 import { useDossierContext } from '../App';
 import { cn } from '../lib/utils';
 
-export const Tracker: React.FC = () => {
+interface TrackerProps {
+  activeModuleId?: string;
+}
+
+export const Tracker: React.FC<TrackerProps> = ({ activeModuleId }) => {
   const { dossier } = useDossierContext();
   
   if (!dossier) return null;
-  const activeModule = dossier.modules.find(m => m.type === 'checklist');
   
-  if (!activeModule) return null;
-  const initialTasks = activeModule.data;
+  const activeModule = activeModuleId 
+    ? dossier.modules.find(m => m.id === activeModuleId)
+    : dossier.modules.find(m => m.type === 'checklist');
   
+  if (!activeModule) return (
+    <div className="flex items-center justify-center h-full text-neutral-500 italic">
+      No checklist found for this module.
+    </div>
+  );
+
+  const initialTasks = activeModule.data || [];
   const [tasks, setTasks] = useLocalStorage<Task[]>(`tracker-${dossier.id}-${activeModule.id}`, initialTasks);
 
   // Sync with backend on mount
@@ -38,7 +49,7 @@ export const Tracker: React.FC = () => {
     });
   };
 
-  const progress = Math.round((tasks.filter(t => t.done).length / tasks.length) * 100);
+  const progress = tasks.length > 0 ? Math.round((tasks.filter(t => t.done).length / tasks.length) * 100) : 0;
 
   return (
     <motion.div 
@@ -111,6 +122,9 @@ export const Tracker: React.FC = () => {
               </span>
             </label>
           ))}
+          {tasks.length === 0 && (
+            <div className="text-center py-10 text-neutral-600">This checklist is currently empty.</div>
+          )}
         </div>
       </div>
     </motion.div>

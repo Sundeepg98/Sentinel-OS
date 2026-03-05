@@ -5,16 +5,29 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useDossierContext } from '../App';
 import { cn } from '../lib/utils';
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+  activeModuleId?: string;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ activeModuleId }) => {
   const { dossier } = useDossierContext();
   const [studyMode, setStudyMode] = useState(false);
   const [failCriteriaRevealed, setFailCriteriaRevealed] = useState(false);
   const [goldenRuleRevealed, setGoldenRuleRevealed] = useState(false);
   
   if (!dossier) return null;
-  const activeModule = dossier.modules.find(m => m.type === 'grid'); 
   
-  if (!activeModule) return null;
+  // Use specific module if ID provided, else fallback to first grid
+  const activeModule = activeModuleId 
+    ? dossier.modules.find(m => m.id === activeModuleId)
+    : dossier.modules.find(m => m.type === 'grid'); 
+  
+  if (!activeModule || !activeModule.data) return (
+    <div className="flex items-center justify-center h-full text-neutral-500 italic">
+      Select an architectural module to view operational parameters.
+    </div>
+  );
+
   const { kpis, failCriteria, goldenRule } = activeModule.data;
 
   return (
@@ -55,19 +68,21 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {kpis.map((kpi: any, i: number) => (
-          <StatusCard 
-            key={i}
-            title={kpi.title} 
-            value={kpi.value} 
-            subValue={kpi.subValue} 
-            note={kpi.note} 
-            icon={<Terminal className="w-5 h-5 opacity-50" />} 
-            color={kpi.color} 
-          />
-        ))}
-      </div>
+      {kpis && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {kpis.map((kpi: any, i: number) => (
+            <StatusCard 
+              key={i}
+              title={kpi.title} 
+              value={kpi.value} 
+              subValue={kpi.subValue} 
+              note={kpi.note} 
+              icon={<Terminal className="w-5 h-5 opacity-50" />} 
+              color={kpi.color} 
+            />
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
         {/* Fail Criteria Card */}
@@ -100,7 +115,7 @@ export const Dashboard: React.FC = () => {
                   animate={{ opacity: 1 }}
                   className="space-y-3 font-mono text-[13px]"
                 >
-                  {failCriteria.map((text: string, i: number) => (
+                  {failCriteria?.map((text: string, i: number) => (
                     <li key={i} className="flex gap-3 text-neutral-400 items-start bg-rose-500/[0.03] p-3 rounded-lg border border-rose-500/[0.08]">
                       <XCircle className="w-4 h-4 text-rose-500/80 shrink-0 mt-0.5" />
                       <span className="leading-relaxed">{text}</span>

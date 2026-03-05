@@ -1,100 +1,50 @@
 import React, { useState } from 'react';
-import { Cpu, AlertTriangle, CheckCircle2, BrainCircuit, Eye, EyeOff } from 'lucide-react';
+import { Shield, Target, AlertCircle, CheckCircle2, ChevronRight, BrainCircuit, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDossierContext } from '../App';
 import { cn } from '../lib/utils';
 
-const InternalsCard: React.FC<{ item: any, studyMode: boolean }> = ({ item, studyMode }) => {
-  const [revealed, setRevealed] = useState(false);
-  const isVisible = !studyMode || revealed;
+interface InternalsProps {
+  activeModuleId?: string;
+}
 
-  return (
-    <div className="p-6">
-      <div className="flex justify-between items-start mb-4">
-        <h4 className="text-lg font-semibold text-white">{item.title}</h4>
-        
-        {studyMode && (
-          <button 
-            onClick={() => setRevealed(!revealed)}
-            className={cn(
-              "flex items-center gap-2 text-xs font-semibold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-colors border mt-1 shrink-0",
-              revealed ? "bg-white/5 border-white/10 text-neutral-400" : "bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20"
-            )}
-          >
-            {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
-            {revealed ? 'Hide Solution' : 'Reveal'}
-          </button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-4 flex flex-col">
-          <div className="flex-1">
-            <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-widest block mb-2">Mechanism</span>
-            <p className="text-neutral-400 text-[14px] leading-relaxed">{item.desc}</p>
-          </div>
-          <div className="bg-rose-500/[0.03] border border-rose-500/10 p-4 rounded-lg mt-auto">
-            <span className="text-[11px] font-bold text-rose-400 uppercase tracking-widest flex items-center gap-1.5 mb-2">
-              <AlertTriangle className="w-3.5 h-3.5" /> The Impact
-            </span>
-            <p className="text-rose-200/70 text-[13px] leading-relaxed">{item.impact}</p>
-          </div>
-        </div>
-        
-        <AnimatePresence mode="wait">
-          {isVisible ? (
-            <motion.div 
-              key="content"
-              initial={studyMode ? { opacity: 0, scale: 0.95 } : false}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-emerald-500/[0.03] border border-emerald-500/10 p-5 rounded-lg h-full flex flex-col justify-center"
-            >
-              <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 mb-3">
-                <CheckCircle2 className="w-4 h-4" /> Senior Solution
-              </span>
-              <p className="text-emerald-100/70 text-[14px] leading-relaxed">{item.solution}</p>
-            </motion.div>
-          ) : (
-            <motion.div 
-              key="placeholder"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="bg-white/[0.02] border border-white/[0.05] border-dashed p-5 rounded-lg h-full flex flex-col items-center justify-center text-center cursor-pointer hover:bg-white/[0.04] transition-colors"
-              onClick={() => setRevealed(true)}
-            >
-              <BrainCircuit className="w-8 h-8 text-neutral-600 mb-3" />
-              <p className="text-neutral-400 text-sm font-medium">How would you solve this bottleneck?</p>
-              <p className="text-neutral-500 text-xs mt-1">Click reveal when ready.</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
-};
-
-export const Internals: React.FC = () => {
+export const Internals: React.FC<InternalsProps> = ({ activeModuleId }) => {
   const { dossier } = useDossierContext();
   const [studyMode, setStudyMode] = useState(false);
-  
+  const [revealedIds, setRevealedIds] = useState<number[]>([]);
+
   if (!dossier) return null;
-  const activeModule = dossier.modules.find(m => m.type === 'list'); 
   
-  if (!activeModule) return null;
-  const sections = activeModule.data;
+  const activeModule = activeModuleId 
+    ? dossier.modules.find(m => m.id === activeModuleId)
+    : dossier.modules.find(m => m.type === 'playbook');
+
+  if (!activeModule) return (
+    <div className="flex items-center justify-center h-full text-neutral-500 italic">
+      No playbook data found for this module.
+    </div>
+  );
+
+  const playbook = activeModule.data || [];
+
+  const toggleReveal = (id: number) => {
+    if (revealedIds.includes(id)) {
+      setRevealedIds(revealedIds.filter(rid => rid !== id));
+    } else {
+      setRevealedIds([...revealedIds, id]);
+    }
+  };
 
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-8"
+      className="space-y-10 max-w-4xl mx-auto"
     >
       <div className="flex items-center justify-between border-b border-white/[0.05] pb-5">
         <h2 className="text-2xl font-semibold text-white flex items-center gap-3">
           <div className="p-2 bg-white/[0.03] rounded-lg border border-white/[0.05]">
-            <Cpu className="w-5 h-5 text-neutral-400" />
+            <Shield className="w-5 h-5 text-neutral-400" />
           </div>
           {activeModule.label}
         </h2>
@@ -113,25 +63,82 @@ export const Internals: React.FC = () => {
         </button>
       </div>
 
-      {studyMode && (
-        <div className="bg-indigo-500/5 border border-indigo-500/20 p-4 rounded-xl text-indigo-200/80 text-sm flex items-start gap-3">
-          <BrainCircuit className="w-5 h-5 shrink-0 text-indigo-400" />
-          <p className="leading-relaxed"><strong>Active Recall Mode:</strong> The 'Senior Solution' section is hidden. Read the mechanism and the impact, formulate your own solution, and then reveal the answer to check your knowledge.</p>
-        </div>
-      )}
+      <div className="space-y-12">
+        {playbook.map((item: any, idx: number) => (
+          <div key={idx} className="relative group">
+            {/* Question Header */}
+            <div className="flex items-start gap-4 mb-6">
+              <div className="mt-1 p-1.5 bg-indigo-500/10 rounded-md text-indigo-400 font-mono text-[10px] font-bold">Q{idx + 1}</div>
+              <h3 className="text-xl font-medium text-white leading-relaxed tracking-tight">{item.q}</h3>
+            </div>
 
-      {sections.map((section: any, sIdx: number) => (
-        <div key={sIdx} className="bg-[#0d0d0d] border border-white/[0.05] rounded-xl overflow-hidden shadow-2xl">
-          <div className="bg-white/[0.02] px-6 py-4 border-b border-white/[0.05]">
-            <h3 className="font-semibold text-sm text-neutral-300 uppercase tracking-widest">{section.category}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-12">
+              {/* Trap Response */}
+              <div className="bg-[#0d0d0d] border border-rose-500/10 rounded-xl p-6 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <AlertCircle size={40} className="text-rose-500" />
+                </div>
+                <h4 className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <AlertCircle size={12} /> The Trap Response
+                </h4>
+                <p className="text-neutral-400 text-[14px] leading-relaxed italic border-l-2 border-rose-500/20 pl-4">
+                  "{item.trap}"
+                </p>
+                <div className="mt-6 pt-6 border-t border-white/[0.03]">
+                  <h5 className="text-[9px] font-bold text-neutral-600 uppercase tracking-widest mb-2">Why it fails</h5>
+                  <p className="text-neutral-500 text-[13px] leading-relaxed">{item.trapWhy}</p>
+                </div>
+              </div>
+
+              {/* Optimal Response */}
+              <div className="bg-[#0d0d0d] border border-emerald-500/10 rounded-xl p-6 relative overflow-hidden flex flex-col">
+                <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <Target size={40} className={cn(dossier.brandColor === 'cyan' ? "text-cyan-400" : "text-indigo-400")} />
+                </div>
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-2">
+                    <CheckCircle2 size={12} /> Optimal Staff Response
+                  </h4>
+                  {studyMode && (
+                    <button 
+                      onClick={() => toggleReveal(idx)}
+                      className="text-neutral-500 hover:text-white transition-colors"
+                    >
+                      {revealedIds.includes(idx) ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex-1">
+                  <AnimatePresence mode="wait">
+                    {(!studyMode || revealedIds.includes(idx)) ? (
+                      <motion.div
+                        key="content"
+                        initial={studyMode ? { opacity: 0, x: 10 } : false}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="text-neutral-200 text-[14px] leading-relaxed font-medium"
+                      >
+                        {item.optimal}
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="placeholder"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="h-full flex flex-col items-center justify-center text-center py-10 cursor-pointer group/btn"
+                        onClick={() => toggleReveal(idx)}
+                      >
+                        <BrainCircuit className="w-8 h-8 text-neutral-800 mb-2 group-hover/btn:text-neutral-600 transition-colors" />
+                        <span className="text-[10px] text-neutral-600 uppercase font-bold tracking-widest">Reveal Strategy</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="divide-y divide-white/[0.05]">
-            {section.items.map((item: any, iIdx: number) => (
-              <InternalsCard key={iIdx} item={item} studyMode={studyMode} />
-            ))}
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </motion.div>
   );
 };

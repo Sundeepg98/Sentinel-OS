@@ -6,6 +6,8 @@ import { Internals } from './views/Internals';
 import { ArchitectArena } from './views/ArchitectArena';
 import { WarRoom } from './views/WarRoom';
 import { Diagnostics } from './views/Diagnostics';
+import { Tracker } from './views/Tracker';
+import { MarkdownView } from './views/MarkdownView';
 import { InsightPanel } from './components/InsightPanel';
 import { useDossier } from './hooks/useDossier';
 import type { CompanyDossier } from './types';
@@ -77,18 +79,21 @@ function App() {
 
   useEffect(() => {
     // Context-Locking: When company changes, reset the active simulation views
-    // to prevent cross-dossier data leakage.
     setArenaMode(false);
     setWarRoomMode(false);
+  }, [dossierData.companyId]);
 
+  useEffect(() => {
+    // Synchronize active module with the current dossier
     if (dossierData.dossier?.modules && dossierData.dossier.modules.length > 0) {
-      if (!dossierData.dossier.modules.find(m => m.id === activeModuleId)) {
+      const currentModuleExists = dossierData.dossier.modules.find(m => m.id === activeModuleId);
+      if (!currentModuleExists) {
         setActiveModuleId(dossierData.dossier.modules[0].id);
       }
-    } else {
+    } else if (dossierData.dossier) {
       setActiveModuleId('');
     }
-  }, [dossierData.companyId]); // Explicitly watch companyId for view resets
+  }, [dossierData.dossier?.id, dossierData.dossier?.modules]);
 
   const activeModule = dossierData.dossier?.modules?.find(m => m.id === activeModuleId);
 
@@ -96,6 +101,23 @@ function App() {
     setArenaMode(false);
     setWarRoomMode(false);
     setDiagnosticsMode(false);
+  };
+
+  const renderActiveView = () => {
+    if (!activeModule) return null;
+
+    switch (activeModule.type) {
+      case 'grid':
+        return <Dashboard activeModuleId={activeModuleId} />;
+      case 'markdown':
+        return <MarkdownView data={activeModule.data} label={activeModule.label} />;
+      case 'checklist':
+        return <Tracker activeModuleId={activeModuleId} />;
+      case 'playbook':
+        return <Internals activeModuleId={activeModuleId} />;
+      default:
+        return <MarkdownView data={typeof activeModule.data === 'string' ? activeModule.data : JSON.stringify(activeModule.data)} label={activeModule.label} />;
+    }
   };
 
   return (
@@ -110,13 +132,14 @@ function App() {
           />
 
           <main className="flex-1 overflow-y-auto relative flex flex-col">
+            {/* NAVIGATION HEADER */}
             <div className="sticky top-0 z-30 w-full px-8 py-4 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/[0.05]">
               <div className="flex items-center gap-4">
                 <select 
                   value={dossierData.companyId}
                   onChange={(e) => {
                     dossierData.setCompany(e.target.value);
-                    setDiagnosticsMode(false);
+                    resetViews();
                   }}
                   className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs font-medium text-neutral-300 outline-none focus:border-white/20 transition-all cursor-pointer uppercase tracking-widest"
                 >
@@ -182,10 +205,14 @@ function App() {
 
             <div className="flex-1 relative overflow-hidden">
               <ErrorBoundary>
-                {diagnosticsMode ? (
+                {dossierData.loading && !dossierData.dossier ? (
+                  <div className="flex-1 flex items-center justify-center h-full">
+                    <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                  </div>
+                ) : diagnosticsMode ? (
                   <Diagnostics />
                 ) : arenaMode ? (
-                  <div className="p-8">
+                  <div className="p-8 h-full overflow-y-auto">
                     <ArchitectArena />
                   </div>
                 ) : warRoomMode ? (
@@ -207,7 +234,7 @@ function App() {
                 ) : (
                   <div className="flex flex-1 overflow-hidden h-[calc(100vh-73px)]">
                     <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-                      <Dashboard module={activeModule} brandColor={dossierData.dossier?.brandColor} />
+                      {renderActiveView()}
                     </div>
                     <InsightPanel fullId={activeModule.fullId || ''} brandColor={dossierData.dossier?.brandColor} />
                   </div>

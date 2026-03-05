@@ -20,7 +20,17 @@ export function useDossier() {
 
   const companyId = searchParams.get('company') || localStorage.getItem('active-company') || 'mailin';
 
-  // 2. Discover available companies
+  // 2. Synchronize URL if missing (Ensures deep-linking works)
+  useEffect(() => {
+    if (!searchParams.get('company')) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('company', companyId);
+      window.history.replaceState({}, '', url.toString());
+      setSearchParams(new URLSearchParams(url.search));
+    }
+  }, [companyId, searchParams]);
+
+  // 3. Discover available companies
   const { data: allCompanies = [] } = useQuery<CompanyListItem[]>({
     queryKey: ['companies'],
     queryFn: async () => {
