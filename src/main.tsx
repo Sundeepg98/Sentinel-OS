@@ -3,8 +3,18 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ClerkProvider } from '@clerk/clerk-react';
 import { env } from './lib/env';
+import { reportError } from './lib/api';
 import './index.css';
 import App from './App.tsx';
+
+// --- 🛰️ ENGINEERING BASIC: GLOBAL TELEMETRY ---
+window.addEventListener('error', (event) => {
+  reportError(event.error || new Error(event.message));
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  reportError(new Error(`Unhandled Promise Rejection: ${event.reason}`));
+});
 
 const queryClient = new QueryClient({
   defaultOptions: {
