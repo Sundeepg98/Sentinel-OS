@@ -1,9 +1,10 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ClerkProvider } from '@clerk/clerk-react'
-import './index.css'
-import App from './App.tsx'
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ClerkProvider } from '@clerk/clerk-react';
+import { env } from './lib/env';
+import './index.css';
+import App from './App.tsx';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,21 +14,30 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
     },
   },
-})
+});
 
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
-
-if (!PUBLISHABLE_KEY) {
-  // We throw a clear error here so the dev knows exactly why the screen is blank
-  console.error("CRITICAL: VITE_CLERK_PUBLISHABLE_KEY is missing. Check your .env.local");
-}
+const PUBLISHABLE_KEY = env.VITE_CLERK_PUBLISHABLE_KEY;
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY || ''}>
-      <QueryClientProvider client={queryClient}>
-        <App />
-      </QueryClientProvider>
-    </ClerkProvider>
-  </StrictMode>,
-)
+    {PUBLISHABLE_KEY ? (
+      <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+        <QueryClientProvider client={queryClient}>
+          <App />
+        </QueryClientProvider>
+      </ClerkProvider>
+    ) : (
+      <div className="h-screen w-screen bg-[#050505] flex items-center justify-center p-8 text-center">
+        <div className="max-w-md space-y-4">
+          <div className="text-rose-500 font-bold text-xl uppercase tracking-widest">Configuration Error</div>
+          <p className="text-neutral-400 text-sm leading-relaxed">
+            Technical keys are missing. Please ensure <code className="text-indigo-400">VITE_CLERK_PUBLISHABLE_KEY</code> is defined in your environment.
+          </p>
+          <div className="pt-4">
+            <div className="text-[10px] text-neutral-600 font-mono uppercase tracking-tighter">Error Code: ERR_MISSING_INFRA_KEY</div>
+          </div>
+        </div>
+      </div>
+    )}
+  </StrictMode>
+);
