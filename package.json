@@ -9,6 +9,7 @@
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "format": "prettier --write .",
     "preview": "vite preview",
     "test:server": "NODE_OPTIONS='--experimental-vm-modules' npx jest server/tests",
     "test:e2e": "playwright test",

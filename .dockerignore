@@ -1,0 +1,10 @@
+node_modules
+dist
+.env*
+*.db
+logs
+.git
+.playwright-mcp
+test-results
+playwright-report
+bundle-analysis.html
