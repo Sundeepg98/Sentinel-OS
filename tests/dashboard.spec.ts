@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { AxeBuilder } from '@axe-core/playwright';
 
 /**
  * 🧪 STABILIZED E2E SUITE
@@ -14,7 +15,6 @@ test.describe('Sentinel-OS High-Stakes Simulator', () => {
     await expect(page.locator('header')).toBeVisible({ timeout: 15000 });
     
     // Wait for the RAG Engine to hydrate the UI
-    // We look for the company selector to be populated
     const selector = page.locator('select');
     await expect(selector).toBeVisible();
   });
@@ -22,6 +22,15 @@ test.describe('Sentinel-OS High-Stakes Simulator', () => {
   test('should display the core 3D graph entry', async ({ page }) => {
     const graphButton = page.getByTitle('Open Knowledge Graph');
     await expect(graphButton).toBeVisible();
+  });
+
+  test('should satisfy basic accessibility standards', async ({ page }) => {
+    const accessibilityScanResults = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+
+    // We allow some minor violations for the complex 3D canvas, but core UI must pass
+    expect(accessibilityScanResults.violations).toEqual([]);
   });
 
   test('should enter the War Room and start a simulation', async ({ page }) => {

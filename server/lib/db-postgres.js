@@ -1,19 +1,20 @@
 const { Pool } = require('pg');
 const pgvector = require('pgvector/pg');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * 🐘 POSTGRESQL ENGINE (Cloud-Native Persistence)
- * This handles the transition from ephemeral SQLite to persistent cloud storage.
+ * Optimized for managed environments like Render.
  */
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false // Required for Render Postgres
+    rejectUnauthorized: false
   }
 });
 
-// Mocking some better-sqlite3 behavior for minimal friction during migration
 const db = {
   async query(text, params) {
     return pool.query(text, params);
@@ -21,20 +22,23 @@ const db = {
   async exec(sql) {
     return pool.query(sql);
   },
+  // Mocking better-sqlite3 structure for minimal friction
   prepare(sql) {
     return {
       get: async (...params) => {
-        const res = await pool.query(sql, params);
+        // Handle SQLite (?) to Postgres ($1) parameter conversion if needed
+        const pgSql = sql.replace(/\?/g, (_, i) => `$${i + 1}`);
+        const res = await pool.query(pgSql, params);
         return res.rows[0];
       },
       all: async (...params) => {
-        const res = await pool.query(sql, params);
+        const pgSql = sql.replace(/\?/g, (_, i) => `$${i + 1}`);
+        const res = await pool.query(pgSql, params);
         return res.rows;
       },
       run: async (...params) => {
-        // Postgres uses $1, $2, SQLite uses ?
-        // We'll handle this in the specific callers
-        return pool.query(sql, params);
+        const pgSql = sql.replace(/\?/g, (_, i) => `$${i + 1}`);
+        return pool.query(pgSql, params);
       }
     };
   }
@@ -44,10 +48,10 @@ async function initDB() {
   console.log("🛠️ Initializing Cloud Database Engine (Postgres)...");
   
   try {
-    // 1. Install pgvector extension
+    // 1. Install pgvector
     await pool.query('CREATE EXTENSION IF NOT EXISTS vector');
 
-    // 2. Core Tables
+    // 2. Migration Table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         version TEXT PRIMARY KEY,
@@ -55,6 +59,35 @@ async function initDB() {
       );
     `);
 
+    // 3. Versioned Migrations (Parity with SQLite)
+    const migrationsDir = path.join(__dirname, '..', 'migrations');
+    if (fs.existsSync(migrationsDir)) {
+      const migrationFiles = fs.readdirSync(migrationsDir)
+        .filter(f => f.endsWith('.sql'))
+        .sort();
+
+      for (const file of migrationFiles) {
+        const checkRes = await pool.query("SELECT 1 FROM schema_migrations WHERE version = $1", [file]);
+        if (checkRes.rowCount === 0) {
+          console.log(`🚀 Applying Cloud Migration: ${file}`);
+          let sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+          
+          // Basic translation for SQLite types to Postgres
+          sql = sql.replace(/DATETIME/g, 'TIMESTAMPTZ')
+                   .replace(/AUTOINCREMENT/g, 'SERIAL')
+                   .replace(/INTEGER PRIMARY KEY/g, 'SERIAL PRIMARY KEY');
+
+          try {
+            await pool.query(sql);
+            await pool.query("INSERT INTO schema_migrations (version) VALUES ($1)", [file]);
+          } catch (e) {
+            console.error(`❌ Cloud Migration Failed [${file}]:`, e.message);
+          }
+        }
+      }
+    }
+
+    // 4. Ensure RAG-specific tables exist (if not in migrations yet)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS dossiers (
         id TEXT PRIMARY KEY,
@@ -66,43 +99,9 @@ async function initDB() {
       );
     `);
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS chunks_metadata (
-        id SERIAL PRIMARY KEY,
-        file_id TEXT,
-        chunk_text TEXT,
-        metadata JSONB,
-        embedding vector(3072)
-      );
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS user_state (
-        user_id TEXT,
-        key TEXT,
-        value JSONB,
-        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (user_id, key)
-      );
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS interaction_history (
-        id SERIAL PRIMARY KEY,
-        user_id TEXT,
-        type TEXT,
-        module_id TEXT,
-        question TEXT,
-        user_answer TEXT,
-        evaluation JSONB,
-        score INTEGER,
-        timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
     console.log("✅ Cloud Database Synced & Stable.");
   } catch (err) {
-    console.error("❌ Cloud Migration Error:", err.message);
+    console.error("❌ Cloud Initialization Error:", err.message);
     throw err;
   }
 }
