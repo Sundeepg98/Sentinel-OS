@@ -237,10 +237,6 @@ const MainView = () => {
           <Suspense fallback={null}>
             <KnowledgeGraph
               onClose={() => setIsGraphOpen(false)}
-              onSelectModule={(id: string) => {
-                setActiveModuleId(id);
-                setIsGraphOpen(false);
-              }}
             />
           </Suspense>
         )}
