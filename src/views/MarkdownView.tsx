@@ -134,6 +134,7 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({ data, label }) => {
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
               components={{
+                p: ({children}) => <p className="mb-4">{children}</p>, // Ensure simple paragraph rendering
                 code({node, inline, className, children, ...props}: any) {
                   const match = /language-(\w+)/.exec(className || '');
                   if (!inline && match) {

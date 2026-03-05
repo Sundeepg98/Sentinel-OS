@@ -45,6 +45,8 @@ function App() {
   const [diagnosticsMode, setDiagnosticsMode] = useState(false);
   const [pinnedIds] = useLocalStorage<string[]>('architect_arena_selection', []);
 
+  const queryClient = useQueryClient();
+
   // Sync Status Polling
   const { data: stats } = useQuery({
     queryKey: ['sync-status'],
@@ -55,11 +57,8 @@ function App() {
     refetchInterval: 10000,
   });
 
-  const queryClient = useQueryClient();
-
   useEffect(() => {
     const eventSource = new EventSource('/api/v1/intelligence/stream');
-    
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -70,15 +69,12 @@ function App() {
           queryClient.invalidateQueries({ queryKey: ['graph'] });
           queryClient.invalidateQueries({ queryKey: ['sync-status'] });
         }
-      } catch (e) {
-        // quiet
-      }
+      } catch (e) {}
     };
     return () => eventSource.close();
   }, [queryClient]);
 
   useEffect(() => {
-    // Context-Locking: When company changes, reset the active simulation views
     setArenaMode(false);
     setWarRoomMode(false);
   }, [dossierData.companyId]);
@@ -108,13 +104,13 @@ function App() {
 
     switch (activeModule.type) {
       case 'grid':
-        return <Dashboard activeModuleId={activeModuleId} />;
+        return <Dashboard data={activeModule.data} label={activeModule.label} />;
       case 'markdown':
         return <MarkdownView data={activeModule.data} label={activeModule.label} />;
       case 'checklist':
-        return <Tracker activeModuleId={activeModuleId} />;
+        return <Tracker data={activeModule.data} label={activeModule.label} moduleId={activeModule.id} />;
       case 'playbook':
-        return <Internals activeModuleId={activeModuleId} />;
+        return <Internals data={activeModule.data} label={activeModule.label} />;
       default:
         return <MarkdownView data={typeof activeModule.data === 'string' ? activeModule.data : JSON.stringify(activeModule.data)} label={activeModule.label} />;
     }
@@ -123,7 +119,7 @@ function App() {
   return (
     <ToastProvider>
       <DossierContext.Provider value={{ ...dossierData }}>
-        <div className="flex h-screen font-sans text-neutral-200 overflow-hidden selection:bg-cyan-500/30 selection:text-cyan-100 bg-[#050505]">
+        <div className="flex h-screen font-sans text-neutral-200 overflow-hidden bg-[#050505] selection:bg-cyan-500/30">
           <Sidebar 
             activeModuleId={activeModuleId} 
             setActiveModuleId={(id) => { setActiveModuleId(id); resetViews(); }} 
@@ -131,9 +127,9 @@ function App() {
             diagnosticsActive={diagnosticsMode}
           />
 
-          <main className="flex-1 overflow-y-auto relative flex flex-col">
+          <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
             {/* NAVIGATION HEADER */}
-            <div className="sticky top-0 z-30 w-full px-8 py-4 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/[0.05]">
+            <header className="h-16 shrink-0 px-8 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/[0.05] z-30">
               <div className="flex items-center gap-4">
                 <select 
                   value={dossierData.companyId}
@@ -161,7 +157,7 @@ function App() {
                 {stats?.isSyncing && (
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-lg animate-pulse">
                     <Loader2 size={12} className="text-cyan-400 animate-spin" />
-                    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">Intelligence Sync Active</span>
+                    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">Sync Active</span>
                   </div>
                 )}
 
@@ -199,31 +195,33 @@ function App() {
                 >
                   Export Portfolio
                 </button>
-                <Internals />
               </div>
-            </div>
+            </header>
 
-            <div className="flex-1 relative overflow-hidden">
+            {/* CONTENT AREA */}
+            <div className="flex-1 relative overflow-hidden flex flex-col">
               <ErrorBoundary>
                 {dossierData.loading && !dossierData.dossier ? (
-                  <div className="flex-1 flex items-center justify-center h-full">
+                  <div className="flex-1 flex items-center justify-center">
                     <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
                   </div>
                 ) : diagnosticsMode ? (
-                  <Diagnostics />
+                  <div className="flex-1 overflow-y-auto">
+                    <Diagnostics />
+                  </div>
                 ) : arenaMode ? (
-                  <div className="p-8 h-full overflow-y-auto">
+                  <div className="flex-1 overflow-y-auto p-8 h-full">
                     <ArchitectArena />
                   </div>
                 ) : warRoomMode ? (
-                  <div className="p-8 h-[calc(100vh-80px)]">
+                  <div className="flex-1 overflow-hidden p-8 h-full">
                     <WarRoom />
                   </div>
                 ) : !activeModule ? (
-                  <div className="flex-1 flex flex-col items-center justify-center h-full opacity-50 p-20 text-center">
+                  <div className="flex-1 flex flex-col items-center justify-center opacity-50 p-20 text-center h-full">
                     <AlertCircle className="w-16 h-16 mb-4 text-neutral-600" />
                     <h2 className="text-xl font-bold text-white mb-2">Dossier is Empty</h2>
-                    <p className="text-neutral-400 max-w-md">There are no technical modules in this company's knowledge base. Go to System Status to upload Markdown files.</p>
+                    <p className="text-neutral-400 max-w-md">No technical modules found. Upload Markdown files in System Control.</p>
                     <button 
                       onClick={() => setDiagnosticsMode(true)}
                       className="mt-6 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-bold uppercase tracking-widest transition-colors"
@@ -232,11 +230,13 @@ function App() {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex flex-1 overflow-hidden h-[calc(100vh-73px)]">
+                  <div className="flex flex-1 overflow-hidden h-full">
                     <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                       {renderActiveView()}
                     </div>
-                    <InsightPanel fullId={activeModule.fullId || ''} brandColor={dossierData.dossier?.brandColor} />
+                    <div className="w-80 shrink-0 border-l border-white/[0.05] bg-[#080808]/50 overflow-y-auto">
+                      <InsightPanel fullId={activeModule.fullId || ''} brandColor={dossierData.dossier?.brandColor} />
+                    </div>
                   </div>
                 )}
               </ErrorBoundary>

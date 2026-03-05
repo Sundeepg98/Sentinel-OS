@@ -18,17 +18,18 @@ export function useDossier() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  const companyId = searchParams.get('company') || localStorage.getItem('active-company') || 'mailin';
+  const companyIdFromUrl = searchParams.get('company');
+  const companyId = companyIdFromUrl || 'mailin';
 
-  // 2. Synchronize URL if missing (Ensures deep-linking works)
+  // 2. Synchronize URL if missing
   useEffect(() => {
-    if (!searchParams.get('company')) {
+    if (!companyIdFromUrl) {
       const url = new URL(window.location.href);
-      url.searchParams.set('company', companyId);
+      url.searchParams.set('company', 'mailin');
       window.history.replaceState({}, '', url.toString());
       setSearchParams(new URLSearchParams(url.search));
     }
-  }, [companyId, searchParams]);
+  }, [companyIdFromUrl]);
 
   // 3. Discover available companies
   const { data: allCompanies = [] } = useQuery<CompanyListItem[]>({
