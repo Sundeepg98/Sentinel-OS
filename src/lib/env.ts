@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z, type ZodIssue } from 'zod';
 
 /**
  * 🛡️ FRONTEND ENVIRONMENT VALIDATION
@@ -17,7 +17,7 @@ export const validateFrontendEnv = () => {
     return frontendEnvSchema.parse(import.meta.env);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      const missing = err.errors.map(e => e.path.join('.')).join(', ');
+      const missing = err.issues.map((e: ZodIssue) => e.path.join('.')).join(', ');
       console.error(`💥 CRITICAL CONFIG ERROR: Missing environment variables [${missing}]`);
       // We return a safe object but log the critical error
       return { 
