@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Brain, Hash, Loader2, Mic, MicOff, Search, Sparkles } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Brain, Hash, Loader2, Search, Sparkles } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@clerk/clerk-react';
 import { fetchWithAuth } from '../lib/api';
@@ -16,9 +16,9 @@ interface EvaluationData {
   feedback: string;
 }
 
-export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId, brandColor }) => {
+export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   const { getToken } = useAuth();
-  const { showToast } = useToast();
+  const { toast: showToast } = useToast();
   const queryClient = useQueryClient();
   const [drill, setDrill] = useState<any>(null);
   const [evalData, setEvalData] = useState<EvaluationData | null>(null);

@@ -18,7 +18,7 @@ import { cn } from '../lib/utils';
 import { useAuth } from '@clerk/clerk-react';
 import { useMutation } from '@tanstack/react-query';
 import { fetchWithAuth } from '../lib/api';
-import { GraphData, GraphNode, GraphLink } from '../types';
+import type { GraphData, GraphNode, GraphLink } from '../types';
 import { useToast } from '../hooks/useToast';
 
 interface KnowledgeGraphProps {
@@ -30,7 +30,7 @@ interface KnowledgeGraphProps {
 export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose, onSelectModule }) => {
   const { setCompany } = useDossierContext();
   const { getToken } = useAuth();
-  const { showToast } = useToast();
+  const { toast: showToast } = useToast();
   const graphRef = useRef<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
@@ -211,6 +211,10 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     setBlastImpacts(impacts);
     setIsAnalyzing(true);
     
+    // AI Advisory
+    const moduleIds = Array.from(impacts.keys());
+    generateImpactAdvisory.mutate(moduleIds);
+
     if (graphRef.current) {
       graphRef.current.cameraPosition({ x: node.x! * 1.2, y: node.y! * 1.2, z: node.z! * 1.2 }, node, 800);
     }
@@ -476,9 +480,16 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
                 {/* ARCHITECT ADVISORY */}
                 <div className="pt-4 border-t border-white/5">
                   <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-3">Staff Architect Advisory</div>
-                  <p className="text-xs text-neutral-400 leading-relaxed italic">
-                    "A failure in {simNode?.label} creates a high-entropy propagation across your {simNode?.company} stack. The primary risk vector is {impactedModules[1]?.node?.label || 'interconnected dependencies'}, which will likely trigger a cascading saturation of the event loop."
-                  </p>
+                  {generateImpactAdvisory.isPending ? (
+                    <div className="flex items-center gap-3 py-4 animate-pulse">
+                      <Loader2 className="w-4 h-4 text-neutral-600 animate-spin" />
+                      <span className="text-[10px] text-neutral-600 uppercase font-bold tracking-widest">Synthesizing Neural Impact...</span>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-neutral-300 leading-relaxed italic border-l-2 border-indigo-500/30 pl-4 py-1">
+                      "{aiAdvisory}"
+                    </p>
+                  )}
                 </div>
               </div>
 
