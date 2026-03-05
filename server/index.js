@@ -370,6 +370,13 @@ v1Router.get('/intelligence/insights', async (req, res) => {
   }
 });
 
+v1Router.get('/intelligence/search', (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.success([]);
+  const results = globalState.searchIndex.search(q, { limit: 10 });
+  res.success(results.map(id => ({ id, ...globalState.knowledgeGraph.files[id] })));
+});
+
 v1Router.post('/intelligence/semantic-search', validateBody(schemas.semanticSearchSchema), async (req, res) => {
   const { q, limit } = req.body;
   try {
