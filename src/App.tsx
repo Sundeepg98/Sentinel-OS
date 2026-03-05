@@ -235,9 +235,7 @@ const MainView = () => {
       <AnimatePresence>
         {isGraphOpen && (
           <Suspense fallback={null}>
-            <KnowledgeGraph
-              onClose={() => setIsGraphOpen(false)}
-            />
+            <KnowledgeGraph />
           </Suspense>
         )}
       </AnimatePresence>
