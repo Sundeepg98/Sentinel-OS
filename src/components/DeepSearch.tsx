@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Search, X, Command, SearchCode, Brain } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@clerk/clerk-react';
 import { useDossierContext } from '../App';
 import { cn } from '../lib/utils';
+import { fetchWithAuth } from '../lib/api';
 
 interface SearchResult {
   id: string; // "company/module.md"
@@ -21,6 +23,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
   const [query, setQuery] = useState('');
   const [searchMode, setSearchMode] = useState<'keyword' | 'semantic'>('keyword');
   const { setCompany } = useDossierContext();
+  const { getToken } = useAuth();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -40,15 +43,12 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
       if (query.length < 2) return [];
       
       if (searchMode === 'keyword') {
-        const res = await fetch(`/api/v1/intelligence/search?q=${encodeURIComponent(query)}`);
-        return res.json();
+        return fetchWithAuth(`/api/v1/intelligence/search?q=${encodeURIComponent(query)}`, getToken);
       } else {
-        const res = await fetch('/api/v1/intelligence/semantic-search', {
+        const rawData = await fetchWithAuth('/api/v1/intelligence/semantic-search', getToken, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ q: query, limit: 10 })
         });
-        const rawData = await res.json();
         return rawData.map((item: any) => ({
           id: item.file_id,
           label: item.file_id.split('/').pop().replace('.md', ''),
@@ -58,7 +58,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
       }
     },
     enabled: query.length >= 2,
-    placeholderData: (previousData) => previousData, // Maintain UI during debounce/fetch
+    placeholderData: (previousData) => previousData,
   });
 
   const handleSelect = (res: SearchResult) => {

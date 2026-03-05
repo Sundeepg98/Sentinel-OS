@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Swords, Brain, Loader2, Send, X, ShieldAlert, CheckCircle2, ChevronUp, ChevronDown, Mic, MicOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { useAuth } from '@clerk/clerk-react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useToast } from '../hooks/useToast';
+import { fetchWithAuth } from '../lib/api';
 
 interface ArenaModule {
   id: string;
@@ -13,6 +15,7 @@ interface ArenaModule {
 
 export const ArchitectArena: React.FC = () => {
   const { toast } = useToast();
+  const { getToken } = useAuth();
   const [arenaIds, setArenaIds] = useLocalStorage<string[]>('architect_arena_selection', []);
   const [drill, setDrill] = useState<{question: string, idealResponse: string} | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
@@ -27,11 +30,7 @@ export const ArchitectArena: React.FC = () => {
   // 1. Fetch All Modules for filtering
   const { data: allModules = [] } = useQuery<ArenaModule[]>({
     queryKey: ['arena-discovery'],
-    queryFn: async () => {
-      const res = await fetch(`/api/v1/intelligence/search?q=*`); 
-      if (!res.ok) throw new Error('Failed to discover arena data');
-      return res.json();
-    },
+    queryFn: () => fetchWithAuth('/api/v1/intelligence/search?q=*', getToken),
     enabled: arenaIds.length > 0
   });
 
@@ -45,28 +44,24 @@ export const ArchitectArena: React.FC = () => {
   const drillMutation = useMutation({
     mutationFn: async () => {
       // 1. SEMANTIC CROSS-POLLINATION
-      const searchRes = await fetch('/api/v1/intelligence/semantic-search', {
+      const semanticContext = await fetchWithAuth('/api/v1/intelligence/semantic-search', getToken, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           q: selectedModules.map(m => m.label).join(" and "), 
           limit: 5 
         })
       });
-      const semanticContext = await searchRes.json();
       const crossDossierContext = semanticContext.map((c: any) => c.chunk_text).join("\n\n---\n\n");
 
       // 2. GENERATE DRILL
-      const res = await fetch('/api/v1/intelligence/drill', {
+      return fetchWithAuth('/api/v1/intelligence/drill', getToken, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           fileId: arenaIds[0], 
           extraContext: `PRIMARY MODULES:\n${selectedModules.map(m => m.content).join("\n\n")}\n\nSEMANTICALLY RETRIEVED BRIDGING CONTEXT:\n${crossDossierContext}`,
           isSynthesis: true 
         })
       });
-      return res.json();
     },
     onSuccess: (data) => {
       setDrill(data);
@@ -78,11 +73,10 @@ export const ArchitectArena: React.FC = () => {
 
   // 3. Evaluation Mutation
   const evalMutation = useMutation({
-    mutationFn: async () => {
-      if (!drill) return;
-      const res = await fetch('/api/v1/intelligence/evaluate', {
+    mutationFn: () => {
+      if (!drill) throw new Error('No drill active');
+      return fetchWithAuth('/api/v1/intelligence/evaluate', getToken, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           fileId: arenaIds[0],
           question: drill.question, 
@@ -91,7 +85,6 @@ export const ArchitectArena: React.FC = () => {
           sessionId 
         })
       });
-      return res.json();
     },
     onSuccess: (data) => {
       setEvalData(data);

@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Brain, Sparkles, Hash, Loader2, Mic, MicOff, PenTool, X } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { useAuth } from '@clerk/clerk-react';
 import { Whiteboard } from './Whiteboard';
 import { cn } from '../lib/utils';
 import { useToast } from '../hooks/useToast';
+import { fetchWithAuth } from '../lib/api';
 
 interface InsightData {
   keywords: string[];
@@ -37,6 +39,7 @@ const getUUID = () => {
 
 export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   const { toast } = useToast();
+  const { getToken } = useAuth();
   const [drill, setDrill] = useState<DrillData | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
   const [evalData, setEvalData] = useState<EvalData | null>(null);
@@ -46,21 +49,14 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
 
-  // 1. Fetch Insights (Keywords & Related)
+  // 1. Fetch Insights
   const { data, isLoading } = useQuery<InsightData>({
     queryKey: ['insights', fullId],
-    queryFn: async () => {
-      const res = await fetch(`/api/v1/intelligence/insights?fileId=${encodeURIComponent(fullId)}`);
-      if (!res.ok) throw new Error('Insights failed');
-      return res.json();
-    },
+    queryFn: () => fetchWithAuth(`/api/v1/intelligence/insights?fileId=${encodeURIComponent(fullId)}`, getToken),
     enabled: !!fullId,
-    placeholderData: (previousData) => previousData, // Keeps concepts visible during hot-reloads
+    placeholderData: (previousData) => previousData,
   });
 
-  const loading = isLoading; // Use isLoading for initial load, ignore background isFetching for UI blinking
-
-  // Reset state when fullId changes
   useEffect(() => {
     setDrill(null);
     setEvalData(null);
@@ -71,39 +67,26 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
 
   // 2. Drill Mutation
   const drillMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/v1/intelligence/drill', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileId: fullId })
-      });
-      const json = await res.json();
-      if (json.error) throw new Error(json.error);
-      return json as DrillData;
-    },
+    mutationFn: () => fetchWithAuth('/api/v1/intelligence/drill', getToken, {
+      method: 'POST',
+      body: JSON.stringify({ fileId: fullId })
+    }),
     onSuccess: (data) => setDrill(data),
     onError: (error: any) => toast(error.message || "Failed to generate drill", "error"),
   });
 
   // 3. Evaluation Mutation
   const evalMutation = useMutation({
-    mutationFn: async () => {
-      if (!drill) return;
-      const res = await fetch('/api/v1/intelligence/evaluate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          fileId: fullId,
-          question: drill.question, 
-          idealResponse: drill.idealResponse, 
-          userAnswer,
-          sessionId 
-        })
-      });
-      if (!res.ok) throw new Error('Eval failed');
-      const data = await res.json();
-      return data as unknown as EvalData;
-    },
+    mutationFn: () => fetchWithAuth('/api/v1/intelligence/evaluate', getToken, {
+      method: 'POST',
+      body: JSON.stringify({ 
+        fileId: fullId,
+        question: drill?.question, 
+        idealResponse: drill?.idealResponse, 
+        userAnswer,
+        sessionId 
+      })
+    }),
     onSuccess: (data) => {
       if (data) {
         setEvalData(data);
@@ -223,7 +206,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
           <Brain className="w-3.5 h-3.5 text-cyan-400" /> Key Concepts
         </div>
         <div className="flex flex-wrap gap-2">
-          {loading ? [1,2,3].map(i => <div key={i} className="h-6 w-16 bg-white/5 animate-pulse rounded-md" />) : 
+          {isLoading ? [1,2,3].map(i => <div key={i} className="h-6 w-16 bg-white/5 animate-pulse rounded-md" />) : 
             data?.keywords?.map(k => (
               <span key={k} className="px-2 py-1 bg-white/[0.03] border border-white/[0.05] rounded-md text-[11px] text-neutral-300 font-mono flex items-center gap-1">
                 <Hash className="w-3 h-3 opacity-40" /> {k}

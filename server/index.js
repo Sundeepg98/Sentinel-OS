@@ -13,6 +13,7 @@ const { z } = require('zod');
 const morgan = require('morgan');
 const pino = require('pino');
 const { db, initDB } = require('./lib/db');
+const { authGuard } = require('./lib/auth');
 const { validateBody, schemas } = require('./lib/validation');
 const { 
   GEMINI_API_KEY, 
@@ -156,12 +157,6 @@ function spawnRAGWorker() {
 
   worker.on('exit', () => { isSyncing = false; });
 }
-
-// Auth Middleware
-const authGuard = (req, res, next) => {
-  req.userId = 'local-admin'; 
-  next();
-};
 
 // --- API V1 ROUTER ---
 const v1Router = express.Router();

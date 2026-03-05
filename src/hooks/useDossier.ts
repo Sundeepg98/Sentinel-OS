@@ -1,5 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@clerk/clerk-react';
+import { fetchWithAuth } from '../lib/api';
 import type { CompanyDossier } from '../types';
 
 interface CompanyListItem {
@@ -8,6 +10,8 @@ interface CompanyListItem {
 }
 
 export function useDossier() {
+  const { getToken } = useAuth();
+  
   // 1. Get active company from URL directly (Single Source of Truth)
   const [searchParams, setSearchParams] = useState(new URLSearchParams(window.location.search));
 
@@ -34,23 +38,15 @@ export function useDossier() {
   // 3. Discover available companies
   const { data: allCompanies = [] } = useQuery<CompanyListItem[]>({
     queryKey: ['companies'],
-    queryFn: async () => {
-      const res = await fetch('/api/v1/companies');
-      if (!res.ok) throw new Error('Discovery failed');
-      return res.json();
-    }
+    queryFn: () => fetchWithAuth('/api/v1/companies', getToken)
   });
 
-  // 3. Fetch active dossier
+  // 4. Fetch active dossier
   const { data: dossier = null, isLoading } = useQuery<CompanyDossier>({
     queryKey: ['dossier', companyId],
-    queryFn: async () => {
-      const res = await fetch(`/api/v1/dossier/${companyId}`);
-      if (!res.ok) throw new Error('Fetch failed');
-      return res.json();
-    },
+    queryFn: () => fetchWithAuth(`/api/v1/dossier/${companyId}`, getToken),
     enabled: !!companyId,
-    placeholderData: (previousData) => previousData, // Maintain old context until new one is 100% ready
+    placeholderData: (previousData) => previousData,
   });
 
   const setCompany = (id: string) => {
@@ -58,7 +54,6 @@ export function useDossier() {
     const url = new URL(window.location.href);
     url.searchParams.set('company', id);
     window.history.pushState({}, '', url.toString());
-    // Trigger a state update to re-render components using the hook
     setSearchParams(new URLSearchParams(url.search));
   };
 

@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { Terminal, AlertTriangle, Clock, Shield, Play, Send, Loader2, RefreshCw, PenTool, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMutation } from '@tanstack/react-query';
+import { useAuth } from '@clerk/clerk-react';
 import { useDossierContext } from '../App';
 import { Whiteboard } from '../components/Whiteboard';
 import { cn } from '../lib/utils';
 import { useToast } from '../hooks/useToast';
+import { fetchWithAuth } from '../lib/api';
 
 interface Incident {
   title: string;
@@ -23,6 +25,7 @@ interface Evaluation {
 
 export const WarRoom = () => {
   const { toast } = useToast();
+  const { getToken } = useAuth();
   const { dossier } = useDossierContext();
   const [status, setStatus] = useState<'idle' | 'generating' | 'active' | 'evaluating' | 'completed'>('idle');
   const [incident, setIncident] = useState<Incident | null>(null);
@@ -67,16 +70,12 @@ export const WarRoom = () => {
 
   // 1. Incident Generation Mutation
   const incidentMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: () => {
       const moduleIds = dossier?.modules?.map(m => m.fullId).slice(0, 3) || [];
-      const res = await fetch('/api/v1/intelligence/incident', {
+      return fetchWithAuth('/api/v1/intelligence/incident', getToken, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ moduleIds })
       });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      return data as Incident;
     },
     onSuccess: (data) => {
       setIncident(data);
@@ -96,19 +95,15 @@ export const WarRoom = () => {
 
   // 2. Mitigation Evaluation Mutation
   const evalMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: () => {
       if (!incident) throw new Error('No active incident');
-      const res = await fetch('/api/v1/intelligence/incident/evaluate', {
+      return fetchWithAuth('/api/v1/intelligence/incident/evaluate', getToken, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ incident, userAnswer: userMitigation })
       });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      return data as unknown as Evaluation;
     },
     onSuccess: (data) => {
-      setEvaluation(data);
+      setEvaluation(data as unknown as Evaluation);
       setStatus('completed');
       toast("Incident Evaluation Received.", "success");
     },

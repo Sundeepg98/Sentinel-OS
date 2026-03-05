@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Activity, Database, Brain, Cpu, Clock, RefreshCw, CheckCircle2, Shield, Upload, FileText, Trash2, Loader2, Plus } from 'lucide-react';
+import { Activity, Database, Brain, Cpu, Clock, CheckCircle2, Shield, Upload, FileText, Trash2, Loader2, Plus } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@clerk/clerk-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDossierContext } from '../App';
 import { cn } from '../lib/utils';
 import { useToast } from '../hooks/useToast';
+import { fetchWithAuth } from '../lib/api';
 
 interface Stats {
   totalChunks: number;
@@ -19,42 +21,31 @@ interface Stats {
 
 export const Diagnostics: React.FC = () => {
   const { toast } = useToast();
+  const { getToken } = useAuth();
   const queryClient = useQueryClient();
   const dossierData = useDossierContext();
-  const { dossier, allCompanies } = dossierData;
+  const { dossier } = dossierData;
   const [activeTab, setActiveTab] = useState<'stats' | 'knowledge' | 'ai-logs'>('stats');
   const [uploading, setUploading] = useState(false);
 
-  const { data: stats, refetch, isFetching } = useQuery<Stats>({
+  const { data: stats } = useQuery<Stats>({
     queryKey: ['stats'],
-    queryFn: async () => {
-      const res = await fetch('/api/v1/intelligence/stats');
-      if (!res.ok) throw new Error('Failed to fetch stats');
-      return res.json();
-    },
+    queryFn: () => fetchWithAuth('/api/v1/intelligence/stats', getToken),
     refetchInterval: 30000,
   });
 
   // 🕵️ AI FAILURE LOGS QUERY
   const { data: aiLogs = [] } = useQuery<any[]>({
     queryKey: ['ai-logs'],
-    queryFn: async () => {
-      const res = await fetch('/api/v1/admin/ai-logs');
-      if (!res.ok) throw new Error('Failed to fetch AI logs');
-      return res.json();
-    },
+    queryFn: () => fetchWithAuth('/api/v1/admin/ai-logs', getToken),
     enabled: activeTab === 'ai-logs',
   });
 
   // 📁 FILE DELETION MUTATION
   const deleteMutation = useMutation({
-    mutationFn: async (filename: string) => {
-      const res = await fetch(`/api/v1/admin/files/${dossier?.id}/${filename}`, {
-        method: 'DELETE'
-      });
-      if (!res.ok) throw new Error('Delete failed');
-      return res.json();
-    },
+    mutationFn: (filename: string) => fetchWithAuth(`/api/v1/admin/files/${dossier?.id}/${filename}`, getToken, {
+      method: 'DELETE'
+    }),
     onSuccess: () => {
       toast("File physically deleted and purged from DB.", "success");
       queryClient.invalidateQueries({ queryKey: ['dossier'] });
@@ -71,8 +62,16 @@ export const Diagnostics: React.FC = () => {
     formData.append('file', file);
 
     try {
+      const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true';
+      const headers: any = {};
+      if (AUTH_ENABLED) {
+        const token = await getToken();
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch(`/api/v1/admin/upload/${dossier.id}`, {
         method: 'POST',
+        headers,
         body: formData
       });
       if (!res.ok) throw new Error('Upload failed');
@@ -167,7 +166,15 @@ export const Diagnostics: React.FC = () => {
                     <span className="text-xs text-indigo-400 font-bold font-mono uppercase">{stats?.env || 'unknown'}</span>
                   </div>
                   <button 
-                    onClick={() => window.open('/api/v1/admin/export-db', '_blank')}
+                    onClick={async () => {
+                      const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true';
+                      let url = '/api/v1/admin/export-db';
+                      if (AUTH_ENABLED) {
+                        const token = await getToken();
+                        url += `?token=${token}`; 
+                      }
+                      window.open(url, '_blank');
+                    }}
                     className="w-full py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 transition-all uppercase tracking-widest"
                   >
                     Download Database Backup
@@ -209,24 +216,25 @@ export const Diagnostics: React.FC = () => {
                     Context: {dossier?.name}
                   </h3>
                   <p className="text-neutral-500 text-[10px] font-mono uppercase tracking-widest">
-                    {dossier?.modules.length} Technical Documents Indexed
+                    {dossier?.modules.length || 0} Technical Documents Indexed
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
                     const name = prompt("Enter new company ID (e.g., 'google'):");
                     if (name) {
                       const cleanName = name.toLowerCase().trim().replace(/\s+/g, '-');
-                      fetch(`/api/v1/admin/companies/${cleanName}`, { method: 'POST' })
-                        .then(() => {
-                          toast(`Context ${name} created.`, "success");
-                          queryClient.invalidateQueries({ queryKey: ['companies'] });
-                          dossierData.setCompany(cleanName);
-                        })
-                        .catch(e => toast(e.message, "error"));
+                      try {
+                        await fetchWithAuth(`/api/v1/admin/companies/${cleanName}`, getToken, { method: 'POST' });
+                        toast(`Context ${name} created.`, "success");
+                        queryClient.invalidateQueries({ queryKey: ['companies'] });
+                        dossierData.setCompany(cleanName);
+                      } catch (e: any) {
+                        toast(e.message, "error");
+                      }
                     }
                   }}
                   className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.1] text-neutral-300 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all"
@@ -264,7 +272,7 @@ export const Diagnostics: React.FC = () => {
                     <button 
                       onClick={() => {
                         if (confirm(`Are you sure you want to permanently delete ${mod.label}?`)) {
-                          deleteMutation.mutate(mod.fullId.split('/').pop() || '');
+                          deleteMutation.mutate(mod.fullId ? mod.fullId.split('/').pop() || '' : '');
                         }
                       }}
                       disabled={deleteMutation.isPending}
