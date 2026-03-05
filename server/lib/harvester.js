@@ -12,14 +12,23 @@ let knowledgeGraph = { concepts: {}, files: {} };
 let searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
 
 function parsePlaybook(content) {
+  // Enhanced regex to handle CRLF and different spacing
   const sections = content.split(/## Q:/).filter(s => s.trim().length > 0);
   return sections.map(s => {
     const lines = s.split('\n');
     const question = lines[0].trim();
-    const trapMatch = s.match(/### The Trap Response\n([\s\S]*?)(?=###|$)/);
-    const trapWhyMatch = s.match(/### Why it fails\n([\s\S]*?)(?=###|$)/);
-    const optimalMatch = s.match(/### Optimal Staff Response\n([\s\S]*?)(?=###|$)/);
-    return { q: question, trap: trapMatch ? trapMatch[1].trim() : "", trapWhy: trapWhyMatch ? trapWhyMatch[1].trim() : "", optimal: optimalMatch ? optimalMatch[1].trim() : "" };
+    
+    // Using [\s\S] to match across multiple lines and including potential CRLF (\r?\n)
+    const trapMatch = s.match(/### The Trap Response\r?\n([\s\S]*?)(?=###|$)/i);
+    const whyMatch = s.match(/### Why it fails\r?\n([\s\S]*?)(?=###|$)/i);
+    const optimalMatch = s.match(/### Optimal Staff Response\r?\n([\s\S]*?)(?=###|$)/i);
+    
+    return { 
+      q: question, 
+      trap: trapMatch ? trapMatch[1].trim() : "", 
+      trapWhy: whyMatch ? whyMatch[1].trim() : "", 
+      optimal: optimalMatch ? optimalMatch[1].trim() : "" 
+    };
   }).filter(p => p.q);
 }
 
