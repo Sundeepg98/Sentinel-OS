@@ -1,0 +1,12 @@
+# Browsers that we support
+
+> 0.2% and not dead
+last 2 versions
+not IE 11
+not IE_Mob 11
+not dead
+Safari >= 14
+iOS >= 14
+Edge >= 79
+Firefox >= 79
+Chrome >= 80

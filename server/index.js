@@ -126,7 +126,9 @@ morgan.token('id', (req) => req.id);
 app.use(morgan(':id :method :url :status :res[content-length] - :response-time ms'));
 
 app.use(cors());
-app.use(express.json());
+// 🛡️ SECURITY BASIC: Prevent Large Payload DoS Attacks
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Inject API Standard Envelope
 const { responseEnvelope } = require('./lib/response');
@@ -480,6 +482,11 @@ v1Router.post('/state/:key', async (req, res) => {
     db.prepare(`INSERT INTO user_state (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`).run(req.userId, req.params.key, JSON.stringify(req.body.value));
   }
   res.success({ success: true });
+});
+
+// 🛡️ ENGINEERING BASIC: Strict API 404 Fallback
+v1Router.use((req, res) => {
+  res.error("API Endpoint Not Found", 404);
 });
 
 app.use('/api/v1', v1Router);
