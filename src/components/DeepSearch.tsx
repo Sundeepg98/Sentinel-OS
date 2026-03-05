@@ -33,8 +33,20 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
       }
       if (e.key === 'Escape') setIsOpen(false);
     };
+
+    const handleExternalTrigger = (e: any) => {
+      if (e.detail?.query) {
+        setQuery(e.detail.query);
+        setIsOpen(true);
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('trigger-search', handleExternalTrigger as EventListener);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('trigger-search', handleExternalTrigger as EventListener);
+    };
   }, []);
 
   const { data: results = [], isFetching: isSearching } = useQuery<SearchResult[]>({

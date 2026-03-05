@@ -23,19 +23,16 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId, brandColor }
   const [drill, setDrill] = useState<any>(null);
   const [evalData, setEvalData] = useState<EvaluationData | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
 
   // 1. Fetch Insights (Keywords)
-  // We use a robust key based on fullId
   const { data, isLoading, error } = useQuery({
     queryKey: ['insights', fullId],
     queryFn: () => fetchWithAuth(`/api/v1/intelligence/insights?fileId=${encodeURIComponent(fullId)}`, getToken),
     enabled: !!fullId,
-    staleTime: 1000 * 60 * 5, // 5 minutes cache
+    staleTime: 1000 * 60 * 5,
   });
 
   useEffect(() => {
-    // Reset internal state when document changes
     setDrill(null);
     setEvalData(null);
     setUserAnswer('');
@@ -66,6 +63,13 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId, brandColor }
     },
     onError: () => showToast('Evaluation failed', 'error')
   });
+
+  // 🚀 INTERACTIVE KEYWORDS: Trigger global search on click
+  const handleKeywordClick = (keyword: string) => {
+    window.dispatchEvent(new CustomEvent('trigger-search', { 
+      detail: { query: keyword } 
+    }));
+  };
 
   return (
     <div className="flex flex-col h-full p-6 space-y-6 bg-[#050505]">
@@ -141,9 +145,13 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId, brandColor }
               [1,2,3,4].map(i => <div key={i} className="h-6 w-16 bg-white/5 animate-pulse rounded-md" />)
             ) : (data?.keywords?.length > 0) ? (
               data.keywords.map((k: string) => (
-                <span key={k} className="px-2 py-1 bg-white/[0.03] border border-white/[0.05] rounded-md text-[11px] text-neutral-300 font-mono flex items-center gap-1 hover:bg-white/[0.06] transition-colors cursor-default">
-                  <Hash className="w-3 h-3 opacity-40" /> {k}
-                </span>
+                <button 
+                  key={k} 
+                  onClick={() => handleKeywordClick(k)}
+                  className="px-2 py-1 bg-white/[0.03] border border-white/[0.05] rounded-md text-[11px] text-neutral-300 font-mono flex items-center gap-1 hover:bg-white/[0.08] hover:border-cyan-500/30 hover:text-cyan-400 transition-all cursor-pointer group"
+                >
+                  <Hash className="w-3 h-3 opacity-40 group-hover:opacity-100 group-hover:text-cyan-500 transition-all" /> {k}
+                </button>
               ))
             ) : (
               <div className="text-[10px] text-neutral-600 font-mono italic">No semantic keywords found.</div>
