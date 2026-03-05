@@ -31,8 +31,16 @@ export async function fetchWithAuth(url: string, getToken: () => Promise<string 
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `HTTP Error: ${response.status}`);
+    throw new Error(errorData?.error?.message || errorData.error || `HTTP Error: ${response.status}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  
+  // Unwrap the standardized API envelope if present
+  if (result && result.status === 'success' && 'data' in result) {
+    return result.data;
+  }
+  
+  // Fallback for endpoints that might not be enveloped yet (like /health)
+  return result;
 }

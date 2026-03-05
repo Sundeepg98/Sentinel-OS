@@ -97,6 +97,10 @@ app.use(morgan(':id :method :url :status :res[content-length] - :response-time m
 app.use(cors());
 app.use(express.json());
 
+// Inject API Standard Envelope
+const { responseEnvelope } = require('./lib/response');
+app.use(responseEnvelope);
+
 // --- 🛠️ FILE UPLOAD CONFIGURATION ---
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
@@ -129,7 +133,7 @@ const upload = multer({
 });
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', timestamp: new Date().toISOString(), requestId: req.id });
+  res.success({ status: 'healthy' });
 });
 
 // --- SYNCED STATE ---
@@ -206,9 +210,9 @@ v1Router.get('/intelligence/stream', (req, res) => {
 // --- ADMIN & MANAGEMENT ENDPOINTS ---
 
 v1Router.post('/admin/upload/:companyId', upload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+  if (!req.file) return res.error("No file uploaded", 400);
   logger.info(`📁 [Admin] File uploaded: ${req.file.filename} to ${req.params.companyId}`);
-  res.json({ success: true, filename: req.file.filename });
+  res.success({ success: true, filename: req.file.filename });
 });
 
 v1Router.post('/admin/companies/:companyId', async (req, res) => {
@@ -217,9 +221,9 @@ v1Router.post('/admin/companies/:companyId', async (req, res) => {
   try {
     await fs.mkdir(companyPath, { recursive: true });
     logger.info(`🏢 [Admin] Company directory created: ${companyId}`);
-    res.json({ success: true });
+    res.success({ success: true });
   } catch (e) {
-    res.status(500).json({ error: "Failed to create company", details: e.message });
+    res.error("Failed to create company", 500, e.message);
   }
 });
 
@@ -229,9 +233,9 @@ v1Router.delete('/admin/files/:companyId/:filename', async (req, res) => {
   try {
     await fs.unlink(filePath);
     logger.info(`🗑️ [Admin] File deleted: ${filename} from ${companyId}`);
-    res.json({ success: true });
+    res.success({ success: true });
   } catch (e) {
-    res.status(500).json({ error: "Failed to delete file", details: e.message });
+    res.error("Failed to delete file", 500, e.message);
   }
 });
 
@@ -239,9 +243,9 @@ v1Router.get('/admin/ai-logs', async (req, res) => {
   const logPath = path.join(__dirname, 'logs', 'ai-failures.json');
   try {
     const data = await require('fs').promises.readFile(logPath, 'utf-8');
-    res.json(JSON.parse(data));
+    res.success(JSON.parse(data));
   } catch (e) {
-    res.json([]); // Return empty if no failures logged yet
+    res.success([]); // Return empty if no failures logged yet
   }
 });
 
@@ -256,7 +260,7 @@ v1Router.get('/intelligence/stats', (req, res) => {
   const chunks = db.prepare("SELECT count(*) as count FROM chunks_metadata").get();
   const history = db.prepare("SELECT count(*) as count FROM interaction_history").get();
   const learned = db.prepare("SELECT count(*) as count FROM chunks_metadata WHERE file_id LIKE 'learned/%'").get();
-  res.json({
+  res.success({
     totalChunks: chunks.count,
     interactions: history.count,
     learnedAssets: learned.count,
@@ -296,28 +300,28 @@ v1Router.get('/intelligence/graph', (req, res) => {
       files.forEach(f => links.push({ source: f.fileId, target: `concept:${concept}`, keyword: concept }));
     }
   });
-  res.json({ nodes, links });
+  res.success({ nodes, links });
 });
 
 v1Router.get('/intelligence/insights', async (req, res) => {
   const { fileId } = req.query;
-  if (!fileId) return res.status(400).json({ error: 'Missing fileId' });
+  if (!fileId) return res.error('Missing fileId', 400);
   const graph = globalState.knowledgeGraph;
   const file = graph.files[fileId];
-  if (!file) return res.json({ keywords: [], related: [] });
+  if (!file) return res.success({ keywords: [], related: [] });
   try {
     const vector = await getEmbedding(file.content.slice(0, 1000));
     const semanticMatches = db.prepare(`SELECT m.file_id, m.chunk_text, v.distance FROM vec_chunks v JOIN chunks_metadata m ON v.id = m.id WHERE v.vector MATCH ? AND k = 5 AND m.file_id != ? ORDER BY distance`).all(new Float32Array(vector), fileId);
     const related = semanticMatches.map(m => ({ fileId: m.file_id, company: m.file_id.split('/')[0], sharedKeyword: 'semantic similarity' }));
-    res.json({ keywords: file.keywords, related });
-  } catch (e) { res.json({ keywords: file.keywords, related: [] }); }
+    res.success({ keywords: file.keywords, related });
+  } catch (e) { res.success({ keywords: file.keywords, related: [] }); }
 });
 
 v1Router.get('/intelligence/search', (req, res) => {
   const { q } = req.query;
-  if (!q) return res.json([]);
+  if (!q) return res.success([]);
   const results = globalState.searchIndex.search(q, { limit: 10 });
-  res.json(results.map(id => ({ id, ...globalState.knowledgeGraph.files[id] })));
+  res.success(results.map(id => ({ id, ...globalState.knowledgeGraph.files[id] })));
 });
 
 v1Router.post('/intelligence/semantic-search', validateBody(schemas.semanticSearchSchema), async (req, res) => {
@@ -325,18 +329,18 @@ v1Router.post('/intelligence/semantic-search', validateBody(schemas.semanticSear
   try {
     const vector = await getEmbedding(q);
     const results = db.prepare(`SELECT m.file_id, m.chunk_text, v.distance FROM vec_chunks v JOIN chunks_metadata m ON v.id = m.id WHERE v.vector MATCH ? AND k = ? ORDER BY distance`).all(new Float32Array(vector), limit);
-    res.json(results);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+    res.success(results);
+  } catch (e) { res.error(e.message, 500); }
 });
 
 v1Router.post('/intelligence/drill', aiRateLimiter, validateBody(schemas.drillRequestSchema), async (req, res) => {
   const { fileId, extraContext } = req.body;
-  if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
+  if (!GEMINI_API_KEY) return res.error("API Key Missing", 500);
   try {
     const prompt = `You are a Staff Engineer interviewer. Generate ONE high-stakes technical drill.\nContext: ${extraContext || globalState.knowledgeGraph.files[fileId]?.content.slice(0, 3000)}`;
     const text = await generateStructuredContent(prompt, DRILL_SCHEMA);
-    res.json(JSON.parse(text));
-  } catch (error) { res.status(500).json({ error: error.message }); }
+    res.success(JSON.parse(text));
+  } catch (error) { res.error(error.message, 500); }
 });
 
 v1Router.post('/intelligence/evaluate', aiRateLimiter, validateBody(schemas.evaluateRequestSchema), async (req, res) => {
@@ -352,19 +356,19 @@ v1Router.post('/intelligence/evaluate', aiRateLimiter, validateBody(schemas.eval
         db.prepare(`INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) VALUES (?, 'drill', ?, ?, ?, ?, ?)`).run(req.userId, fileId, question, userAnswer, text, numericScore);
       }
     }
-    res.json(json);
-  } catch (error) { res.status(500).json({ error: error.message }); }
+    res.success(json);
+  } catch (error) { res.error(error.message, 500); }
 });
 
 v1Router.post('/intelligence/incident', aiRateLimiter, validateBody(schemas.incidentRequestSchema), async (req, res) => {
   const { moduleIds } = req.body;
-  if (!GEMINI_API_KEY) return res.status(500).json({ error: "API Key Missing" });
+  if (!GEMINI_API_KEY) return res.error("API Key Missing", 500);
   let context = moduleIds.map(id => globalState.knowledgeGraph.files[id]?.content.slice(0, 1000)).join('\n\n') || "General System Architecture";
   try {
     const prompt = `You are a Chaos Engineering simulator for a Staff Engineer. Context: ${context}. Generate a critical production incident (P0/P1) based on this architecture.`;
     const text = await generateStructuredContent(prompt, INCIDENT_SCHEMA);
-    res.json(JSON.parse(text));
-  } catch (error) { res.status(500).json({ error: error.message }); }
+    res.success(JSON.parse(text));
+  } catch (error) { res.error(error.message, 500); }
 });
 
 v1Router.post('/intelligence/incident/evaluate', aiRateLimiter, validateBody(schemas.incidentEvaluateSchema), async (req, res) => {
@@ -377,8 +381,8 @@ v1Router.post('/intelligence/incident/evaluate', aiRateLimiter, validateBody(sch
       const numericScore = parseInt(json.score.split('/')[0]);
       db.prepare(`INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) VALUES (?, 'incident', ?, ?, ?, ?, ?)`).run(req.userId, incident.title, incident.title, userAnswer, text, isNaN(numericScore) ? 0 : numericScore);
     }
-    res.json(json);
-  } catch (error) { res.status(500).json({ error: error.message }); }
+    res.success(json);
+  } catch (error) { res.error(error.message, 500); }
 });
 
 v1Router.get('/dossier/:companyId', async (req, res) => {
@@ -396,31 +400,31 @@ v1Router.get('/dossier/:companyId', async (req, res) => {
       if (data.type === 'checklist') processedData = parseChecklist(content);
       return { id: fileName.replace('.md', '').toLowerCase(), fullId: `${req.params.companyId}/${fileName}`, label: data.label || fileName.replace('.md', ''), type: data.type || 'markdown', icon: data.icon || 'FileText', data: data.data || processedData };
     }));
-    res.json({ id: req.params.companyId, name: req.params.companyId.toUpperCase(), modules: modules.sort((a, b) => a.id.localeCompare(b.id)) });
+    res.success({ id: req.params.companyId, name: req.params.companyId.toUpperCase(), modules: modules.sort((a, b) => a.id.localeCompare(b.id)) });
   } catch (e) {
-    res.status(404).json({ error: "Company dossier not found" });
+    res.error("Company dossier not found", 404);
   }
 });
 
 v1Router.get('/companies', async (req, res) => {
   const fsNative = require('fs').promises;
   const entries = await fsNative.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
-  res.json(entries.filter(d => d.isDirectory()).map(d => ({ id: d.name, name: d.name.toUpperCase() })));
+  res.success(entries.filter(d => d.isDirectory()).map(d => ({ id: d.name, name: d.name.toUpperCase() })));
 });
 
 v1Router.get('/intelligence/history', (req, res) => {
   const rows = db.prepare("SELECT * FROM interaction_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 50").all(req.userId);
-  res.json(rows.map(r => ({ ...r, evaluation: JSON.parse(r.evaluation) })));
+  res.success(rows.map(r => ({ ...r, evaluation: JSON.parse(r.evaluation) })));
 });
 
 v1Router.get('/state/:key', (req, res) => {
   const row = db.prepare("SELECT value FROM user_state WHERE user_id = ? AND key = ?").get(req.userId, req.params.key);
-  res.json({ value: row ? JSON.parse(row.value) : null });
+  res.success({ value: row ? JSON.parse(row.value) : null });
 });
 
 v1Router.post('/state/:key', (req, res) => {
   db.prepare(`INSERT INTO user_state (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`).run(req.userId, req.params.key, JSON.stringify(req.body.value));
-  res.json({ success: true });
+  res.success({ success: true });
 });
 
 app.use('/api/v1', v1Router);
@@ -436,7 +440,7 @@ app.get(/(.*)/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html'
 
 app.use((err, req, res, next) => {
   logger.error({ id: req.id, path: req.path, message: err.message, stack: env.NODE_ENV !== 'production' ? err.stack : undefined }, '💥 Unhandled Server Error');
-  res.status(err.status || 500).json({ error: "Internal Server Error", message: env.NODE_ENV !== 'production' ? err.message : "An unexpected error occurred.", requestId: req.id });
+  res.status(err.status || 500).error(env.NODE_ENV !== 'production' ? err.message : "An unexpected error occurred.", err.status || 500);
 });
 
 const server = app.listen(PORT, () => {
