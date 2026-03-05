@@ -17,6 +17,7 @@ import {
 import { cn } from '../lib/utils';
 import { useAuth } from '@clerk/clerk-react';
 import { fetchWithAuth } from '../lib/api';
+import { GraphData, GraphNode, GraphLink } from '../types';
 
 interface KnowledgeGraphProps {
   isOpen: boolean;
@@ -24,20 +25,25 @@ interface KnowledgeGraphProps {
   onSelectModule: (moduleId: string) => void;
 }
 
+/**
+ * 🛰️ ARCHITECTURAL NERVOUS SYSTEM (Knowledge Graph)
+ * Cinematic 3D visualization of technical dossiers and their semantic links.
+ * Features recursive failure simulation (Neural Impact Simulator).
+ */
 export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose, onSelectModule }) => {
   const { setCompany } = useDossierContext();
   const { getToken } = useAuth();
   const graphRef = useRef<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-  const [graphData, setGraphData] = useState<{ nodes: any[], links: any[] }>({ nodes: [], links: [] });
-  const [hoveredNode, setHoveredNode] = useState<any | null>(null);
-  const [highlightNodes, setHighlightNodes] = useState(new Set());
-  const [highlightLinks, setHighlightLinks] = useState(new Set());
+  const [graphData, setGraphData] = useState<GraphData>({ nodes: [], links: [] });
+  const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
+  const [highlightNodes, setHighlightNodes] = useState(new Set<GraphNode>());
+  const [highlightLinks, setHighlightLinks] = useState(new Set<GraphLink>());
   
   // --- SIMULATION STATE ---
   const [isSimActive, setIsSimActive] = useState(false);
-  const [simNode, setSimNode] = useState<any | null>(null);
+  const [simNode, setSimNode] = useState<GraphNode | null>(null);
   const [blastImpacts, setBlastImpacts] = useState<Map<string, 1 | 2 | 3>>(new Map());
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -74,7 +80,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
           const weightedNodes = Object.values(nodesById).map((n: any) => ({
             ...n,
             weight: n.group === 'module' ? 10 : n.group === 'learned' ? 8 : Math.min(Math.max(n.neighbors.length || 1, 2), 8)
-          }));
+          })) as GraphNode[];
           setGraphData({ nodes: weightedNodes, links: data.links });
         })
         .catch(err => console.error('Graph Load Error:', err));
@@ -150,16 +156,16 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
 
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
-  const handleNodeHover = useCallback((node: any) => {
-    const newHighlightNodes = new Set();
-    const newHighlightLinks = new Set();
+  const handleNodeHover = useCallback((node: GraphNode | null) => {
+    const newHighlightNodes = new Set<GraphNode>();
+    const newHighlightLinks = new Set<GraphLink>();
     if (node && graphRef.current) {
       newHighlightNodes.add(node);
-      node.neighbors.forEach((neighbor: any) => newHighlightNodes.add(neighbor));
-      node.links.forEach((link: any) => newHighlightLinks.add(link));
+      node.neighbors.forEach((neighbor) => newHighlightNodes.add(neighbor));
+      node.links.forEach((link) => newHighlightLinks.add(link));
       const coords = graphRef.current.graph2ScreenCoords(node.x, node.y, node.z);
       setTooltipPos({ x: coords.x, y: coords.y });
-      setHoveredNode({ ...node, connections: node.neighbors.map((n: any) => n.label).slice(0, 3) });
+      setHoveredNode(node);
     } else {
       setHoveredNode(null);
     }
@@ -167,7 +173,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     setHighlightLinks(newHighlightLinks);
   }, []);
 
-  const triggerBlastRadius = (node: any) => {
+  const triggerBlastRadius = (node: GraphNode) => {
     const impacts = new Map<string, 1 | 2 | 3>();
     const queue = [{ n: node, depth: 0 }];
     impacts.set(node.id, 1);
@@ -175,7 +181,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     while (queue.length > 0) {
       const { n, depth } = queue.shift()!;
       if (depth < 2) {
-        n.neighbors.forEach((nb: any) => {
+        n.neighbors.forEach((nb) => {
           if (!impacts.has(nb.id)) {
             const nextDepth = depth + 1;
             impacts.set(nb.id, (nextDepth + 1) as 1 | 2 | 3);
@@ -188,38 +194,30 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     setBlastImpacts(impacts);
     setIsAnalyzing(true);
     
-    // Auto-scroll to node
     if (graphRef.current) {
-      graphRef.current.cameraPosition({ x: node.x * 1.2, y: node.y * 1.2, z: node.z * 1.2 }, node, 800);
+      graphRef.current.cameraPosition({ x: node.x! * 1.2, y: node.y! * 1.2, z: node.z! * 1.2 }, node, 800);
     }
   };
 
-  const nodeThreeObject = useCallback((node: any) => {
+  const nodeThreeObject = useCallback((node: GraphNode) => {
     const group = new THREE.Group();
     const isHighlighted = highlightNodes.has(node) || highlightNodes.size === 0;
     const impactLevel = blastImpacts.get(node.id);
     const isSimOrigin = simNode === node;
     
-    const size = node.weight || 3;
+    const size = (node as any).weight || 3;
     const readiness = node.readiness || 0;
 
-    // --- COLOR LOGIC ---
     let activeColor = '#737373'; 
-    if (isSimOrigin) {
-      activeColor = '#f43f5e'; // Bright Red Origin
-    } else if (impactLevel === 2) {
-      activeColor = '#fb923c'; // Orange Impact
-    } else if (impactLevel === 3) {
-      activeColor = '#facc15'; // Yellow Warning
-    } else if (node.group === 'learned') {
-      activeColor = '#facc15'; // Gold for Learned
-    } else if (node.group === 'module') {
+    if (isSimOrigin) activeColor = '#f43f5e';
+    else if (impactLevel === 2) activeColor = '#fb923c';
+    else if (impactLevel === 3) activeColor = '#facc15';
+    else if (node.group === 'learned') activeColor = '#facc15';
+    else if (node.group === 'module') {
       if (readiness < 0.3) activeColor = '#f43f5e';
       else if (readiness < 0.7) activeColor = '#f59e0b';
       else activeColor = '#10b981';
-    } else {
-      activeColor = '#6366f1';
-    }
+    } else activeColor = '#6366f1';
 
     const geometry = new THREE.SphereGeometry(size, 32, 32);
     const material = new THREE.MeshPhysicalMaterial({
@@ -238,15 +236,9 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     const mesh = new THREE.Mesh(geometry, material);
     group.add(mesh);
 
-    // --- PULSE EFFECT FOR IMPACTED NODES ---
     if (impactLevel || isSimOrigin) {
       const ringGeom = new THREE.RingGeometry(size + 1, size + 1.5, 32);
-      const ringMat = new THREE.MeshBasicMaterial({ 
-        color: activeColor, 
-        transparent: true, 
-        opacity: 0.5, 
-        side: THREE.DoubleSide 
-      });
+      const ringMat = new THREE.MeshBasicMaterial({ color: activeColor, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
       const ring = new THREE.Mesh(ringGeom, ringMat);
       group.add(ring);
     }
@@ -265,7 +257,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     return group;
   }, [highlightNodes, blastImpacts, simNode]);
 
-  const handleNodeClick = useCallback((node: any) => {
+  const handleNodeClick = useCallback((node: GraphNode) => {
     if (isSimActive) {
       triggerBlastRadius(node);
       return;
@@ -275,7 +267,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
       const [companyId, fileName] = node.id.split('/');
       const moduleId = fileName.replace('.md', '');
       if (graphRef.current) {
-        graphRef.current.cameraPosition({ x: node.x * 1.5, y: node.y * 1.5, z: node.z * 1.5 }, node, 800);
+        graphRef.current.cameraPosition({ x: node.x! * 1.5, y: node.y! * 1.5, z: node.z! * 1.5 }, node, 800);
       }
       setTimeout(() => {
         setCompany(companyId);
@@ -341,32 +333,32 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
             <ForceGraph3D
               ref={graphRef} width={dimensions.width} height={dimensions.height} graphData={graphData}
               nodeThreeObject={nodeThreeObject} linkCurvature={0.2}
-              linkColor={(link: any) => {
-                const impactA = blastImpacts.get(link.source.id || link.source);
-                const impactB = blastImpacts.get(link.target.id || link.target);
+              linkColor={(link: GraphLink) => {
+                const impactA = blastImpacts.get((link.source as any).id || (link.source as string));
+                const impactB = blastImpacts.get((link.target as any).id || (link.target as string));
                 if (impactA === 1 || impactB === 1) return '#f43f5e';
                 if (impactA === 2 || impactB === 2) return '#fb923c';
                 return highlightLinks.has(link) ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.05)';
               }}
-              linkWidth={(link: any) => {
-                const impactA = blastImpacts.get(link.source.id || link.source);
-                const impactB = blastImpacts.get(link.target.id || link.target);
+              linkWidth={(link: GraphLink) => {
+                const impactA = blastImpacts.get((link.source as any).id || (link.source as string));
+                const impactB = blastImpacts.get((link.target as any).id || (link.target as string));
                 return (impactA || impactB) ? 3 : 0.5;
               }}
-              linkDirectionalParticles={(link: any) => {
-                const impactA = blastImpacts.get(link.source.id || link.source);
-                const impactB = blastImpacts.get(link.target.id || link.target);
+              linkDirectionalParticles={(link: GraphLink) => {
+                const impactA = blastImpacts.get((link.source as any).id || (link.source as string));
+                const impactB = blastImpacts.get((link.target as any).id || (link.target as string));
                 if (impactA || impactB) return 5;
                 return (highlightLinks.has(link) || highlightLinks.size === 0) ? 2 : 0;
               }}
-              linkDirectionalParticleWidth={(link: any) => {
-                const impactA = blastImpacts.get(link.source.id || link.source);
-                const impactB = blastImpacts.get(link.target.id || link.target);
+              linkDirectionalParticleWidth={(link: GraphLink) => {
+                const impactA = blastImpacts.get((link.source as any).id || (link.source as string));
+                const impactB = blastImpacts.get((link.target as any).id || (link.target as string));
                 return (impactA || impactB) ? 4 : 2;
               }}
-              linkDirectionalParticleSpeed={(link: any) => {
-                const impactA = blastImpacts.get(link.source.id || link.source);
-                const impactB = blastImpacts.get(link.target.id || link.target);
+              linkDirectionalParticleSpeed={(link: GraphLink) => {
+                const impactA = blastImpacts.get((link.source as any).id || (link.source as string));
+                const impactB = blastImpacts.get((link.target as any).id || (link.target as string));
                 return (impactA || impactB) ? 0.02 : 0.005;
               }}
               backgroundColor="rgba(0,0,0,0)" enableNodeDrag={false} onNodeClick={handleNodeClick}
@@ -393,9 +385,9 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
                         <Zap size={10} /> Predicted Blast Radius: {hoveredNode.blastRadius || 5} Nodes
                       </div>
                     )}
-                    {hoveredNode.connections && (
+                    {hoveredNode.neighbors && (
                       <div className="flex flex-wrap gap-1.5 pt-2 border-t border-white/10">
-                        {hoveredNode.connections.map((c: any, i: any) => <div key={i} className="text-[10px] px-2 py-1 rounded bg-white/5 text-neutral-300">{c}</div>)}
+                        {hoveredNode.neighbors.map((n, i) => <div key={i} className="text-[10px] px-2 py-1 rounded bg-white/5 text-neutral-300">{n.label}</div>)}
                       </div>
                     )}
                   </div>
@@ -456,7 +448,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
                         item.level === 2 ? "bg-orange-500 shadow-[0_0_8px_#fb923c]" : "bg-amber-500"
                       )} />
                       <div className="flex-1">
-                        <div className="text-xs font-bold text-white group-hover:text-indigo-400 transition-colors">{item.node.label}</div>
+                        <div className="text-xs font-bold text-white group-hover:text-indigo-400 transition-colors">{item.node?.label}</div>
                         <div className="text-[9px] text-neutral-500 uppercase tracking-widest mt-0.5">Impact Level: {item.level === 1 ? 'Total Outage' : 'Degraded State'}</div>
                       </div>
                       <FileText size={14} className="text-neutral-600" />
@@ -476,8 +468,8 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
               <div className="p-6 border-t border-white/5 bg-black/40">
                 <button 
                   onClick={() => {
-                    setCompany(simNode?.company);
-                    onSelectModule(simNode?.id.split('/').pop().replace('.md', ''));
+                    setCompany(simNode?.company || 'mailin');
+                    onSelectModule(simNode?.id.split('/').pop()?.replace('.md', '') || '');
                     onClose();
                   }}
                   className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2"

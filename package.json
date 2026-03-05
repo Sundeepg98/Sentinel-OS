@@ -1,8 +1,18 @@
 {
   "name": "sentinel-os",
   "private": true,
-  "version": "0.0.0",
+  "version": "2.5.0",
+  "description": "Industrial-grade Technical Intelligence Dashboard for Staff+ Engineer Preparation",
+  "author": "Sundeep",
+  "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sundeepg98/Sentinel-OS.git"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev:frontend": "vite",
     "dev:backend": "dotenv -e server/.env -- node server/index.js",
@@ -13,6 +23,7 @@
     "format": "prettier --write .",
     "preview": "vite preview",
     "test:server": "NODE_OPTIONS='--experimental-vm-modules' npx jest server/tests",
+    "test:coverage": "NODE_OPTIONS='--experimental-vm-modules' npx jest server/tests --coverage --coverageThreshold='{\"global\":{\"branches\":80,\"functions\":80,\"lines\":80,\"statements\":80}}'",
     "test:e2e": "playwright test",
     "test": "npm run test:server && npm run test:e2e",
     "prepare": "husky"

@@ -2,11 +2,11 @@ export type ModuleType = 'grid' | 'list' | 'map' | 'playbook' | 'checklist' | 'm
 
 export interface Module {
   id: string;
-  fullId?: string; // Optional property for semantic indexing
+  fullId?: string; // Normalized technical ID (e.g. mailin/00_master_analysis.md)
   label: string;
   type: ModuleType;
   icon: string; // Lucide icon name
-  data: any; // Flexible data structure based on type
+  data: any; // Context-specific payload
 }
 
 export interface CompanyDossier {
@@ -24,5 +24,43 @@ export interface Task {
 }
 
 export interface ArenaSelection {
-  pinnedModuleIds: string[]; // ["mailin/01_...", "turing/02_..."]
+  pinnedModuleIds: string[];
+}
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  group: 'module' | 'learned' | 'concept';
+  company: string;
+  val: number;
+  readiness?: number;
+  blastRadius?: number;
+  learned?: boolean;
+  originalModule?: string;
+  x?: number;
+  y?: number;
+  z?: number;
+  neighbors: GraphNode[];
+  links: GraphLink[];
+}
+
+export interface GraphLink {
+  source: string | GraphNode;
+  target: string | GraphNode;
+  type?: string;
+  keyword?: string;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  links: GraphLink[];
+}
+
+export interface SearchResult {
+  id: string;
+  label: string;
+  company: string;
+  snippet?: string;
+  keywords?: string[];
+  content?: string;
 }
