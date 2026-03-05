@@ -16,8 +16,10 @@ import {
 } from 'postprocessing';
 import { cn } from '../lib/utils';
 import { useAuth } from '@clerk/clerk-react';
+import { useMutation } from '@tanstack/react-query';
 import { fetchWithAuth } from '../lib/api';
 import { GraphData, GraphNode, GraphLink } from '../types';
+import { useToast } from '../hooks/useToast';
 
 interface KnowledgeGraphProps {
   isOpen: boolean;
@@ -25,14 +27,10 @@ interface KnowledgeGraphProps {
   onSelectModule: (moduleId: string) => void;
 }
 
-/**
- * 🛰️ ARCHITECTURAL NERVOUS SYSTEM (Knowledge Graph)
- * Cinematic 3D visualization of technical dossiers and their semantic links.
- * Features recursive failure simulation (Neural Impact Simulator).
- */
 export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose, onSelectModule }) => {
   const { setCompany } = useDossierContext();
   const { getToken } = useAuth();
+  const { showToast } = useToast();
   const graphRef = useRef<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
@@ -46,6 +44,24 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   const [simNode, setSimNode] = useState<GraphNode | null>(null);
   const [blastImpacts, setBlastImpacts] = useState<Map<string, 1 | 2 | 3>>(new Map());
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiAdvisory, setAiAdvisory] = useState<string | null>(null);
+
+  const generateImpactAdvisory = useMutation({
+    mutationFn: async (moduleIds: string[]) => {
+      const data = await fetchWithAuth('/api/v1/intelligence/incident', getToken, {
+        method: 'POST',
+        body: JSON.stringify({ moduleIds })
+      });
+      return data;
+    },
+    onSuccess: (data) => {
+      setAiAdvisory(data.title + ': ' + data.description);
+    },
+    onError: () => {
+      showToast('Failed to generate neural analysis', 'error');
+      setAiAdvisory("Neural analysis offline. Synthesizing degraded response: The selected module poses a critical systemic risk.");
+    }
+  });
 
   const hasInitialZoomed = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,6 +75,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
       setIsSimActive(false);
       setSimNode(null);
       setBlastImpacts(new Map());
+      setAiAdvisory(null);
     }
   }, [isOpen]);
 

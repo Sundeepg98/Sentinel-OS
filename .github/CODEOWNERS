@@ -1,0 +1,13 @@
+# These owners will be the default reviewers for pull requests in these directories.
+
+# Global owner for the repository
+*       @Sundeepg98
+
+# Frontend specific owners
+/src/   @Sundeepg98
+
+# Backend specific owners
+/server/ @Sundeepg98
+
+# Intelligence / RAG Data owners
+/intelligence/ @Sundeepg98
