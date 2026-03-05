@@ -53,7 +53,8 @@ function App() {
   const queryClient = useQueryClient();
 
   // Auth Toggle (Matches Backend)
-  const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true';
+  // Force true for local testing bypass
+  const AUTH_ENABLED = true;
 
   // Sync Status Polling
   const { data: stats } = useQuery({
