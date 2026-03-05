@@ -17,6 +17,7 @@ import { Loader2, AlertCircle, Network, Swords, Terminal } from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { ToastProvider } from './hooks/useToast';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { StatusBanner } from './components/ui/StatusBanner';
 import { cn } from './lib/utils';
 import { AnimatePresence } from 'framer-motion';
 import { DossierContext, useDossierContext } from './lib/context';
@@ -268,6 +269,7 @@ function App() {
 
   return (
     <ToastProvider>
+      <StatusBanner />
       <DossierContext.Provider value={{ ...dossierData }}>
         {!AUTH_ENABLED || BYPASS_TOKEN ? (
           <MainView />
