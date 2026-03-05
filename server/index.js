@@ -337,6 +337,39 @@ v1Router.get('/intelligence/graph', async (req, res) => {
   res.success({ nodes, links });
 });
 
+/**
+ * @openapi
+ * /intelligence/insights:
+ *   get:
+ *     summary: Retrieve contextual keywords and related semantic links for a specific dossier
+ */
+v1Router.get('/intelligence/insights', async (req, res) => {
+  const { fileId } = req.query;
+  if (!fileId) return res.error('Missing fileId', 400);
+  
+  const graph = globalState.knowledgeGraph;
+  const file = graph.files[fileId];
+  if (!file) return res.success({ keywords: [], related: [] });
+  
+  try {
+    const vector = await getEmbedding(file.content.slice(0, 1000));
+    let related;
+    if (isPostgres) {
+      const dbRes = await db.query(
+        "SELECT m.file_id, m.chunk_text, (m.embedding <=> $1) as distance FROM chunks_metadata m WHERE m.file_id != $2 ORDER BY distance LIMIT 5",
+        [JSON.stringify(vector), fileId]
+      );
+      related = dbRes.rows.map(m => ({ fileId: m.file_id, company: m.file_id.split('/')[0], sharedKeyword: 'semantic similarity' }));
+    } else {
+      const semanticMatches = db.prepare(`SELECT m.file_id, m.chunk_text, v.distance FROM vec_chunks v JOIN chunks_metadata m ON v.id = m.id WHERE v.vector MATCH ? AND k = 5 AND m.file_id != ? ORDER BY distance`).all(new Float32Array(vector), fileId);
+      related = semanticMatches.map(m => ({ fileId: m.file_id, company: m.file_id.split('/')[0], sharedKeyword: 'semantic similarity' }));
+    }
+    res.success({ keywords: file.keywords, related });
+  } catch (e) { 
+    res.success({ keywords: file.keywords, related: [] }); 
+  }
+});
+
 v1Router.post('/intelligence/semantic-search', validateBody(schemas.semanticSearchSchema), async (req, res) => {
   const { q, limit } = req.body;
   try {
