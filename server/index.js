@@ -12,7 +12,25 @@ const { v4: uuidv4 } = require('uuid');
 const { z } = require('zod');
 const morgan = require('morgan');
 const pino = require('pino');
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
 const { db, initDB } = require('./lib/db');
+
+// --- 🛠️ ENGINEERING BASIC: API DOCUMENTATION ---
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Sentinel-OS API',
+      version: '1.0.0',
+      description: 'Technical Intelligence & RAG Engine API',
+    },
+    servers: [{ url: '/api/v1' }],
+  },
+  apis: ['./server/index.js'], // Document endpoints in this file
+};
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+
 const { authGuard } = require('./lib/auth');
 const { validateBody, schemas } = require('./lib/validation');
 const { 

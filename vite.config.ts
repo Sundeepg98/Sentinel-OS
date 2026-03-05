@@ -1,9 +1,18 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { visualizer } from 'rollup-plugin-visualizer'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    visualizer({
+      open: false,
+      filename: 'bundle-analysis.html',
+      gzipSize: true,
+      brotliSize: true,
+    }),
+  ],
   server: {
     proxy: {
       '/api': {
@@ -17,7 +26,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // Group ALL visualization and 3D libs together to avoid circularity
+            // Group ALL visualization and 3D libs together
             if (
               id.includes('three') || 
               id.includes('react-force-graph') || 
@@ -31,12 +40,11 @@ export default defineConfig({
             if (id.includes('react-markdown') || id.includes('remark') || id.includes('unified')) {
               return 'markdown-bundle';
             }
-            // Standard vendor for everything else
             return 'vendor';
           }
         },
       },
     },
-    chunkSizeWarningLimit: 1500, // Three.js is big, acknowledge it
+    chunkSizeWarningLimit: 1500,
   },
 })
