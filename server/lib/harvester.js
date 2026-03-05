@@ -105,7 +105,7 @@ async function syncIntelligence() {
         const filePath = path.join(companyPath, fileName);
         const fileContent = await fs.readFile(filePath, 'utf-8');
         const { content, data } = matter(fileContent);
-        const fileId = `${company.name}/${fileName}`;
+        const fileId = `${company.name}/${fileName}`.toLowerCase(); // 🚀 STRICT NORMALIZATION
         activeFileIds.add(fileId);
         const currentHash = getFileHash(fileContent);
 

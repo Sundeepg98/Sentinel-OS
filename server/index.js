@@ -344,9 +344,10 @@ v1Router.get('/intelligence/graph', async (req, res) => {
  *     summary: Retrieve contextual keywords and related semantic links for a specific dossier
  */
 v1Router.get('/intelligence/insights', async (req, res) => {
-  const { fileId } = req.query;
-  if (!fileId) return res.error('Missing fileId', 400);
+  const { fileId: rawFileId } = req.query;
+  if (!rawFileId) return res.error('Missing fileId', 400);
   
+  const fileId = String(rawFileId).toLowerCase(); // 🚀 STRICT NORMALIZATION
   const graph = globalState.knowledgeGraph;
   const file = graph.files[fileId];
   if (!file) return res.success({ keywords: [], related: [] });
@@ -418,19 +419,17 @@ v1Router.post('/intelligence/evaluate', aiRateLimiter, validateBody(schemas.eval
 });
 
 v1Router.get('/dossier/:companyId', async (req, res) => {
-  const companyDir = path.join(INTELLIGENCE_DIR, req.params.companyId);
   try {
-    // If Postgres, we could check DB first, but for now we trust the synchronized graph
-    const companyModules = Object.values(globalState.knowledgeGraph.files)
-      .filter(f => f.company === req.params.companyId)
-      .map(f => ({
-        id: f.label.replace(/\s+/g, '-').toLowerCase(),
-        fullId: `${req.params.companyId}/${f.label}.md`, // Mapping back
+    const companyModules = Object.entries(globalState.knowledgeGraph.files)
+      .filter(([id, f]) => f.company === req.params.companyId)
+      .map(([id, f]) => ({
+        id: id.split('/').pop().replace('.md', ''), 
+        fullId: id, // Use the physically indexed normalized ID
         label: f.label,
-        type: 'markdown', // Simple mapping
+        type: 'markdown', 
         data: f.content
       }));
-    res.success({ id: req.params.companyId, name: req.params.companyId.toUpperCase(), modules: companyModules });
+    res.success({ id: req.params.companyId, name: req.params.companyId.toUpperCase(), modules: companyModules.sort((a, b) => a.id.localeCompare(b.id)) });
   } catch (e) {
     res.error("Company dossier not found", 404);
   }
