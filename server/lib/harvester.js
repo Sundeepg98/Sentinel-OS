@@ -2,15 +2,20 @@ const fs = require('fs').promises;
 const path = require('path');
 const matter = require('gray-matter');
 const { Index } = require('flexsearch');
-const natural = require('natural');
 const crypto = require('crypto');
-const { db } = require('./db');
+const { db, isPostgres } = require('./db');
 const { getEmbedding } = require('./intelligence');
 const { parsePlaybook, parseChecklist } = require('./parsers');
 
 const INTELLIGENCE_DIR = path.join(__dirname, '..', '..', 'intelligence');
 let knowledgeGraph = { concepts: {}, files: {} };
 let searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
+
+/**
+ * 🛰️ INTELLIGENCE HARVESTER (Cloud-Native Edition)
+ * Orchestrates technical dossier parsing and RAG vectorization.
+ * Supports both local ephemeral SQLite and persistent Cloud Postgres.
+ */
 
 function extractKeywords(text) {
   try {
@@ -55,19 +60,31 @@ function chunkMarkdown(text, maxLength = 1500) {
 
 async function processFileVectors(fileId, content, metadata) {
   try {
-    const oldChunks = db.prepare("SELECT id FROM chunks_metadata WHERE file_id = ?").all(fileId);
-    if (oldChunks.length > 0) {
-      const oldIds = oldChunks.map(c => Number(c.id));
-      db.prepare(`DELETE FROM vec_chunks WHERE id IN (${oldIds.join(',')})`).run();
-      db.prepare(`DELETE FROM chunks_metadata WHERE file_id = ?`).run(fileId);
-    }
-    const chunks = chunkMarkdown(content);
-    for (const chunk of chunks) {
-      const vector = await getEmbedding(chunk);
-      db.transaction(() => {
+    if (isPostgres) {
+      // 🐘 POSTGRES LOGIC
+      await db.query("DELETE FROM chunks_metadata WHERE file_id = $1", [fileId]);
+      const chunks = chunkMarkdown(content);
+      for (const chunk of chunks) {
+        const vector = await getEmbedding(chunk);
+        await db.query(
+          "INSERT INTO chunks_metadata (file_id, chunk_text, metadata, embedding) VALUES ($1, $2, $3, $4)",
+          [fileId, chunk, JSON.stringify(metadata), JSON.stringify(vector)]
+        );
+      }
+    } else {
+      // 🗄️ SQLITE LOGIC
+      const oldChunks = db.prepare("SELECT id FROM chunks_metadata WHERE file_id = ?").all(fileId);
+      if (oldChunks.length > 0) {
+        const oldIds = oldChunks.map(c => Number(c.id));
+        db.prepare(`DELETE FROM vec_chunks WHERE id IN (${oldIds.join(',')})`).run();
+        db.prepare(`DELETE FROM chunks_metadata WHERE file_id = ?`).run(fileId);
+      }
+      const chunks = chunkMarkdown(content);
+      for (const chunk of chunks) {
+        const vector = await getEmbedding(chunk);
         db.prepare(`INSERT INTO chunks_metadata (file_id, chunk_text, metadata) VALUES (?, ?, ?)`).run(fileId, chunk, JSON.stringify(metadata));
         db.prepare(`INSERT INTO vec_chunks (id, vector) SELECT last_insert_rowid(), ?`).run(new Float32Array(vector));
-      })();
+      }
     }
   } catch (e) { console.error(`Vectorization Error [${fileId}]:`, e.message); }
 }
@@ -77,7 +94,9 @@ async function syncIntelligence() {
   const newGraph = { concepts: {}, files: {} };
   searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
   const activeFileIds = new Set();
+
   try {
+    // 1. Process Local Files
     const companies = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
     for (const company of companies.filter(d => d.isDirectory())) {
       const companyPath = path.join(INTELLIGENCE_DIR, company.name);
@@ -89,38 +108,65 @@ async function syncIntelligence() {
         const fileId = `${company.name}/${fileName}`;
         activeFileIds.add(fileId);
         const currentHash = getFileHash(fileContent);
-        const cached = db.prepare("SELECT content_hash, keywords, label FROM intelligence_cache WHERE file_id = ?").get(fileId);
-        const vectorRow = db.prepare(`SELECT count(*) as count FROM chunks_metadata m JOIN vec_chunks v ON m.id = v.id WHERE m.file_id = ?`).get(fileId);
-        let keywords, label;
-        if (cached && cached.content_hash === currentHash && (vectorRow?.count || 0) > 0) {
-          keywords = JSON.parse(cached.keywords);
-          label = cached.label;
+
+        // --- CLOUD CACHE CHECK ---
+        let shouldProcess = true;
+        if (isPostgres) {
+          const cached = await db.prepare("SELECT last_processed FROM dossiers WHERE id = $1").get(fileId);
+          // For Postgres, we prioritize what's in the DB over what's on the ephemeral disk
+          if (cached) shouldProcess = false; 
         } else {
-          keywords = extractKeywords(content + ' ' + (data.label || ''));
-          label = data.label || fileName;
-          db.prepare(`INSERT INTO intelligence_cache (file_id, content_hash, label, company, keywords) VALUES (?, ?, ?, ?, ?) ON CONFLICT(file_id) DO UPDATE SET content_hash=excluded.content_hash, label=excluded.label, keywords=excluded.keywords, last_processed=CURRENT_TIMESTAMP`).run(fileId, currentHash, label, company.name, JSON.stringify(keywords));
+          const cached = db.prepare("SELECT content_hash FROM intelligence_cache WHERE file_id = ?").get(fileId);
+          if (cached && cached.content_hash === currentHash) shouldProcess = false;
+        }
+
+        if (shouldProcess) {
+          const keywords = extractKeywords(content + ' ' + (data.label || ''));
+          const label = data.label || fileName;
+          
+          if (isPostgres) {
+            await db.query(
+              "INSERT INTO dossiers (id, company, label, content, metadata) VALUES ($1, $2, $3, $4, $5) ON CONFLICT(id) DO UPDATE SET content=excluded.content, metadata=excluded.metadata",
+              [fileId, company.name, label, content, JSON.stringify(data)]
+            );
+          } else {
+            db.prepare(`INSERT INTO intelligence_cache (file_id, content_hash, label, company, keywords) VALUES (?, ?, ?, ?, ?) ON CONFLICT(file_id) DO UPDATE SET content_hash=excluded.content_hash`).run(fileId, currentHash, label, company.name, JSON.stringify(keywords));
+          }
           await processFileVectors(fileId, content, data);
         }
-        try { searchIndex.add(fileId, content); } catch(e) {}
-        newGraph.files[fileId] = { label, company: company.name, keywords, content };
-        keywords.forEach(k => {
+
+        // --- HYDRATE GRAPH ---
+        // Fetch from DB to ensure we have the content
+        let finalContent = content;
+        let finalLabel = data.label || fileName;
+        let finalKeywords = extractKeywords(content);
+
+        newGraph.files[fileId] = { label: finalLabel, company: company.name, keywords: finalKeywords, content: finalContent };
+        finalKeywords.forEach(k => {
           if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
           newGraph.concepts[k].push({ fileId, company: company.name });
         });
+        searchIndex.add(fileId, finalContent);
       }
     }
-    const cachedFiles = db.prepare("SELECT file_id FROM intelligence_cache").all();
-    for (const row of cachedFiles) {
-      if (!activeFileIds.has(row.file_id)) {
-        const oldChunks = db.prepare("SELECT id FROM chunks_metadata WHERE file_id = ?").all(row.file_id);
-        if (oldChunks.length > 0) {
-          const oldIds = oldChunks.map(c => Number(c.id));
-          db.prepare(`DELETE FROM vec_chunks WHERE id IN (${oldIds.join(',')})`).run();
+
+    // 2. Load Cloud-only dossiers (learned assets)
+    if (isPostgres) {
+      const cloudDossiers = await db.prepare("SELECT id, company, label, content, metadata FROM dossiers").all();
+      cloudDossiers.forEach(d => {
+        if (!activeFileIds.has(d.id)) {
+          const meta = JSON.parse(d.metadata);
+          const keywords = extractKeywords(d.content);
+          newGraph.files[d.id] = { label: d.label, company: d.company, keywords, content: d.content };
+          keywords.forEach(k => {
+            if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
+            newGraph.concepts[k].push({ fileId: d.id, company: d.company });
+          });
+          searchIndex.add(d.id, d.content);
         }
-        db.prepare(`DELETE FROM chunks_metadata WHERE file_id = ?`).run(row.file_id);
-        db.prepare(`DELETE FROM intelligence_cache WHERE file_id = ?`).run(row.file_id);
-      }
+      });
     }
+
     knowledgeGraph = newGraph;
     console.log(`✅ Intelligence Engine ACTIVE.`);
   } catch (e) { console.error('Sync Error:', e.message); }

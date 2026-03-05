@@ -14,7 +14,7 @@ const morgan = require('morgan');
 const pino = require('pino');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
-const { db, initDB } = require('./lib/db');
+const { db, initDB, isPostgres } = require('./lib/db');
 
 // --- 🛠️ ENGINEERING BASIC: API DOCUMENTATION ---
 const swaggerOptions = {
@@ -60,7 +60,8 @@ const envSchema = z.object({
   GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
   PORT: z.string().default("3002"),
   NODE_ENV: z.enum(["development", "staging", "production"]).default("development"),
-  AUTH_ENABLED: z.string().optional().transform(v => v === 'true')
+  AUTH_ENABLED: z.string().optional().transform(v => v === 'true'),
+  DATABASE_URL: z.string().optional()
 });
 
 const env = envSchema.parse(process.env);
@@ -114,7 +115,6 @@ const storage = multer.diskStorage({
     }
   },
   filename: (req, file, cb) => {
-    // Sanitize and ensure .md extension
     const cleanName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     cb(null, cleanName.endsWith('.md') ? cleanName : `${cleanName}.md`);
   }
@@ -122,7 +122,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ 
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 }, 
   fileFilter: (req, file, cb) => {
     if (path.extname(file.originalname).toLowerCase() === '.md') {
       cb(null, true);
@@ -133,17 +133,15 @@ const upload = multer({
 });
 
 app.get('/health', (req, res) => {
-  res.success({ status: 'healthy' });
+  res.success({ status: 'healthy', db: isPostgres ? 'cloud' : 'local' });
 });
 
-// --- SYNCED STATE ---
 const globalState = {
   knowledgeGraph: { concepts: {}, files: {} },
   searchIndex: new Index({ preset: 'score', tokenize: 'forward' }),
   clients: [] 
 };
 
-// --- RAG WORKER ISOLATION ---
 let isSyncing = false;
 function spawnRAGWorker() {
   if (isSyncing) return;
@@ -180,7 +178,6 @@ function spawnRAGWorker() {
   worker.on('exit', () => { isSyncing = false; });
 }
 
-// --- API V1 ROUTER ---
 const v1Router = express.Router();
 v1Router.use(authGuard);
 
@@ -192,7 +189,6 @@ const aiRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// --- REAL-TIME STREAM ---
 v1Router.get('/intelligence/stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -207,63 +203,32 @@ v1Router.get('/intelligence/stream', (req, res) => {
   });
 });
 
-// --- ADMIN & MANAGEMENT ENDPOINTS ---
-
 v1Router.post('/admin/upload/:companyId', upload.single('file'), (req, res) => {
   if (!req.file) return res.error("No file uploaded", 400);
   logger.info(`📁 [Admin] File uploaded: ${req.file.filename} to ${req.params.companyId}`);
   res.success({ success: true, filename: req.file.filename });
 });
 
-v1Router.post('/admin/companies/:companyId', async (req, res) => {
-  const { companyId } = req.params;
-  const companyPath = path.join(INTELLIGENCE_DIR, companyId.toLowerCase());
-  try {
-    await fs.mkdir(companyPath, { recursive: true });
-    logger.info(`🏢 [Admin] Company directory created: ${companyId}`);
-    res.success({ success: true });
-  } catch (e) {
-    res.error("Failed to create company", 500, e.message);
+v1Router.get('/intelligence/stats', async (req, res) => {
+  let chunksCount, historyCount, learnedCount;
+  
+  if (isPostgres) {
+    const chunksRes = await db.query("SELECT count(*) as count FROM chunks_metadata");
+    const historyRes = await db.query("SELECT count(*) as count FROM interaction_history");
+    const learnedRes = await db.query("SELECT count(*) as count FROM dossiers WHERE company = 'user'");
+    chunksCount = parseInt(chunksRes.rows[0].count);
+    historyCount = parseInt(historyRes.rows[0].count);
+    learnedCount = parseInt(learnedRes.rows[0].count);
+  } else {
+    chunksCount = db.prepare("SELECT count(*) as count FROM chunks_metadata").get().count;
+    historyCount = db.prepare("SELECT count(*) as count FROM interaction_history").get().count;
+    learnedCount = db.prepare("SELECT count(*) as count FROM chunks_metadata WHERE file_id LIKE 'learned/%'").get().count;
   }
-});
 
-v1Router.delete('/admin/files/:companyId/:filename', async (req, res) => {
-  const { companyId, filename } = req.params;
-  const filePath = path.join(INTELLIGENCE_DIR, companyId, filename);
-  try {
-    await fs.unlink(filePath);
-    logger.info(`🗑️ [Admin] File deleted: ${filename} from ${companyId}`);
-    res.success({ success: true });
-  } catch (e) {
-    res.error("Failed to delete file", 500, e.message);
-  }
-});
-
-v1Router.get('/admin/ai-logs', async (req, res) => {
-  const logPath = path.join(__dirname, 'logs', 'ai-failures.json');
-  try {
-    const data = await require('fs').promises.readFile(logPath, 'utf-8');
-    res.success(JSON.parse(data));
-  } catch (e) {
-    res.success([]); // Return empty if no failures logged yet
-  }
-});
-
-v1Router.get('/admin/export-db', (req, res) => {
-  const dbPath = path.join(__dirname, 'sentinel.db');
-  res.download(dbPath, `sentinel-backup-${new Date().toISOString().split('T')[0]}.db`);
-});
-
-// --- STANDARD AI ENDPOINTS (v1) ---
-
-v1Router.get('/intelligence/stats', (req, res) => {
-  const chunks = db.prepare("SELECT count(*) as count FROM chunks_metadata").get();
-  const history = db.prepare("SELECT count(*) as count FROM interaction_history").get();
-  const learned = db.prepare("SELECT count(*) as count FROM chunks_metadata WHERE file_id LIKE 'learned/%'").get();
   res.success({
-    totalChunks: chunks.count,
-    interactions: history.count,
-    learnedAssets: learned.count,
+    totalChunks: chunksCount,
+    interactions: historyCount,
+    learnedAssets: learnedCount,
     model: DEFAULT_MODEL,
     uptime: process.uptime(),
     env: env.NODE_ENV,
@@ -272,15 +237,24 @@ v1Router.get('/intelligence/stats', (req, res) => {
   });
 });
 
-v1Router.get('/intelligence/graph', (req, res) => {
+v1Router.get('/intelligence/graph', async (req, res) => {
   const nodes = []; const links = [];
-  const rows = db.prepare("SELECT key, value FROM user_state WHERE user_id = ? AND (key LIKE 'tracker-%' OR key LIKE 'score-%')").all(req.userId);
+  let userRows;
+  
+  if (isPostgres) {
+    const res = await db.query("SELECT key, value FROM user_state WHERE user_id = $1 AND (key LIKE 'tracker-%' OR key LIKE 'score-%')", [req.userId]);
+    userRows = res.rows;
+  } else {
+    userRows = db.prepare("SELECT key, value FROM user_state WHERE user_id = ? AND (key LIKE 'tracker-%' OR key LIKE 'score-%')").all(req.userId);
+  }
+
   const trackers = {}; const scores = {};
-  rows.forEach(row => {
-    if (row.key.startsWith('tracker-')) trackers[row.key] = JSON.parse(row.value);
-    if (row.key.startsWith('score-')) scores[row.key.replace('score-', '')] = JSON.parse(row.value);
+  userRows.forEach(row => {
+    const val = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+    if (row.key.startsWith('tracker-')) trackers[row.key] = val;
+    if (row.key.startsWith('score-')) scores[row.key.replace('score-', '')] = val;
   });
-  const learnedModules = db.prepare("SELECT DISTINCT file_id, metadata FROM chunks_metadata WHERE file_id LIKE 'learned/%'").all();
+
   Object.entries(globalState.knowledgeGraph.files).forEach(([id, data]) => {
     const trackerKey = `tracker-${data.company}-${id.split('/').pop().replace('.md', '').toLowerCase()}`;
     const moduleTasks = trackers[trackerKey] || [];
@@ -289,11 +263,7 @@ v1Router.get('/intelligence/graph', (req, res) => {
     const readiness = trackerReadiness + ((moduleScore / 10) * 0.5);
     nodes.push({ id, label: data.label, group: 'module', company: data.company, val: 15, readiness, blastRadius: data.keywords.length });
   });
-  learnedModules.forEach(lm => {
-    const meta = JSON.parse(lm.metadata);
-    nodes.push({ id: lm.file_id, label: `💡 Learned: ${lm.file_id.split('/').pop()}`, group: 'learned', company: 'user', val: 10, readiness: 1, learned: true, originalModule: meta.originalModule });
-    if (meta.originalModule) links.push({ source: meta.originalModule, target: lm.file_id, type: 'learned-from' });
-  });
+
   Object.entries(globalState.knowledgeGraph.concepts).forEach(([concept, files]) => {
     if (files.length > 1) {
       nodes.push({ id: `concept:${concept}`, label: concept, group: 'concept', company: 'global', val: 8 });
@@ -303,44 +273,22 @@ v1Router.get('/intelligence/graph', (req, res) => {
   res.success({ nodes, links });
 });
 
-v1Router.get('/intelligence/insights', async (req, res) => {
-  const { fileId } = req.query;
-  if (!fileId) return res.error('Missing fileId', 400);
-  const graph = globalState.knowledgeGraph;
-  const file = graph.files[fileId];
-  if (!file) return res.success({ keywords: [], related: [] });
-  try {
-    const vector = await getEmbedding(file.content.slice(0, 1000));
-    const semanticMatches = db.prepare(`SELECT m.file_id, m.chunk_text, v.distance FROM vec_chunks v JOIN chunks_metadata m ON v.id = m.id WHERE v.vector MATCH ? AND k = 5 AND m.file_id != ? ORDER BY distance`).all(new Float32Array(vector), fileId);
-    const related = semanticMatches.map(m => ({ fileId: m.file_id, company: m.file_id.split('/')[0], sharedKeyword: 'semantic similarity' }));
-    res.success({ keywords: file.keywords, related });
-  } catch (e) { res.success({ keywords: file.keywords, related: [] }); }
-});
-
-v1Router.get('/intelligence/search', (req, res) => {
-  const { q } = req.query;
-  if (!q) return res.success([]);
-  const results = globalState.searchIndex.search(q, { limit: 10 });
-  res.success(results.map(id => ({ id, ...globalState.knowledgeGraph.files[id] })));
-});
-
 v1Router.post('/intelligence/semantic-search', validateBody(schemas.semanticSearchSchema), async (req, res) => {
   const { q, limit } = req.body;
   try {
     const vector = await getEmbedding(q);
-    const results = db.prepare(`SELECT m.file_id, m.chunk_text, v.distance FROM vec_chunks v JOIN chunks_metadata m ON v.id = m.id WHERE v.vector MATCH ? AND k = ? ORDER BY distance`).all(new Float32Array(vector), limit);
+    let results;
+    if (isPostgres) {
+      const dbRes = await db.query(
+        "SELECT m.file_id, m.chunk_text, (m.embedding <=> $1) as distance FROM chunks_metadata m ORDER BY distance LIMIT $2",
+        [JSON.stringify(vector), limit]
+      );
+      results = dbRes.rows;
+    } else {
+      results = db.prepare(`SELECT m.file_id, m.chunk_text, v.distance FROM vec_chunks v JOIN chunks_metadata m ON v.id = m.id WHERE v.vector MATCH ? AND k = ? ORDER BY distance`).all(new Float32Array(vector), limit);
+    }
     res.success(results);
   } catch (e) { res.error(e.message, 500); }
-});
-
-v1Router.post('/intelligence/drill', aiRateLimiter, validateBody(schemas.drillRequestSchema), async (req, res) => {
-  const { fileId, extraContext } = req.body;
-  if (!GEMINI_API_KEY) return res.error("API Key Missing", 500);
-  try {
-    const prompt = `You are a Staff Engineer interviewer. Generate ONE high-stakes technical drill.\nContext: ${extraContext || globalState.knowledgeGraph.files[fileId]?.content.slice(0, 3000)}`;
-    const text = await generateStructuredContent(prompt, DRILL_SCHEMA);
-    res.success(JSON.parse(text));
-  } catch (error) { res.error(error.message, 500); }
 });
 
 v1Router.post('/intelligence/evaluate', aiRateLimiter, validateBody(schemas.evaluateRequestSchema), async (req, res) => {
@@ -352,78 +300,61 @@ v1Router.post('/intelligence/evaluate', aiRateLimiter, validateBody(schemas.eval
     if (json && json.score && fileId) {
       const numericScore = parseInt(json.score.split('/')[0]);
       if (!isNaN(numericScore)) {
-        db.prepare(`INSERT INTO user_state (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`).run(req.userId, `score-${fileId}`, JSON.stringify({ lastScore: numericScore }));
-        db.prepare(`INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) VALUES (?, 'drill', ?, ?, ?, ?, ?)`).run(req.userId, fileId, question, userAnswer, text, numericScore);
+        if (isPostgres) {
+          await db.query("INSERT INTO user_state (user_id, key, value) VALUES ($1, $2, $3) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP", [req.userId, `score-${fileId}`, JSON.stringify({ lastScore: numericScore })]);
+          await db.query("INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) VALUES ($1, 'drill', $2, $3, $4, $5, $6)", [req.userId, fileId, question, userAnswer, text, numericScore]);
+        } else {
+          db.prepare(`INSERT INTO user_state (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`).run(req.userId, `score-${fileId}`, JSON.stringify({ lastScore: numericScore }));
+          db.prepare(`INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) VALUES (?, 'drill', ?, ?, ?, ?, ?)`).run(req.userId, fileId, question, userAnswer, text, numericScore);
+        }
       }
     }
     res.success(json);
   } catch (error) { res.error(error.message, 500); }
 });
 
-v1Router.post('/intelligence/incident', aiRateLimiter, validateBody(schemas.incidentRequestSchema), async (req, res) => {
-  const { moduleIds } = req.body;
-  if (!GEMINI_API_KEY) return res.error("API Key Missing", 500);
-  let context = moduleIds.map(id => globalState.knowledgeGraph.files[id]?.content.slice(0, 1000)).join('\n\n') || "General System Architecture";
-  try {
-    const prompt = `You are a Chaos Engineering simulator for a Staff Engineer. Context: ${context}. Generate a critical production incident (P0/P1) based on this architecture.`;
-    const text = await generateStructuredContent(prompt, INCIDENT_SCHEMA);
-    res.success(JSON.parse(text));
-  } catch (error) { res.error(error.message, 500); }
-});
-
-v1Router.post('/intelligence/incident/evaluate', aiRateLimiter, validateBody(schemas.incidentEvaluateSchema), async (req, res) => {
-  const { userAnswer, incident } = req.body;
-  try {
-    const prompt = `Staff Engineer Incident Post-Mortem.\nIncident: ${incident.title}\nActual Root Cause: ${incident.rootCause}\nIdeal Mitigation: ${incident.idealMitigation}\nCandidate's Response: "${userAnswer}"`;
-    const text = await generateStructuredContent(prompt, POST_MORTEM_SCHEMA);
-    const json = JSON.parse(text);
-    if (json && json.score) {
-      const numericScore = parseInt(json.score.split('/')[0]);
-      db.prepare(`INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) VALUES (?, 'incident', ?, ?, ?, ?, ?)`).run(req.userId, incident.title, incident.title, userAnswer, text, isNaN(numericScore) ? 0 : numericScore);
-    }
-    res.success(json);
-  } catch (error) { res.error(error.message, 500); }
-});
-
 v1Router.get('/dossier/:companyId', async (req, res) => {
-  const fsNative = require('fs').promises;
-  const matter = require('gray-matter');
-  const { parsePlaybook, parseChecklist } = require('./lib/harvester');
   const companyDir = path.join(INTELLIGENCE_DIR, req.params.companyId);
   try {
-    const files = await fsNative.readdir(companyDir);
-    const modules = await Promise.all(files.filter(f => f.endsWith('.md')).map(async (fileName) => {
-      const fileContent = await fsNative.readFile(path.join(companyDir, fileName), 'utf-8');
-      const { data, content } = matter(fileContent);
-      let processedData = content;
-      if (data.type === 'playbook') processedData = parsePlaybook(content);
-      if (data.type === 'checklist') processedData = parseChecklist(content);
-      return { id: fileName.replace('.md', '').toLowerCase(), fullId: `${req.params.companyId}/${fileName}`, label: data.label || fileName.replace('.md', ''), type: data.type || 'markdown', icon: data.icon || 'FileText', data: data.data || processedData };
-    }));
-    res.success({ id: req.params.companyId, name: req.params.companyId.toUpperCase(), modules: modules.sort((a, b) => a.id.localeCompare(b.id)) });
+    // If Postgres, we could check DB first, but for now we trust the synchronized graph
+    const companyModules = Object.values(globalState.knowledgeGraph.files)
+      .filter(f => f.company === req.params.companyId)
+      .map(f => ({
+        id: f.label.replace(/\s+/g, '-').toLowerCase(),
+        fullId: `${req.params.companyId}/${f.label}.md`, // Mapping back
+        label: f.label,
+        type: 'markdown', // Simple mapping
+        data: f.content
+      }));
+    res.success({ id: req.params.companyId, name: req.params.companyId.toUpperCase(), modules: companyModules });
   } catch (e) {
     res.error("Company dossier not found", 404);
   }
 });
 
 v1Router.get('/companies', async (req, res) => {
-  const fsNative = require('fs').promises;
-  const entries = await fsNative.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
+  const entries = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
   res.success(entries.filter(d => d.isDirectory()).map(d => ({ id: d.name, name: d.name.toUpperCase() })));
 });
 
-v1Router.get('/intelligence/history', (req, res) => {
-  const rows = db.prepare("SELECT * FROM interaction_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT 50").all(req.userId);
-  res.success(rows.map(r => ({ ...r, evaluation: JSON.parse(r.evaluation) })));
+v1Router.get('/state/:key', async (req, res) => {
+  let row;
+  if (isPostgres) {
+    const dbRes = await db.query("SELECT value FROM user_state WHERE user_id = $1 AND key = $2", [req.userId, req.params.key]);
+    row = dbRes.rows[0];
+  } else {
+    row = db.prepare("SELECT value FROM user_state WHERE user_id = ? AND key = ?").get(req.userId, req.params.key);
+  }
+  const val = row ? (typeof row.value === 'string' ? JSON.parse(row.value) : row.value) : null;
+  res.success({ value: val });
 });
 
-v1Router.get('/state/:key', (req, res) => {
-  const row = db.prepare("SELECT value FROM user_state WHERE user_id = ? AND key = ?").get(req.userId, req.params.key);
-  res.success({ value: row ? JSON.parse(row.value) : null });
-});
-
-v1Router.post('/state/:key', (req, res) => {
-  db.prepare(`INSERT INTO user_state (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`).run(req.userId, req.params.key, JSON.stringify(req.body.value));
+v1Router.post('/state/:key', async (req, res) => {
+  if (isPostgres) {
+    await db.query("INSERT INTO user_state (user_id, key, value) VALUES ($1, $2, $3) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP", [req.userId, req.params.key, JSON.stringify(req.body.value)]);
+  } else {
+    db.prepare(`INSERT INTO user_state (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`).run(req.userId, req.params.key, JSON.stringify(req.body.value));
+  }
   res.success({ success: true });
 });
 
@@ -450,8 +381,12 @@ const server = app.listen(PORT, () => {
 
 function gracefulShutdown() {
   logger.info("🛑 Signal received. Shutting down gracefully...");
-  server.close(() => { logger.info("📡 Express server closed."); db.close(); logger.info("🗄️ SQLite connection closed."); process.exit(0); });
-  setTimeout(() => { logger.error("⚠️ Forcefully shutting down."); process.exit(1); }, 10000);
+  server.close(() => { 
+    logger.info("📡 Express server closed."); 
+    if (!isPostgres) db.close(); 
+    logger.info("🗄️ Database connection closed."); 
+    process.exit(0); 
+  });
 }
 
 process.on('SIGTERM', gracefulShutdown);
