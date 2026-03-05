@@ -22,7 +22,7 @@ import { AnimatePresence } from 'framer-motion';
 import { DossierContext, useDossierContext } from './lib/context';
 
 const KnowledgeGraph = lazy(() =>
-  import('./components/KnowledgeGraph').then((module) => ({ default: module.KnowledgeGraph }))
+  import('./components/KnowledgeGraph').then((module) => ({ default: (module as any).KnowledgeGraph }))
 );
 
 const MainView = () => {
@@ -64,10 +64,9 @@ const MainView = () => {
     return () => eventSource.close();
   }, [queryClient]);
 
-  // DERIVE state instead of setting it in effects to avoid cascading renders
   const activeModule = useMemo(() => {
     if (!dossierData.dossier?.modules) return null;
-    return dossierData.dossier.modules.find((m) => m.id === activeModuleId) || dossierData.dossier.modules[0];
+    return dossierData.dossier.modules.find((m: any) => m.id === activeModuleId) || dossierData.dossier.modules[0];
   }, [dossierData.dossier, activeModuleId]);
 
   const resetViews = useCallback(() => {
@@ -92,7 +91,7 @@ const MainView = () => {
     <div className="flex h-screen font-sans text-neutral-200 overflow-hidden bg-[#050505] selection:bg-cyan-500/30">
       <Sidebar
         activeModuleId={activeModule?.id || ''}
-        setActiveModuleId={(id) => {
+        setActiveModuleId={(id: string) => {
           setActiveModuleId(id);
           resetViews();
         }}
@@ -115,7 +114,7 @@ const MainView = () => {
               }}
               className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs font-medium text-neutral-300 outline-none focus:border-white/20 transition-all uppercase tracking-widest cursor-pointer"
             >
-              {dossierData.allCompanies.map((c) => (
+              {dossierData.allCompanies.map((c: any) => (
                 <option key={c.id} value={c.id}>
                   {c.name} Profile
                 </option>
@@ -176,7 +175,7 @@ const MainView = () => {
 
           <div className="flex items-center gap-4">
             <DeepSearch
-              onSelect={(id) => {
+              onSelect={(id: string) => {
                 setActiveModuleId(id);
                 resetViews();
               }}
@@ -237,9 +236,8 @@ const MainView = () => {
         {isGraphOpen && (
           <Suspense fallback={null}>
             <KnowledgeGraph
-              isOpen={isGraphOpen}
               onClose={() => setIsGraphOpen(false)}
-              onSelectModule={(id) => {
+              onSelectModule={(id: string) => {
                 setActiveModuleId(id);
                 setIsGraphOpen(false);
               }}

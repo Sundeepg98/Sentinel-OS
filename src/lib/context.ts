@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { CompanyDossier } from './types';
+import type { CompanyDossier } from '../types';
 
 export interface DossierContextType {
   dossier: CompanyDossier | null;
