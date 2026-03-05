@@ -20,11 +20,12 @@ interface Stats {
 export const Diagnostics: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { dossier, allCompanies } = useDossierContext();
-  const [activeTab, setActiveTab] = useState<'stats' | 'knowledge'>('stats');
+  const dossierData = useDossierContext();
+  const { dossier, allCompanies } = dossierData;
+  const [activeTab, setActiveTab] = useState<'stats' | 'knowledge' | 'ai-logs'>('stats');
   const [uploading, setUploading] = useState(false);
 
-  const { data: stats, isLoading, refetch, isFetching } = useQuery<Stats>({
+  const { data: stats, refetch, isFetching } = useQuery<Stats>({
     queryKey: ['stats'],
     queryFn: async () => {
       const res = await fetch('/api/v1/intelligence/stats');
@@ -32,6 +33,17 @@ export const Diagnostics: React.FC = () => {
       return res.json();
     },
     refetchInterval: 30000,
+  });
+
+  // 🕵️ AI FAILURE LOGS QUERY
+  const { data: aiLogs = [] } = useQuery<any[]>({
+    queryKey: ['ai-logs'],
+    queryFn: async () => {
+      const res = await fetch('/api/v1/admin/ai-logs');
+      if (!res.ok) throw new Error('Failed to fetch AI logs');
+      return res.json();
+    },
+    enabled: activeTab === 'ai-logs',
   });
 
   // 📁 FILE DELETION MUTATION
@@ -112,6 +124,15 @@ export const Diagnostics: React.FC = () => {
           >
             Knowledge Base
           </button>
+          <button 
+            onClick={() => setActiveTab('ai-logs')}
+            className={cn(
+              "px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
+              activeTab === 'ai-logs' ? "bg-white/10 text-white shadow-lg" : "text-neutral-500 hover:text-neutral-300"
+            )}
+          >
+            AI Logs
+          </button>
         </div>
       </div>
 
@@ -170,7 +191,7 @@ export const Diagnostics: React.FC = () => {
               </div>
             </div>
           </motion.div>
-        ) : (
+        ) : activeTab === 'knowledge' ? (
           <motion.div 
             key="knowledge"
             initial={{ opacity: 0, x: 20 }}
@@ -203,7 +224,6 @@ export const Diagnostics: React.FC = () => {
                         .then(() => {
                           toast(`Context ${name} created.`, "success");
                           queryClient.invalidateQueries({ queryKey: ['companies'] });
-                          // Auto-navigate to the new context
                           dossierData.setCompany(cleanName);
                         })
                         .catch(e => toast(e.message, "error"));
@@ -256,11 +276,53 @@ export const Diagnostics: React.FC = () => {
                   </div>
                 </div>
               ))}
-              {dossier?.modules.length === 0 && (
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="ai-logs"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-8"
+          >
+            <div className="flex items-center gap-4">
+              <Shield className="text-rose-500" size={24} />
+              <div>
+                <h3 className="text-lg font-bold text-white uppercase tracking-widest">AI Failure Logs</h3>
+                <p className="text-neutral-500 text-xs font-mono">Last 100 System Exceptions & Prompt Errors</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {aiLogs.length === 0 ? (
                 <div className="py-20 text-center border-2 border-dashed border-white/[0.05] rounded-2xl">
-                  <FileText className="w-12 h-12 text-neutral-700 mx-auto mb-4" />
-                  <p className="text-neutral-500 text-sm">No technical documents found in this dossier folder.</p>
+                  <CheckCircle2 className="w-12 h-12 text-emerald-900 mx-auto mb-4" />
+                  <p className="text-neutral-500 text-sm">No AI failures recorded. System is 100% stable.</p>
                 </div>
+              ) : (
+                aiLogs.map((log, i) => (
+                  <div key={i} className="bg-[#0d0d0d] border border-rose-500/10 p-6 rounded-xl space-y-4 shadow-xl">
+                    <div className="flex justify-between items-start">
+                      <span className="px-2 py-1 bg-rose-500/10 text-rose-500 text-[10px] font-bold rounded uppercase tracking-tighter">
+                        {log.type} FAILURE
+                      </span>
+                      <span className="text-[10px] text-neutral-600 font-mono">{log.timestamp}</span>
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Original Prompt</h4>
+                      <pre className="bg-black/40 p-4 rounded-lg text-[11px] text-neutral-400 font-mono whitespace-pre-wrap border border-white/5 max-h-40 overflow-y-auto italic">
+                        {log.prompt}
+                      </pre>
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-2">Error Message</h4>
+                      <p className="text-[12px] text-neutral-300 font-mono leading-relaxed">
+                        {log.error}
+                      </p>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           </motion.div>
@@ -282,4 +344,3 @@ const StatCard = ({ icon, label, value, sub }: { icon: any, label: string, value
     </div>
   </div>
 );
-

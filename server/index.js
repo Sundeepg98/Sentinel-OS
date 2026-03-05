@@ -222,6 +222,16 @@ v1Router.delete('/admin/files/:companyId/:filename', async (req, res) => {
   }
 });
 
+v1Router.get('/admin/ai-logs', async (req, res) => {
+  const logPath = path.join(__dirname, 'logs', 'ai-failures.json');
+  try {
+    const data = await require('fs').promises.readFile(logPath, 'utf-8');
+    res.json(JSON.parse(data));
+  } catch (e) {
+    res.json([]); // Return empty if no failures logged yet
+  }
+});
+
 v1Router.get('/admin/export-db', (req, res) => {
   const dbPath = path.join(__dirname, 'sentinel.db');
   res.download(dbPath, `sentinel-backup-${new Date().toISOString().split('T')[0]}.db`);

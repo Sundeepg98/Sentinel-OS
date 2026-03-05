@@ -8,6 +8,7 @@ import { WarRoom } from './views/WarRoom';
 import { Diagnostics } from './views/Diagnostics';
 import { Tracker } from './views/Tracker';
 import { MarkdownView } from './views/MarkdownView';
+import { SystemDesign } from './views/SystemDesign';
 import { InsightPanel } from './components/InsightPanel';
 import { useDossier } from './hooks/useDossier';
 import type { CompanyDossier } from './types';
@@ -111,6 +112,8 @@ function App() {
         return <Tracker data={activeModule.data} label={activeModule.label} moduleId={activeModule.id} />;
       case 'playbook':
         return <Internals data={activeModule.data} label={activeModule.label} />;
+      case 'map':
+        return <SystemDesign data={activeModule.data} label={activeModule.label} />;
       default:
         return <MarkdownView data={typeof activeModule.data === 'string' ? activeModule.data : JSON.stringify(activeModule.data)} label={activeModule.label} />;
     }

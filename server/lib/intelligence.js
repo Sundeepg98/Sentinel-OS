@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const path = require('path');
+const fs = require('fs').promises;
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -50,6 +51,33 @@ const POST_MORTEM_SCHEMA = {
   required: ["score", "feedback"]
 };
 
+async function logAiFailure(type, prompt, error) {
+  const logPath = path.join(__dirname, '..', 'logs', 'ai-failures.json');
+  const entry = {
+    timestamp: new Date().toISOString(),
+    type,
+    prompt,
+    error: error.message || error,
+    stack: error.stack
+  };
+  
+  try {
+    let currentLogs = [];
+    try {
+      const data = await fs.readFile(logPath, 'utf-8');
+      currentLogs = JSON.parse(data);
+    } catch (e) {
+      // File doesn't exist yet, start new array
+    }
+    currentLogs.push(entry);
+    // Keep only last 100 failures
+    if (currentLogs.length > 100) currentLogs = currentLogs.slice(-100);
+    await fs.writeFile(logPath, JSON.stringify(currentLogs, null, 2));
+  } catch (e) {
+    console.error("Failed to write AI failure log:", e.message);
+  }
+}
+
 async function generateStructuredContent(prompt, schema) {
   const model = genAI.getGenerativeModel({ 
     model: DEFAULT_MODEL,
@@ -58,8 +86,14 @@ async function generateStructuredContent(prompt, schema) {
       responseSchema: schema
     }
   });
-  const result = await model.generateContent(prompt);
-  return (await result.response).text();
+  
+  try {
+    const result = await model.generateContent(prompt);
+    return (await result.response).text();
+  } catch (error) {
+    await logAiFailure("generation", prompt, error);
+    throw error;
+  }
 }
 
 async function getEmbedding(text) {
@@ -80,6 +114,7 @@ async function getEmbedding(text) {
 module.exports = { 
   getEmbedding, 
   generateStructuredContent,
+  logAiFailure,
   DRILL_SCHEMA,
   INCIDENT_SCHEMA,
   EVAL_SCHEMA,
