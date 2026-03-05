@@ -47,7 +47,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   const recognitionRef = useRef<any>(null);
 
   // 1. Fetch Insights (Keywords & Related)
-  const { data, isLoading, isFetching } = useQuery<InsightData>({
+  const { data, isLoading } = useQuery<InsightData>({
     queryKey: ['insights', fullId],
     queryFn: async () => {
       const res = await fetch(`/api/v1/intelligence/insights?fileId=${encodeURIComponent(fullId)}`);

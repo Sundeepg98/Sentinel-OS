@@ -247,7 +247,7 @@ function App() {
         <AnimatePresence>
           {isGraphOpen && (
             <Suspense fallback={null}>
-              <KnowledgeGraph onClose={() => setIsGraphOpen(false)} />
+              <KnowledgeGraph isOpen={isGraphOpen} onClose={() => setIsGraphOpen(false)} onSelectModule={(id) => { setActiveModuleId(id); setIsGraphOpen(false); }} />
             </Suspense>
           )}
         </AnimatePresence>
