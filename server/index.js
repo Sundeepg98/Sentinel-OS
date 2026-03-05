@@ -73,6 +73,17 @@ const FRONTEND_DIST = path.join(__dirname, '..', 'dist');
 // Initialize Core Systems
 initDB();
 
+// Ensure Logs Directory Exists
+const ensureLogsDir = async () => {
+  const logDir = path.join(__dirname, 'logs');
+  try {
+    await fs.mkdir(logDir, { recursive: true });
+  } catch (err) {
+    logger.error('Failed to create logs directory:', err);
+  }
+};
+ensureLogsDir();
+
 // --- 🛡️ ENGINEERING BASIC: GLOBAL SECURITY & RATE LIMITING ---
 app.use(helmet({
   contentSecurityPolicy: {
