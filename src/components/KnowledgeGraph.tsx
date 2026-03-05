@@ -15,6 +15,8 @@ import {
   EdgeDetectionMode
 } from 'postprocessing';
 import { cn } from '../lib/utils';
+import { useAuth } from '@clerk/clerk-react';
+import { fetchWithAuth } from '../lib/api';
 
 interface KnowledgeGraphProps {
   isOpen: boolean;
@@ -24,6 +26,7 @@ interface KnowledgeGraphProps {
 
 export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose, onSelectModule }) => {
   const { setCompany } = useDossierContext();
+  const { getToken } = useAuth();
   const graphRef = useRef<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
@@ -54,8 +57,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
 
   useEffect(() => {
     if (isOpen) {
-      fetch('/api/v1/intelligence/graph')
-        .then(res => res.json())
+      fetchWithAuth('/api/v1/intelligence/graph', getToken)
         .then(data => {
           const nodesById = Object.fromEntries(data.nodes.map((n: any) => [n.id, { ...n, neighbors: [], links: [] }]));
           data.links.forEach((link: any) => {
@@ -73,9 +75,10 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
             weight: n.group === 'module' ? 10 : n.group === 'learned' ? 8 : Math.min(Math.max(n.neighbors.length || 1, 2), 8)
           }));
           setGraphData({ nodes: weightedNodes, links: data.links });
-        });
+        })
+        .catch(err => console.error('Graph Load Error:', err));
     }
-  }, [isOpen]);
+  }, [isOpen, getToken]);
 
   useEffect(() => {
     if (isOpen && containerRef.current) {
@@ -120,7 +123,8 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
       };
       
       if (graphRef.current) {
-        graphRef.current.pauseAnimation();
+        // We let the physics engine run (NO pauseAnimation)
+        // Our manual render loop will render the composer which uses the scene
         renderLoop();
       }
 
@@ -140,7 +144,6 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
 
       return () => {
         cancelAnimationFrame(animationFrameId);
-        if (graphRef.current) graphRef.current.resumeAnimation();
         composer.dispose();
       };
     }
@@ -258,7 +261,9 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     if (node.group === 'module') {
       const [companyId, fileName] = node.id.split('/');
       const moduleId = fileName.replace('.md', '');
-      graphRef.current.cameraPosition({ x: node.x * 1.5, y: node.y * 1.5, z: node.z * 1.5 }, node, 800);
+      if (graphRef.current) {
+        graphRef.current.cameraPosition({ x: node.x * 1.5, y: node.y * 1.5, z: node.z * 1.5 }, node, 800);
+      }
       setTimeout(() => {
         setCompany(companyId);
         onSelectModule(moduleId);

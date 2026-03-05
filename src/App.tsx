@@ -21,8 +21,9 @@ import { cn } from './lib/utils';
 import { AnimatePresence } from 'framer-motion';
 import { DossierContext, useDossierContext } from './lib/context';
 
+// Properly type the lazy loaded component to avoid TS errors
 const KnowledgeGraph = lazy(() =>
-  import('./components/KnowledgeGraph').then((module) => ({ default: (module as any).KnowledgeGraph }))
+  import('./components/KnowledgeGraph').then((module) => ({ default: module.KnowledgeGraph }))
 );
 
 const MainView = () => {
@@ -235,7 +236,14 @@ const MainView = () => {
       <AnimatePresence>
         {isGraphOpen && (
           <Suspense fallback={null}>
-            <KnowledgeGraph />
+            <KnowledgeGraph
+              isOpen={isGraphOpen}
+              onClose={() => setIsGraphOpen(false)}
+              onSelectModule={(id: string) => {
+                setActiveModuleId(id);
+                setIsGraphOpen(false);
+              }}
+            />
           </Suspense>
         )}
       </AnimatePresence>
