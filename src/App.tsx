@@ -13,6 +13,8 @@ import { Loader2, AlertCircle, Network, Swords, Terminal } from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { ToastProvider } from './hooks/useToast';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { cn } from './lib/utils';
+import { AnimatePresence } from 'framer-motion';
 
 const KnowledgeGraph = lazy(() => import('./components/KnowledgeGraph').then(module => ({ default: module.KnowledgeGraph })));
 

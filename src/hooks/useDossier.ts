@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { CompanyDossier } from '../types';
 
@@ -8,12 +8,19 @@ interface CompanyListItem {
 }
 
 export function useDossier() {
-  const [companyId, setCompanyId] = useState<string>(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('company') || localStorage.getItem('active-company') || 'mailin';
-  });
+  // 1. Get active company from URL directly (Single Source of Truth)
+  const [searchParams, setSearchParams] = useState(new URLSearchParams(window.location.search));
 
-  // 1. Discover available companies
+  // Listen for browser navigation (back/forward)
+  useEffect(() => {
+    const handlePopState = () => setSearchParams(new URLSearchParams(window.location.search));
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const companyId = searchParams.get('company') || localStorage.getItem('active-company') || 'mailin';
+
+  // 2. Discover available companies
   const { data: allCompanies = [] } = useQuery<CompanyListItem[]>({
     queryKey: ['companies'],
     queryFn: async () => {
@@ -23,14 +30,7 @@ export function useDossier() {
     }
   });
 
-  // Sync companyId if it's not in the list
-  useEffect(() => {
-    if (allCompanies.length > 0 && !allCompanies.find((c) => c.id === companyId)) {
-      setCompanyId(allCompanies[0].id);
-    }
-  }, [allCompanies, companyId]);
-
-  // 2. Fetch active dossier
+  // 3. Fetch active dossier
   const { data: dossier = null, isLoading } = useQuery<CompanyDossier>({
     queryKey: ['dossier', companyId],
     queryFn: async () => {
@@ -42,11 +42,12 @@ export function useDossier() {
   });
 
   const setCompany = (id: string) => {
-    setCompanyId(id);
     localStorage.setItem('active-company', id);
     const url = new URL(window.location.href);
     url.searchParams.set('company', id);
-    window.history.pushState({}, '', url);
+    window.history.pushState({}, '', url.toString());
+    // Trigger a state update to re-render components using the hook
+    setSearchParams(new URLSearchParams(url.search));
   };
 
   return {
