@@ -3,7 +3,7 @@ import { Search, X, Command, SearchCode, Brain } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@clerk/clerk-react';
-import { useDossierContext } from '../App';
+import { useDossierContext } from '../lib/context';
 import { cn } from '../lib/utils';
 import { fetchWithAuth } from '../lib/api';
 

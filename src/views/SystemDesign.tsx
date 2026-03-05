@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Network, FastForward, Layers, GitPullRequest, Box, Code2, ArrowRight, BrainCircuit, Eye, EyeOff } from 'lucide-react';
 import { CodeBlock } from '../components/ui/CodeBlock';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useDossierContext } from '../App';
+import { useDossierContext } from '../lib/context';
 import { cn } from '../lib/utils';
 
 const PatternCard: React.FC<{ sys: any, studyMode: boolean }> = ({ sys, studyMode }) => {

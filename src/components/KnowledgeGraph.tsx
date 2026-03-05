@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import ForceGraph3D from 'react-force-graph-3d';
-import { useDossierContext } from '../App';
+import { useDossierContext } from '../lib/context';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Network, X, Maximize2, Zap, Cpu, AlertCircle, Play } from 'lucide-react';
 import * as THREE from 'three';

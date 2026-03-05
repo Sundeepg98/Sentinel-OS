@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Terminal, ShieldAlert, CheckSquare, XCircle, BrainCircuit, Eye, EyeOff } from 'lucide-react';
 import { StatusCard } from '../components/ui/StatusCard';
-import { useDossierContext } from '../App';
+import { useDossierContext } from '../lib/context';
 import { cn } from '../lib/utils';
 
 interface DashboardProps {

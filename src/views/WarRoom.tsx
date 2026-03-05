@@ -3,7 +3,7 @@ import { Terminal, AlertTriangle, Clock, Shield, Play, Send, Loader2, RefreshCw,
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMutation } from '@tanstack/react-query';
 import { useAuth } from '@clerk/clerk-react';
-import { useDossierContext } from '../App';
+import { useDossierContext } from '../lib/context';
 import { Whiteboard } from '../components/Whiteboard';
 import { cn } from '../lib/utils';
 import { useToast } from '../hooks/useToast';

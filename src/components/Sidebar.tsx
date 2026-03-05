@@ -1,7 +1,7 @@
 import React from 'react';
 import * as Icons from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useDossierContext } from '../App';
+import { useDossierContext } from '../lib/context';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 
 interface SidebarProps {

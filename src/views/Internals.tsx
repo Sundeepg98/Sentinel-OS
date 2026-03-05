@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Shield, AlertCircle, CheckCircle2, BrainCircuit, Eye, EyeOff } from 'lucide-react';
-import { useDossierContext } from '../App';
+import { useDossierContext } from '../lib/context';
 import { cn } from '../lib/utils';
 
 interface InternalsProps {
