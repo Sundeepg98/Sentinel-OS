@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import ForceGraph3D from 'react-force-graph-3d';
 import { useDossierContext } from '../lib/context';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Network, X, Maximize2, Zap, Cpu, AlertCircle, Play, ChevronRight, Activity, ShieldAlert, FileText } from 'lucide-react';
+import { Network, X, Maximize2, Zap, Cpu, AlertCircle, Play, ChevronRight, Activity, ShieldAlert, FileText, Loader2 } from 'lucide-react';
 import * as THREE from 'three';
 import SpriteText from 'three-spritetext';
 import { 
