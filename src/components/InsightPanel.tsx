@@ -1,219 +1,155 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Brain, Sparkles, Hash, Loader2, Mic, MicOff, PenTool, X } from 'lucide-react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { Brain, Hash, Loader2, Mic, MicOff, Search, Sparkles } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@clerk/clerk-react';
-import { Whiteboard } from './Whiteboard';
+import { fetchWithAuth } from '../lib/api';
 import { cn } from '../lib/utils';
 import { useToast } from '../hooks/useToast';
-import { fetchWithAuth } from '../lib/api';
-
-interface InsightData {
-  keywords: string[];
-  related: Array<{
-    fileId: string;
-    company: string;
-    sharedKeyword: string;
-  }>;
-}
-
-interface DrillData {
-  question: string;
-  idealResponse: string;
-}
-
-interface EvalData {
-  score: string;
-  feedback: string;
-  followUp: string;
-}
 
 interface InsightPanelProps {
   fullId: string;
   brandColor?: string;
 }
 
-const getUUID = () => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-  return Math.random().toString(36).substring(2, 15);
-};
+interface EvaluationData {
+  score: string;
+  feedback: string;
+}
 
-export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
-  const { toast } = useToast();
+export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId, brandColor }) => {
   const { getToken } = useAuth();
-  const [drill, setDrill] = useState<DrillData | null>(null);
+  const { showToast } = useToast();
+  const queryClient = useQueryClient();
+  const [drill, setDrill] = useState<any>(null);
+  const [evalData, setEvalData] = useState<EvaluationData | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
-  const [evalData, setEvalData] = useState<EvalData | null>(null);
-  const [sessionId, setSessionId] = useState(getUUID());
-  const [showCanvas, setShowCanvas] = useState(false);
-
   const [isRecording, setIsRecording] = useState(false);
-  const recognitionRef = useRef<any>(null);
 
-  // 1. Fetch Insights
-  const { data, isLoading } = useQuery<InsightData>({
+  // 1. Fetch Insights (Keywords)
+  // We use a robust key based on fullId
+  const { data, isLoading, error } = useQuery({
     queryKey: ['insights', fullId],
     queryFn: () => fetchWithAuth(`/api/v1/intelligence/insights?fileId=${encodeURIComponent(fullId)}`, getToken),
     enabled: !!fullId,
-    placeholderData: (previousData) => previousData,
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
   });
 
   useEffect(() => {
+    // Reset internal state when document changes
     setDrill(null);
     setEvalData(null);
     setUserAnswer('');
-    setShowCanvas(false);
-    setSessionId(getUUID());
   }, [fullId]);
 
-  // 2. Drill Mutation
-  const drillMutation = useMutation({
+  const generateDrill = useMutation({
     mutationFn: () => fetchWithAuth('/api/v1/intelligence/drill', getToken, {
       method: 'POST',
       body: JSON.stringify({ fileId: fullId })
     }),
     onSuccess: (data) => setDrill(data),
-    onError: (error: any) => toast(error.message || "Failed to generate drill", "error"),
+    onError: () => showToast('Failed to generate technical drill', 'error')
   });
 
-  // 3. Evaluation Mutation
-  const evalMutation = useMutation({
+  const evaluateDrill = useMutation({
     mutationFn: () => fetchWithAuth('/api/v1/intelligence/evaluate', getToken, {
       method: 'POST',
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         fileId: fullId,
-        question: drill?.question, 
-        idealResponse: drill?.idealResponse, 
-        userAnswer,
-        sessionId 
+        question: drill.question,
+        idealResponse: drill.idealResponse,
+        userAnswer
       })
     }),
     onSuccess: (data) => {
-      if (data) {
-        setEvalData(data);
-        toast("Evaluation complete.", "success");
-      }
+      setEvalData(data);
+      queryClient.invalidateQueries({ queryKey: ['graph'] });
     },
-    onError: (error: any) => toast(error.message || "Failed to evaluate", "error"),
+    onError: () => showToast('Evaluation failed', 'error')
   });
 
-  useEffect(() => {
-    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.onresult = (event: any) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            setUserAnswer(prev => prev + (prev.length > 0 && !prev.endsWith(' ') ? ' ' : '') + event.results[i][0].transcript);
-          }
-        }
-      };
-      recognitionRef.current.onerror = () => setIsRecording(false);
-      recognitionRef.current.onend = () => setIsRecording(false);
-    }
-  }, []);
-
-  const toggleRecording = () => {
-    if (isRecording) {
-      recognitionRef.current?.stop();
-    } else {
-      if (recognitionRef.current) {
-        recognitionRef.current.start();
-        setIsRecording(true);
-      } else {
-        toast("Speech Recognition is not supported in this browser.", "error");
-      }
-    }
-  };
-
   return (
-    <div className={cn("shrink-0 flex flex-col gap-6 animate-in fade-in duration-700 pb-10 transition-all duration-500", showCanvas ? "w-[700px]" : "w-80")}>
-      <div className="bg-[#0d0d0d] border border-indigo-500/20 rounded-xl p-5 shadow-2xl relative overflow-hidden">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-indigo-400 font-bold uppercase text-[10px] tracking-widest">
-            <Sparkles className="w-3.5 h-3.5" /> AI Deep Drill
+    <div className="flex flex-col h-full p-6 space-y-6 bg-[#050505]">
+      {/* AI DEEP DRILL SECTION */}
+      <div className="bg-[#0d0d0d] border border-white/[0.05] rounded-xl overflow-hidden shadow-2xl transition-all hover:border-white/10">
+        <div className="p-5 border-b border-white/[0.05] bg-white/[0.02] flex items-center justify-between">
+          <div className="flex items-center gap-2 text-neutral-400 font-bold uppercase text-[10px] tracking-widest">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> AI Deep Drill
           </div>
-          {drill && (
-            <button 
-              onClick={() => setShowCanvas(!showCanvas)}
-              className={cn(
-                "p-1.5 rounded-md transition-all border",
-                showCanvas ? "bg-cyan-500 text-black border-cyan-400" : "bg-white/5 border-white/10 text-neutral-500 hover:text-white"
-              )}
-            >
-              {showCanvas ? <X size={12} /> : <PenTool size={12} />}
-            </button>
-          )}
         </div>
 
-        {!drill ? (
-          <button 
-            onClick={() => drillMutation.mutate()}
-            disabled={drillMutation.isPending || !fullId}
-            className="w-full py-3 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 rounded-lg text-indigo-200 text-[12px] font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {drillMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain size={14} />}
-            {drillMutation.isPending ? 'Analyzing...' : 'Generate Mock Question'}
-          </button>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <div className="text-[13px] text-neutral-200 leading-relaxed font-medium italic">"{drill.question}"</div>
-            
-            <div className="flex gap-4 min-h-[350px]">
-              {showCanvas && (
-                <div className="flex-1 border border-white/10 rounded-lg overflow-hidden bg-black shadow-inner">
-                  <Whiteboard sessionId={`module-${fullId}`} />
+        <div className="p-5 space-y-4">
+          {!drill ? (
+            <button 
+              onClick={() => generateDrill.mutate()}
+              disabled={generateDrill.isPending}
+              className="w-full py-3 bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.06] text-neutral-300 rounded-lg text-[11px] font-bold transition-all uppercase tracking-widest flex items-center justify-center gap-2 group"
+            >
+              {generateDrill.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4 group-hover:scale-110 transition-transform" />}
+              Generate Mock Question
+            </button>
+          ) : (
+            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-500">
+              <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-lg">
+                <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <Search className="w-3 h-3" /> Question
+                </div>
+                <div className="text-[13px] text-white leading-relaxed font-medium">{drill.question}</div>
+              </div>
+
+              {!evalData ? (
+                <>
+                  <textarea 
+                    value={userAnswer}
+                    onChange={(e) => setUserAnswer(e.target.value)}
+                    placeholder="Provide your Staff-level response..."
+                    className="w-full h-32 bg-black/40 border border-white/5 rounded-lg p-4 text-xs text-neutral-300 outline-none focus:border-indigo-500/50 transition-all resize-none custom-scrollbar"
+                  />
+                  <button 
+                    onClick={() => evaluateDrill.mutate()}
+                    disabled={evaluateDrill.isPending || !userAnswer.trim()}
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[11px] font-bold transition-all uppercase tracking-widest disabled:opacity-50"
+                  >
+                    {evaluateDrill.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Submit Response'}
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-3 pt-2 animate-in slide-in-from-bottom-2">
+                  <div className="flex justify-between text-[11px] font-bold uppercase tracking-tighter">
+                    <span className="text-neutral-500">Staff Score</span>
+                    <span className={cn(parseInt(evalData.score) >= 7 ? "text-emerald-400" : "text-rose-400")}>{evalData.score}</span>
+                  </div>
+                  <div className="text-[12px] text-neutral-300 leading-relaxed bg-white/[0.02] border border-white/[0.05] p-3 rounded-lg max-h-[250px] overflow-y-auto custom-scrollbar">{evalData.feedback}</div>
+                  <button onClick={() => { setEvalData(null); setUserAnswer(''); }} className="w-full text-[10px] text-neutral-500 hover:text-white uppercase font-bold tracking-widest pt-2">Next Drill</button>
                 </div>
               )}
-              
-              <div className={cn("flex flex-col gap-3", showCanvas ? "w-72" : "w-full")}>
-                {!evalData ? (
-                  <>
-                    <div className="relative flex-1 min-h-[150px]">
-                      <textarea 
-                        placeholder="Speak or type your architectural proposal..."
-                        value={userAnswer}
-                        onChange={(e) => setUserAnswer(e.target.value)}
-                        className="w-full h-full bg-white/[0.02] border border-white/[0.05] rounded-lg p-3 pr-12 text-[12px] text-white placeholder:text-neutral-600 outline-none focus:border-indigo-500/50 resize-none font-sans"
-                      />
-                      <button onClick={toggleRecording} className={cn("absolute top-2 right-2 p-2 rounded-md transition-all", isRecording ? "bg-rose-500/20 text-rose-500 animate-pulse" : "text-neutral-500 hover:text-neutral-300")}>
-                        {isRecording ? <Mic size={14} /> : <MicOff size={14} />}
-                      </button>
-                    </div>
-                    <button onClick={() => evalMutation.mutate()} disabled={evalMutation.isPending || !userAnswer.trim()} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[11px] font-bold transition-all uppercase tracking-widest disabled:opacity-50">
-                      {evalMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Submit Response'}
-                    </button>
-                  </>
-                ) : (
-                  <div className="space-y-3 pt-2 border-t border-white/5 animate-in slide-in-from-bottom-2">
-                    <div className="flex justify-between text-[11px] font-bold uppercase tracking-tighter">
-                      <span className="text-neutral-500 text-[10px]">Staff Score</span>
-                      <span className={cn(parseInt(evalData.score) >= 7 ? "text-emerald-400" : "text-rose-400")}>{evalData.score}</span>
-                    </div>
-                    <div className="text-[12px] text-neutral-300 leading-relaxed bg-white/[0.02] border border-white/[0.05] p-3 rounded-lg max-h-[250px] overflow-y-auto">{evalData.feedback}</div>
-                    <button onClick={() => { setEvalData(null); setUserAnswer(''); }} className="w-full text-[10px] text-neutral-500 hover:text-white uppercase font-bold tracking-widest pt-2">Next Drill</button>
-                  </div>
-                )}
-              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      <div className="bg-[#0d0d0d] border border-white/[0.05] rounded-xl p-5 shadow-2xl">
-        <div className="flex items-center gap-2 mb-4 text-neutral-400 font-semibold uppercase text-[10px] tracking-widest">
+      {/* KEY CONCEPTS SECTION */}
+      <div className="bg-[#0d0d0d] border border-white/[0.05] rounded-xl p-5 shadow-2xl transition-all hover:border-white/10">
+        <div className="flex items-center gap-2 mb-4 text-neutral-400 font-semibold uppercase text-[10px] tracking-widest border-b border-white/5 pb-3">
           <Brain className="w-3.5 h-3.5 text-cyan-400" /> Key Concepts
         </div>
-        <div className="flex flex-wrap gap-2">
-          {isLoading ? [1,2,3].map(i => <div key={i} className="h-6 w-16 bg-white/5 animate-pulse rounded-md" />) : 
-            data?.keywords?.map(k => (
-              <span key={k} className="px-2 py-1 bg-white/[0.03] border border-white/[0.05] rounded-md text-[11px] text-neutral-300 font-mono flex items-center gap-1">
-                <Hash className="w-3 h-3 opacity-40" /> {k}
-              </span>
-            ))
-          }
-        </div>
+        
+        {error ? (
+          <div className="text-[10px] text-rose-400 font-mono italic">Failed to hydrate concepts.</div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {isLoading ? (
+              [1,2,3,4].map(i => <div key={i} className="h-6 w-16 bg-white/5 animate-pulse rounded-md" />)
+            ) : (data?.keywords?.length > 0) ? (
+              data.keywords.map((k: string) => (
+                <span key={k} className="px-2 py-1 bg-white/[0.03] border border-white/[0.05] rounded-md text-[11px] text-neutral-300 font-mono flex items-center gap-1 hover:bg-white/[0.06] transition-colors cursor-default">
+                  <Hash className="w-3 h-3 opacity-40" /> {k}
+                </span>
+              ))
+            ) : (
+              <div className="text-[10px] text-neutral-600 font-mono italic">No semantic keywords found.</div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
