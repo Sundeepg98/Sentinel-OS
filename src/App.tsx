@@ -1,21 +1,16 @@
 import { useState, createContext, useContext, useEffect, Suspense, lazy } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './views/Dashboard';
 import { Internals } from './views/Internals';
-import { SystemDesign } from './views/SystemDesign';
-import { Diagnostics } from './views/Diagnostics';
-import { Tracker } from './views/Tracker';
-import { MarkdownView } from './views/MarkdownView';
-import { DeepSearch } from './components/DeepSearch';
-import { InsightPanel } from './components/InsightPanel';
 import { ArchitectArena } from './views/ArchitectArena';
 import { WarRoom } from './views/WarRoom';
+import { Diagnostics } from './views/Diagnostics';
+import { InsightPanel } from './components/InsightPanel';
 import { useDossier } from './hooks/useDossier';
 import type { CompanyDossier } from './types';
 import { Loader2, AlertCircle, Network, Swords, Terminal } from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { cn } from './lib/utils';
 import { ToastProvider } from './hooks/useToast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -24,17 +19,18 @@ const KnowledgeGraph = lazy(() => import('./components/KnowledgeGraph').then(mod
 interface DossierContextType {
   dossier: CompanyDossier | null;
   setCompany: (id: string) => void;
-  allCompanies: { id: string; name: string }[];
-  loading: boolean;
+  allCompanies: {id: string, name: string}[];
+  companyId: string;
 }
 
-const DossierContext = createContext<DossierContextType | null>(null);
+export const DossierContext = createContext<DossierContextType>({
+  dossier: null,
+  setCompany: () => {},
+  allCompanies: [],
+  companyId: 'mailin'
+});
 
-export const useDossierContext = () => {
-  const context = useContext(DossierContext);
-  if (!context) throw new Error('useDossierContext must be used within DossierProvider');
-  return context;
-};
+export const useDossierContext = () => useContext(DossierContext);
 
 function App() {
   const dossierData = useDossier();
@@ -64,7 +60,6 @@ function App() {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'SYNC_COMPLETE') {
-          // Invalidate ALL intelligence-related queries
           queryClient.invalidateQueries({ queryKey: ['companies'] });
           queryClient.invalidateQueries({ queryKey: ['dossier'] });
           queryClient.invalidateQueries({ queryKey: ['insights'] });
@@ -72,16 +67,20 @@ function App() {
           queryClient.invalidateQueries({ queryKey: ['sync-status'] });
         }
       } catch (e) {
-        console.error('SSE Parse Error:', e);
+        // quiet
       }
     };
-
     return () => eventSource.close();
   }, [queryClient]);
 
   useEffect(() => {
     if (dossierData.dossier?.modules && dossierData.dossier.modules.length > 0) {
-      setActiveModuleId(dossierData.dossier.modules[0].id);
+      // Only auto-switch if the current activeModuleId is not in the new dossier
+      if (!dossierData.dossier.modules.find(m => m.id === activeModuleId)) {
+        setActiveModuleId(dossierData.dossier.modules[0].id);
+      }
+    } else {
+      setActiveModuleId('');
     }
   }, [dossierData.dossier?.id, dossierData.dossier?.modules]);
 
@@ -108,9 +107,12 @@ function App() {
             <div className="sticky top-0 z-30 w-full px-8 py-4 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/[0.05]">
               <div className="flex items-center gap-4">
                 <select 
-                  value={dossierData.dossier?.id || 'mailin'}
-                  onChange={(e) => dossierData.setCompany(e.target.value)}
-                  className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs font-medium text-neutral-300 outline-none focus:border-white/20 transition-all cursor-pointer"
+                  value={dossierData.companyId}
+                  onChange={(e) => {
+                    dossierData.setCompany(e.target.value);
+                    setDiagnosticsMode(false);
+                  }}
+                  className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs font-medium text-neutral-300 outline-none focus:border-white/20 transition-all cursor-pointer uppercase tracking-widest"
                 >
                   {dossierData.allCompanies.map(c => (
                     <option key={c.id} value={c.id}>{c.name} Profile</option>
@@ -160,72 +162,63 @@ function App() {
                   War Room
                 </button>
               </div>
+
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => window.open('/api/v1/portfolio/export', '_blank')}
                   className="text-xs font-semibold text-neutral-400 hover:text-white transition-colors uppercase tracking-widest px-3 py-1.5 border border-white/5 hover:border-white/20 rounded-lg bg-white/[0.02]"
-                >                  Export Portfolio
+                >
+                  Export Portfolio
                 </button>
-                <DeepSearch onSelect={(id) => { setActiveModuleId(id); resetViews(); }} />
+                <Internals />
               </div>
             </div>
-            
-            <Suspense fallback={null}>
-              <KnowledgeGraph 
-                isOpen={isGraphOpen} 
-                onClose={() => setIsGraphOpen(false)} 
-                onSelectModule={(id) => { setActiveModuleId(id); resetViews(); }}
-              />
-            </Suspense>
-            
-            <div 
-              className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" 
-              style={{ 
-                backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', 
-                backgroundSize: '40px 40px' 
-              }}
-            ></div>
-            
-            <div className="flex-1 w-full max-w-6xl mx-auto p-6 md:p-10 pb-24 md:pb-12 relative z-10 flex flex-col">
+
+            <div className="flex-1 relative overflow-hidden">
               <ErrorBoundary>
-                {dossierData.loading ? (
-                  <div className="flex flex-col items-center justify-center flex-1 gap-4 animate-in fade-in duration-700">
-                    <Loader2 className="w-10 h-10 text-cyan-500 animate-spin" />
-                    <p className="text-neutral-500 font-mono text-sm tracking-widest uppercase">Harvesting GitHub Content...</p>
-                  </div>
-                ) : !dossierData.dossier?.modules ? (
-                  <div className="flex flex-col items-center justify-center flex-1 gap-4 bg-rose-500/5 border border-rose-500/10 p-10 rounded-2xl max-w-md mx-auto my-auto">
-                    <AlertCircle className="w-10 h-10 text-rose-500" />
-                    <h3 className="text-white font-semibold">Backend Connection Failed</h3>
-                    <p className="text-neutral-500 text-sm text-center">Could not harvest technical profile from the sentinel server. Check if the Node.js backend is running on port 3002.</p>
-                  </div>
-                ) : diagnosticsMode ? (
+                {diagnosticsMode ? (
                   <Diagnostics />
-                ) : warRoomMode ? (
-                  <WarRoom />
                 ) : arenaMode ? (
-                  <ArchitectArena />
+                  <div className="p-8">
+                    <ArchitectArena />
+                  </div>
+                ) : warRoomMode ? (
+                  <div className="p-8 h-[calc(100vh-80px)]">
+                    <WarRoom />
+                  </div>
+                ) : !activeModule ? (
+                  <div className="flex-1 flex flex-col items-center justify-center h-full opacity-50 p-20 text-center">
+                    <AlertCircle className="w-16 h-16 mb-4 text-neutral-600" />
+                    <h2 className="text-xl font-bold text-white mb-2">Dossier is Empty</h2>
+                    <p className="text-neutral-400 max-w-md">There are no technical modules in this company's knowledge base. Go to System Status to upload Markdown files.</p>
+                    <button 
+                      onClick={() => setDiagnosticsMode(true)}
+                      className="mt-6 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-bold uppercase tracking-widest transition-colors"
+                    >
+                      Open System Control
+                    </button>
+                  </div>
                 ) : (
-                  <div className="flex gap-10 items-start h-full">
-                    <div className="flex-1 min-w-0">
-                      {activeModule?.type === 'grid' && <Dashboard />}
-                      {activeModule?.type === 'list' && <Internals />}
-                      {activeModule?.type === 'map' && <SystemDesign />}
-                      {activeModule?.type === 'playbook' && <Diagnostics />}
-                      {activeModule?.type === 'checklist' && <Tracker />}
-                      {activeModule?.type === 'markdown' && <MarkdownView data={activeModule.data} label={activeModule.label} />}
+                  <div className="flex flex-1 overflow-hidden h-[calc(100vh-73px)]">
+                    <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                      <Dashboard module={activeModule} brandColor={dossierData.dossier?.brandColor} />
                     </div>
-                    {activeModuleId && (
-                      <InsightPanel 
-                        fullId={dossierData.dossier?.modules.find(m => m.id === activeModuleId)?.fullId || ''} 
-                      />
-                    )}
+                    <InsightPanel fullId={activeModule.fullId || ''} brandColor={dossierData.dossier?.brandColor} />
                   </div>
                 )}
               </ErrorBoundary>
             </div>
           </main>
         </div>
+
+        <AnimatePresence>
+          {isGraphOpen && (
+            <Suspense fallback={null}>
+              <KnowledgeGraph onClose={() => setIsGraphOpen(false)} />
+            </Suspense>
+          )}
+        </AnimatePresence>
+
       </DossierContext.Provider>
     </ToastProvider>
   );

@@ -50,6 +50,7 @@ export function useDossier() {
   };
 
   return {
+    companyId,
     dossier,
     setCompany,
     loading: isLoading,
