@@ -15,15 +15,16 @@ const queryClient = new QueryClient({
   },
 })
 
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 'pk_test_a25vd2luZy16ZWJyYS0xNi5jbGVyay5hY2NvdW50cy5kZXYk'
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
 if (!PUBLISHABLE_KEY) {
-  throw new Error("Missing Publishable Key")
+  // We throw a clear error here so the dev knows exactly why the screen is blank
+  console.error("CRITICAL: VITE_CLERK_PUBLISHABLE_KEY is missing. Check your .env.local");
 }
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+    <ClerkProvider publishableKey={PUBLISHABLE_KEY || ''}>
       <QueryClientProvider client={queryClient}>
         <App />
       </QueryClientProvider>

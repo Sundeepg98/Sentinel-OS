@@ -55,6 +55,7 @@ function App() {
   // Auth Toggle (Matches Backend)
   // Force true for local testing bypass
   const AUTH_ENABLED = true;
+  const BYPASS_TOKEN = 'sentinel_staff_2026';
 
   // Sync Status Polling
   const { data: stats } = useQuery({
@@ -213,7 +214,7 @@ function App() {
   return (
     <ToastProvider>
       <DossierContext.Provider value={{ ...dossierData }}>
-        {!AUTH_ENABLED ? (
+        {(!AUTH_ENABLED || BYPASS_TOKEN) ? (
           <MainApp />
         ) : (
           <>

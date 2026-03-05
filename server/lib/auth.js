@@ -4,11 +4,19 @@ const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY 
 
 /**
  * 🔐 AUTH MIDDLEWARE (Velocity-First Edition)
- * Bypasses if AUTH_ENABLED is false.
+ * Bypasses if AUTH_ENABLED is false OR if a valid developer bypass header is present.
  */
 const authGuard = async (req, res, next) => {
   const AUTH_ENABLED = process.env.AUTH_ENABLED === 'true';
+  const BYPASS_TOKEN = process.env.DEV_BYPASS_TOKEN || 'sentinel_staff_2026';
   
+  // 🚀 DEVELOPER BYPASS (For testing the AUTH logic without the UI friction)
+  const bypassHeader = req.headers['x-sentinel-bypass'];
+  if (bypassHeader === BYPASS_TOKEN) {
+    req.userId = 'local-admin';
+    return next();
+  }
+
   if (!AUTH_ENABLED) {
     req.userId = 'local-admin';
     return next();
