@@ -73,10 +73,29 @@ const FRONTEND_DIST = path.join(__dirname, '..', 'dist');
 // Initialize Core Systems
 initDB();
 
+// --- 🛡️ ENGINEERING BASIC: GLOBAL SECURITY & RATE LIMITING ---
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://clerk.accounts.dev", "https://*.clerk.accounts.dev"],
+      connectSrc: ["'self'", "https://clerk.accounts.dev", "https://*.clerk.accounts.dev", "https://api.clerk.dev"],
+      imgSrc: ["'self'", "data:", "https://*.clerk.com", "https://images.clerk.dev"],
+      workerSrc: ["'self'", "blob:"],
+      frameSrc: ["'self'", "https://*.clerk.accounts.dev"]
+    }
+  },
   crossOriginEmbedderPolicy: false
 }));
+
+const globalRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // 100 requests per minute average
+  message: { error: "Too many requests. Please slow down." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(globalRateLimiter);
 
 // Compression middleware
 app.use(compression({
