@@ -41,10 +41,7 @@ const validateBody = (schema) => (req, res, next) => {
     req.body = schema.parse(req.body);
     next();
   } catch (error) {
-    res.status(400).json({ 
-      error: "Invalid Request Payload", 
-      details: error.errors 
-    });
+    res.error("Invalid Request Payload", 400, error.errors);
   }
 };
 

@@ -162,8 +162,18 @@ const upload = multer({
   }
 });
 
-app.get('/health', (req, res) => {
-  res.success({ status: 'healthy', db: isPostgres ? 'cloud' : 'local' });
+app.get('/health', async (req, res) => {
+  try {
+    // Probe DB
+    if (isPostgres) {
+      await db.query('SELECT 1');
+    } else {
+      db.prepare('SELECT 1').get();
+    }
+    res.success({ status: 'healthy', db: isPostgres ? 'cloud' : 'local' });
+  } catch (err) {
+    res.error("Database Connection Failure", 500, err.message);
+  }
 });
 
 const globalState = {
