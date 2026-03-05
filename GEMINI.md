@@ -1,20 +1,22 @@
-# Sentinel-OS Foundational Mandates 🛡️
+# Engineering Standards for Sentinel-OS 🛡️
 
-This file contains critical engineering standards and "memories" discovered during development to prevent regression and runtime failures.
+This document outlines the foundational engineering mandates for this repository.
 
-## 🚦 System Integrity
-- **Local-First Verification:** NEVER push code to the `main` branch or production environment without first empirically verifying the change in the local development environment (port 5173/3002) using the Playwright MCP. Bug fixes require a "visual proof" screenshot from the local environment before finalization.
-- **Surgical Process Management:** Never use `taskkill /F /IM node.exe`. It terminates the active Gemini CLI session. Always use port-specific termination:
-  `Get-NetTCPConnection -LocalPort [PORT] | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }`
+## 1. Local-First Verification
+NEVER push code to the `main` branch without first empirically verifying the change in the local development environment using the Playwright MCP. 
 
-## 🧠 Intelligence Engine (Gemini API)
-- **Model Naming:** The `GoogleGenerativeAI` SDK (v1beta) and raw API calls should prioritize the latest flash model. Use `gemini-2.5-flash` or `gemini-pro`. 
-- **Lazy Initialization:** Initialize the GenerativeAI instance *inside* the request handler or via a getter function to ensure environment variables (via `dotenv`) are fully loaded before use.
+## 2. Model Standard
+- **Generation**: `gemini-2.5-flash` or `gemini-pro`.
+- **Embeddings**: `gemini-embedding-001` (3072-dimensional).
 
-## 🌐 Networking & Routing
-- **Express 5+ Wildcards:** Standard `*` wildcards in Express routes are deprecated/restricted. Use a regex object `/(.*)/` or named parameters `/:path*` for SPA catch-all routes.
-- **Proxy Reliability:** Vite proxies to `/api` require the backend to be listening on the exact configured port (default `3001`).
+## 3. Data Integrity
+- All technical dossiers must follow the `label`, `type`, `icon` frontmatter standard.
+- User-specific state (scores, whiteboard) must be scoped to the `userId` in PostgreSQL.
 
-## 📁 Intelligence Harvester
-- **Directory Resolution:** Always use `path.join(__dirname, ...)` for file system operations in the backend to ensure portability across different startup contexts (local shell vs. background jobs).
-- **Graceful Failure:** The harvester must skip malformed markdown files instead of crashing the process.
+## 4. Quality Gates
+- **Husky**: Pre-commit hooks are mandatory.
+- **ESLint**: Zero errors allowed in `main`.
+- **Testing**: 100% pass rate required for PR merges.
+
+---
+*Built for Architects.*
