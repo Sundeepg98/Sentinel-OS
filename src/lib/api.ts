@@ -44,3 +44,21 @@ export async function fetchWithAuth(url: string, getToken: () => Promise<string 
   // Fallback for endpoints that might not be enveloped yet (like /health)
   return result;
 }
+
+export async function reportError(error: Error, componentStack?: string) {
+  try {
+    await fetch('/api/v1/admin/error-logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: error.message,
+        stack: error.stack,
+        componentStack,
+        timestamp: new Date().toISOString(),
+        url: window.location.href,
+      }),
+    });
+  } catch (e) {
+    console.error('Failed to report error:', e);
+  }
+}

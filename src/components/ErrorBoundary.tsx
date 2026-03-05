@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { reportError } from '../lib/api';
 
 interface Props {
   children: ReactNode;
@@ -11,17 +12,18 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  public override state: State = {
+  public state: State = {
     hasError: false,
-    error: null
+    error: null,
   };
 
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('💥 Sentinel Crash:', error, errorInfo);
+    reportError(error, errorInfo.componentStack || undefined);
   }
 
   public override render() {

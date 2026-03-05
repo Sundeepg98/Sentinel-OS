@@ -228,6 +228,33 @@ v1Router.post('/admin/upload/:companyId', upload.single('file'), (req, res) => {
   res.success({ success: true, filename: req.file.filename });
 });
 
+v1Router.get('/admin/ai-logs', async (req, res) => {
+  const logPath = path.join(__dirname, 'logs', 'ai-failures.json');
+  try {
+    const data = await fs.readFile(logPath, 'utf-8');
+    res.success(JSON.parse(data));
+  } catch (e) {
+    res.success([]); 
+  }
+});
+
+v1Router.post('/admin/error-logs', async (req, res) => {
+  const errorData = req.body;
+  const logPath = path.join(__dirname, 'logs', 'ui-errors.json');
+  try {
+    let logs = [];
+    try {
+      const existing = await fs.readFile(logPath, 'utf-8');
+      logs = JSON.parse(existing);
+    } catch (e) {}
+    logs.push(errorData);
+    await fs.writeFile(logPath, JSON.stringify(logs.slice(-100), null, 2));
+    res.success({ logged: true });
+  } catch (e) {
+    res.error("Failed to log error", 500, e.message);
+  }
+});
+
 v1Router.get('/intelligence/stats', async (req, res) => {
   let chunksCount, historyCount, learnedCount;
   
