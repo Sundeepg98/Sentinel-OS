@@ -39,6 +39,7 @@ export function useDossier() {
       return res.json();
     },
     enabled: !!companyId,
+    placeholderData: (previousData) => previousData, // Maintain old context until new one is 100% ready
   });
 
   const setCompany = (id: string) => {

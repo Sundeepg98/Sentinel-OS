@@ -180,18 +180,16 @@ export const Diagnostics: React.FC = () => {
           >
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="flex items-center gap-4">
-                <Database className="text-indigo-400" size={24} />
-                <div className="flex flex-col gap-1">
-                  <select 
-                    value={dossier?.id || 'mailin'}
-                    onChange={(e) => dossierData.setCompany(e.target.value)}
-                    className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-1.5 text-sm font-bold text-white outline-none focus:border-indigo-500/50 transition-all cursor-pointer uppercase tracking-widest"
-                  >
-                    {allCompanies.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} Dossier</option>
-                    ))}
-                  </select>
-                  <p className="text-neutral-500 text-[10px] font-mono uppercase tracking-widest">{dossier?.modules.length} Technical Documents Indexed</p>
+                <div className="p-3 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
+                  <Database className="text-indigo-400" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white uppercase tracking-widest">
+                    Context: {dossier?.name}
+                  </h3>
+                  <p className="text-neutral-500 text-[10px] font-mono uppercase tracking-widest">
+                    {dossier?.modules.length} Technical Documents Indexed
+                  </p>
                 </div>
               </div>
 
@@ -200,17 +198,20 @@ export const Diagnostics: React.FC = () => {
                   onClick={() => {
                     const name = prompt("Enter new company ID (e.g., 'google'):");
                     if (name) {
-                      fetch(`/api/v1/admin/companies/${name.toLowerCase()}`, { method: 'POST' })
+                      const cleanName = name.toLowerCase().trim().replace(/\s+/g, '-');
+                      fetch(`/api/v1/admin/companies/${cleanName}`, { method: 'POST' })
                         .then(() => {
-                          toast(`Company ${name} created.`, "success");
+                          toast(`Context ${name} created.`, "success");
                           queryClient.invalidateQueries({ queryKey: ['companies'] });
+                          // Auto-navigate to the new context
+                          dossierData.setCompany(cleanName);
                         })
                         .catch(e => toast(e.message, "error"));
                     }
                   }}
                   className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.1] text-neutral-300 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all"
                 >
-                  <Plus size={14} /> New Company
+                  <Plus size={14} /> New Context
                 </button>
 
                 <label className="cursor-pointer group">

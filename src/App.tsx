@@ -76,15 +76,19 @@ function App() {
   }, [queryClient]);
 
   useEffect(() => {
+    // Context-Locking: When company changes, reset the active simulation views
+    // to prevent cross-dossier data leakage.
+    setArenaMode(false);
+    setWarRoomMode(false);
+
     if (dossierData.dossier?.modules && dossierData.dossier.modules.length > 0) {
-      // Only auto-switch if the current activeModuleId is not in the new dossier
       if (!dossierData.dossier.modules.find(m => m.id === activeModuleId)) {
         setActiveModuleId(dossierData.dossier.modules[0].id);
       }
     } else {
       setActiveModuleId('');
     }
-  }, [dossierData.dossier?.id, dossierData.dossier?.modules]);
+  }, [dossierData.companyId]); // Explicitly watch companyId for view resets
 
   const activeModule = dossierData.dossier?.modules?.find(m => m.id === activeModuleId);
 
