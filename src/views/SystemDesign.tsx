@@ -90,15 +90,12 @@ const PatternCard: React.FC<{ sys: any, studyMode: boolean }> = ({ sys, studyMod
   );
 };
 
-export const SystemDesign: React.FC = () => {
+export const SystemDesign: React.FC<{ data: any[], label: string }> = ({ data, label }) => {
   const { dossier } = useDossierContext();
   const [studyMode, setStudyMode] = useState(false);
   
-  if (!dossier) return null;
-  const activeModule = dossier.modules.find(m => m.type === 'map');
-  
-  if (!activeModule) return null;
-  const patterns = activeModule.data;
+  if (!dossier || !data) return null;
+  const patterns = data;
 
   return (
     <motion.div 
@@ -111,7 +108,7 @@ export const SystemDesign: React.FC = () => {
           <div className="p-2 bg-white/[0.03] rounded-lg border border-white/[0.05]">
             <Network className="w-5 h-5 text-neutral-400" />
           </div>
-          {activeModule.label}
+          {label}
         </h2>
 
         <button 
