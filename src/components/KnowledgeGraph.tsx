@@ -85,14 +85,15 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     }
   }, [isOpen]);
 
+// Properly type the graph data fetch
   useEffect(() => {
     if (isOpen) {
       fetchWithAuth('/api/v1/intelligence/graph', getToken)
         .then(data => {
-          const nodesById = Object.fromEntries(data.nodes.map((n: any) => [n.id, { ...n, neighbors: [], links: [] }]));
-          data.links.forEach((link: any) => {
-            const a = nodesById[link.source];
-            const b = nodesById[link.target];
+          const nodesById = Object.fromEntries(data.nodes.map((n: GraphNode) => [n.id, { ...n, neighbors: [], links: [] }]));
+          data.links.forEach((link: GraphLink) => {
+            const a = nodesById[link.source as string];
+            const b = nodesById[link.target as string];
             if (a && b) {
               a.neighbors.push(b);
               b.neighbors.push(a);
@@ -100,10 +101,13 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
               b.links.push(link);
             }
           });
-          const weightedNodes = Object.values(nodesById).map((n: any) => ({
-            ...n,
-            weight: n.group === 'module' ? 10 : n.group === 'learned' ? 8 : Math.min(Math.max(n.neighbors.length || 1, 2), 8)
-          })) as GraphNode[];
+          const weightedNodes = Object.values(nodesById).map((n) => {
+            const neighborsCount = (n as any).neighbors?.length || 0;
+            return {
+              ...n,
+              weight: n.group === 'module' ? 10 : n.group === 'learned' ? 8 : Math.min(Math.max(neighborsCount, 2), 8)
+            };
+          }) as GraphNode[];
           setGraphData({ nodes: weightedNodes, links: data.links });
         })
         .catch(err => console.error('Graph Load Error:', err));
@@ -119,11 +123,14 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   // Master Post-Processing Pipeline (High-Justice Engine)
   useEffect(() => {
     if (isOpen && graphRef.current && !hasInitialZoomed.current) {
-      const scene = graphRef.current.scene();
-      const camera = graphRef.current.camera();
-      const renderer = graphRef.current.renderer();
+      const scene = graphRef.current.scene() as THREE.Scene;
+      const camera = graphRef.current.camera() as THREE.PerspectiveCamera;
+      const renderer = graphRef.current.renderer() as THREE.WebGLRenderer;
 
-      scene.children = scene.children.filter((c: any) => !(c instanceof THREE.Light));
+      // Filter lights safely
+      const lightsToRemove = scene.children.filter((c) => c instanceof THREE.Light);
+      lightsToRemove.forEach(l => scene.remove(l));
+
       scene.add(new THREE.AmbientLight(0xffffff, 0.3));
       const key = new THREE.DirectionalLight(0xffffff, 2.5);
       key.position.set(100, 200, 100);
@@ -180,13 +187,14 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
         vignetteEffect.dispose();
         
         // Dispose geometries and materials
-        scene.traverse((object: any) => {
-          if (object.geometry) object.geometry.dispose();
-          if (object.material) {
-            if (Array.isArray(object.material)) {
-              object.material.forEach((material: any) => material.dispose());
+        scene.traverse((object) => {
+          const mesh = object as THREE.Mesh;
+          if (mesh.geometry) mesh.geometry.dispose();
+          if (mesh.material) {
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach((m) => m.dispose());
             } else {
-              object.material.dispose();
+              mesh.material.dispose();
             }
           }
         });
@@ -250,7 +258,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     const impactLevel = blastImpacts.get(node.id);
     const isSimOrigin = simNode === node;
     
-    const size = (node as any).weight || 3;
+    const size = node.val || 3;
     const readiness = node.readiness || 0;
 
     let activeColor = '#737373'; 

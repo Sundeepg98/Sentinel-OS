@@ -3,8 +3,15 @@ import { Shield, AlertCircle, CheckCircle2, BrainCircuit, Eye, EyeOff } from 'lu
 import { useDossierContext } from '@/lib/context';
 import { cn } from '@/lib/utils';
 
+interface PlaybookItem {
+  q: string;
+  trap: string;
+  trapWhy: string;
+  optimal: string;
+}
+
 interface InternalsProps {
-  data: any[];
+  data: PlaybookItem[];
   label: string;
 }
 
@@ -50,7 +57,7 @@ export const Internals: React.FC<InternalsProps> = ({ data, label }) => {
       </div>
 
       <div className="space-y-12">
-        {playbook.map((item: any, idx: number) => (
+        {playbook.map((item, idx) => (
           <div key={idx} className="relative group">
             <div className="flex items-start gap-4 mb-6">
               <div className="mt-1 p-1.5 bg-indigo-500/10 rounded-md text-indigo-400 font-mono text-[10px] font-bold">Q{idx + 1}</div>

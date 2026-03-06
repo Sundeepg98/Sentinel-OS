@@ -5,7 +5,7 @@ import rehypeSanitize from 'rehype-sanitize';
 import { FileText, Clock, ExternalLink } from 'lucide-react';
 
 interface MarkdownViewProps {
-  data: any;
+  data: string | object;
   label: string;
 }
 

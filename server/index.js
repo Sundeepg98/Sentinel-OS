@@ -84,12 +84,12 @@ app.use(helmet({
     }
   },
   crossOriginEmbedderPolicy: false,
-  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   hsts: {
     maxAge: 31536000,
     includeSubDomains: true,
     preload: true
   },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   permissionsPolicy: {
     features: {
       accelerometer: [],
@@ -180,7 +180,7 @@ app.get('/health', async (req, res) => {
   const os = require('os');
   
   // 🛡️ SECURITY BASIC: Restrict deep telemetry to admin/bypass
-  const hasBypass = req.headers['x-sentinel-bypass'] === process.env.DEV_BYPASS_TOKEN;
+  const hasBypass = req.headers['x-sentinel-bypass'] === env.DEV_BYPASS_TOKEN;
   const isDeep = hasBypass || req.userId; // Simplified check for this refactor
 
   try {

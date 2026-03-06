@@ -22,6 +22,18 @@ interface Stats {
   };
 }
 
+interface LogEntry {
+  timestamp: string;
+  type: string;
+  category: string;
+  message: string;
+  payload?: string;
+  stack?: string;
+  url?: string;
+  error?: string; // Legacy field
+  prompt?: string; // Legacy field
+}
+
 export const Diagnostics: React.FC = () => {
   const { toast } = useToast();
   const { getToken } = useAuth();
@@ -38,14 +50,14 @@ export const Diagnostics: React.FC = () => {
   });
 
   // 🕵️ AI FAILURE LOGS QUERY
-  const { data: aiLogs = [] } = useQuery<any[]>({
+  const { data: aiLogs = [] } = useQuery<LogEntry[]>({
     queryKey: ['ai-logs'],
     queryFn: () => fetchWithAuth('/api/v1/admin/ai-logs', getToken),
     enabled: activeTab === 'ai-logs',
   });
 
   // 🖥️ UI ERROR LOGS QUERY
-  const { data: uiLogs = [] } = useQuery<any[]>({
+  const { data: uiLogs = [] } = useQuery<LogEntry[]>({
     queryKey: ['ui-logs'],
     queryFn: () => fetchWithAuth('/api/v1/admin/ui-logs', getToken),
     enabled: activeTab === 'ui-logs',
@@ -60,7 +72,7 @@ export const Diagnostics: React.FC = () => {
       toast("File physically deleted and purged from DB.", "success");
       queryClient.invalidateQueries({ queryKey: ['dossier'] });
     },
-    onError: (e: any) => toast(e.message, "error")
+    onError: (e: Error) => toast(e.message, "error")
   });
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -234,25 +246,25 @@ export const Diagnostics: React.FC = () => {
   );
 };
 
-const TabButton = ({ children, active, onClick }: any) => (
+const TabButton = ({ children, active, onClick }: { children: React.ReactNode, active: boolean, onClick: () => void }) => (
   <button onClick={onClick} className={cn("px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all", active ? "bg-white/10 text-white shadow-lg" : "text-neutral-500 hover:text-neutral-300")}>{children}</button>
 );
 
-const ConfigItem = ({ label, value, color = "text-cyan-400" }: any) => (
+const ConfigItem = ({ label, value, color = "text-cyan-400" }: { label: string, value?: string, color?: string }) => (
   <div className="flex justify-between items-center p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
     <span className="text-xs text-neutral-500 font-mono">{label}</span>
     <span className={cn("text-xs font-bold font-mono uppercase", color)}>{value || 'unknown'}</span>
   </div>
 );
 
-const StatusLine = ({ ok, label, detail, warn }: any) => (
+const StatusLine = ({ ok, label, detail, warn }: { ok: boolean, label: string, detail?: string, warn?: boolean }) => (
   <div className="flex gap-3">
     <span className={cn(ok ? "text-emerald-500" : warn ? "text-amber-500" : "text-rose-500")}>[{ok ? 'OK' : warn ? 'WARN' : 'BUSY'}]</span>
     <span>{label} {detail && `- ${detail}`}</span>
   </div>
 );
 
-const Header = ({ label, sub, icon }: any) => (
+const Header = ({ label, sub, icon }: { label: string, sub: string, icon: React.ReactNode }) => (
   <div className="flex items-center gap-4">
     <div className="p-3 bg-white/[0.02] border border-white/[0.05] rounded-xl">{icon}</div>
     <div>
@@ -262,7 +274,7 @@ const Header = ({ label, sub, icon }: any) => (
   </div>
 );
 
-const LogList = ({ logs, emptyMsg, type = 'AI' }: any) => (
+const LogList = ({ logs, emptyMsg, type = 'AI' }: { logs: LogEntry[], emptyMsg: string, type?: 'AI' | 'UI' }) => (
   <div className="space-y-4">
     {logs.length === 0 ? (
       <div className="py-20 text-center border-2 border-dashed border-white/[0.05] rounded-2xl">
@@ -270,17 +282,17 @@ const LogList = ({ logs, emptyMsg, type = 'AI' }: any) => (
         <p className="text-neutral-500 text-sm">{emptyMsg}</p>
       </div>
     ) : (
-      logs.map((log: any, i: number) => (
+      logs.map((log, i) => (
         <div key={i} className="bg-[#0d0d0d] border border-white/[0.05] p-6 rounded-xl space-y-4 shadow-xl">
           <div className="flex justify-between items-start">
             <span className={cn("px-2 py-1 text-[10px] font-bold rounded uppercase tracking-tighter", type === 'AI' ? "bg-rose-500/10 text-rose-500" : "bg-amber-500/10 text-amber-500")}>{type} FAILURE</span>
             <span className="text-[10px] text-neutral-600 font-mono">{log.timestamp}</span>
           </div>
           {log.url && <div className="text-[10px] text-neutral-500 font-mono">URL: {log.url}</div>}
-          {log.prompt && (
+          {(log.prompt || log.payload) && (
             <div>
               <h4 className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Payload</h4>
-              <pre className="bg-black/40 p-4 rounded-lg text-[11px] text-neutral-400 font-mono whitespace-pre-wrap border border-white/5 max-h-40 overflow-y-auto italic">{log.prompt}</pre>
+              <pre className="bg-black/40 p-4 rounded-lg text-[11px] text-neutral-400 font-mono whitespace-pre-wrap border border-white/5 max-h-40 overflow-y-auto italic">{log.prompt || log.payload}</pre>
             </div>
           )}
           <div>
@@ -294,7 +306,7 @@ const LogList = ({ logs, emptyMsg, type = 'AI' }: any) => (
   </div>
 );
 
-const StatCard = ({ icon, label, value, sub }: { icon: any, label: string, value: string, sub: string }) => (
+const StatCard = ({ icon, label, value, sub }: { icon: React.ReactNode, label: string, value: string, sub: string }) => (
   <div className="bg-[#0d0d0d] border border-white/[0.05] p-6 rounded-2xl shadow-xl space-y-4 hover:border-white/10 transition-all group">
     <div className="flex items-center gap-3">
       <div className="p-2 bg-white/[0.02] rounded-lg group-hover:scale-110 transition-transform">{icon}</div>

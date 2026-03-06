@@ -55,9 +55,11 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({ online, syncing }) =
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -50, opacity: 0 }}
+          role="alert"
+          aria-live="assertive"
           className="fixed top-0 left-0 right-0 z-[200] bg-rose-600 text-white py-1.5 px-4 flex items-center justify-center gap-3 shadow-xl"
         >
-          <WifiOff size={14} className="animate-pulse" />
+          <WifiOff size={14} className="animate-pulse" aria-hidden="true" />
           <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Connection Lost: Searching for Backend Nervous System...</span>
         </motion.div>
       )}
@@ -67,9 +69,11 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({ online, syncing }) =
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -50, opacity: 0 }}
+          role="status"
+          aria-live="polite"
           className="fixed top-0 left-0 right-0 z-[200] bg-cyan-600 text-white py-1 px-4 flex items-center justify-center gap-3 shadow-xl"
         >
-          <Loader2 size={12} className="animate-spin" />
+          <Loader2 size={12} className="animate-spin" aria-hidden="true" />
           <span className="text-[9px] font-bold uppercase tracking-[0.2em]">Neural Re-Indexing in Progress...</span>
         </motion.div>
       )}

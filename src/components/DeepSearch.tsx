@@ -18,6 +18,11 @@ interface DeepSearchProps {
   onSelect: (moduleId: string) => void;
 }
 
+interface SemanticSearchResult {
+  file_id: string;
+  chunk_text: string;
+}
+
 export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -34,7 +39,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
       if (e.key === 'Escape') setIsOpen(false);
     };
 
-    const handleExternalTrigger = (e: any) => {
+    const handleExternalTrigger = (e: CustomEvent) => {
       if (e.detail?.query) {
         setQuery(e.detail.query);
         setIsOpen(true);
@@ -42,10 +47,10 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('trigger-search', handleExternalTrigger as EventListener);
+    window.addEventListener('trigger-search' as any, handleExternalTrigger as any);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('trigger-search', handleExternalTrigger as EventListener);
+      window.removeEventListener('trigger-search' as any, handleExternalTrigger as any);
     };
   }, []);
 
@@ -61,9 +66,9 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
           method: 'POST',
           body: JSON.stringify({ q: query, limit: 10 })
         });
-        return rawData.map((item: any) => ({
+        return rawData.map((item: SemanticSearchResult) => ({
           id: item.file_id,
-          label: item.file_id.split('/').pop().replace('.md', ''),
+          label: item.file_id.split('/').pop()?.replace('.md', '') || 'Module',
           company: item.file_id.split('/')[0],
           snippet: item.chunk_text
         }));

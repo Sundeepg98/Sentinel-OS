@@ -13,13 +13,19 @@ interface ArenaModule {
   content: string;
 }
 
+interface EvaluationData {
+  score: string;
+  feedback: string;
+  followUp: string;
+}
+
 export const ArchitectArena: React.FC = () => {
   const { toast } = useToast();
   const { getToken } = useAuth();
   const [arenaIds, setArenaIds] = useLocalStorage<string[]>('architect_arena_selection', []);
   const [drill, setDrill] = useState<{question: string, idealResponse: string} | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
-  const [evalData, setEvalData] = useState<any>(null);
+  const [evalData, setEvalData] = useState<EvaluationData | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [sessionId, setSessionId] = useState('');
 
@@ -51,7 +57,7 @@ export const ArchitectArena: React.FC = () => {
           limit: 5 
         })
       });
-      const crossDossierContext = semanticContext.map((c: any) => c.chunk_text).join("\n\n---\n\n");
+      const crossDossierContext = (semanticContext as any[]).map((c) => c.chunk_text).join("\n\n---\n\n");
 
       // 2. GENERATE DRILL
       return fetchWithAuth('/api/v1/intelligence/drill', getToken, {
@@ -68,7 +74,7 @@ export const ArchitectArena: React.FC = () => {
       setEvalData(null);
       setUserAnswer('');
     },
-    onError: (e: any) => toast(e.message, "error")
+    onError: (e: Error) => toast(e.message, "error")
   });
 
   // 3. Evaluation Mutation
@@ -87,10 +93,10 @@ export const ArchitectArena: React.FC = () => {
       });
     },
     onSuccess: (data) => {
-      setEvalData(data);
+      setEvalData(data as EvaluationData);
       toast("Strategy evaluated.", "success");
     },
-    onError: (e: any) => toast(e.message, "error")
+    onError: (e: Error) => toast(e.message, "error")
   });
 
   useEffect(() => {

@@ -5,7 +5,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useDossierContext } from '../lib/context';
 import { cn } from '../lib/utils';
 
-const PatternCard: React.FC<{ sys: any, studyMode: boolean }> = ({ sys, studyMode }) => {
+interface DesignPattern {
+  id: string;
+  title: string;
+  tech: string;
+  bottleneck: string;
+  scenario: string;
+  code: string;
+}
+
+const PatternCard: React.FC<{ sys: DesignPattern, studyMode: boolean }> = ({ sys, studyMode }) => {
   const [revealed, setRevealed] = useState(false);
   const isVisible = !studyMode || revealed;
 
@@ -90,7 +99,7 @@ const PatternCard: React.FC<{ sys: any, studyMode: boolean }> = ({ sys, studyMod
   );
 };
 
-export const SystemDesign: React.FC<{ data: any[], label: string }> = ({ data, label }) => {
+export const SystemDesign: React.FC<{ data: DesignPattern[], label: string }> = ({ data, label }) => {
   const { dossier } = useDossierContext();
   const [studyMode, setStudyMode] = useState(false);
   
@@ -163,7 +172,7 @@ export const SystemDesign: React.FC<{ data: any[], label: string }> = ({ data, l
       </div>
 
       <div className="space-y-8">
-        {patterns.map((sys: any, idx: number) => (
+        {patterns.map((sys, idx) => (
           <PatternCard key={idx} sys={sys} studyMode={studyMode} />
         ))}
       </div>

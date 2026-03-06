@@ -29,6 +29,12 @@ const KnowledgeGraph = lazy(() =>
   import('@/components/KnowledgeGraph').then((module) => ({ default: module.KnowledgeGraph }))
 ) as React.FC<{ isOpen: boolean; onClose: () => void; onSelectModule: (id: string) => void }>;
 
+interface Stats {
+  isSyncing: boolean;
+  totalChunks: number;
+  interactions: number;
+}
+
 const MainView = () => {
   const dossierData = useDossierContext();
   const [activeModuleId, setActiveModuleId] = useState<string>('');
@@ -39,7 +45,7 @@ const MainView = () => {
   const [diagnosticsMode, setDiagnosticsMode] = useState(false);
   const [pinnedIds] = useLocalStorage<string[]>('architect_arena_selection', []);
 
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<Stats>({
     queryKey: ['sync-status'],
     queryFn: async () => {
       const res = await fetch('/api/v1/intelligence/stats');
