@@ -41,6 +41,12 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "staging", "production"]).default("development"),
   AUTH_ENABLED: z.string().optional().transform(v => v === 'true'),
   DATABASE_URL: z.string().optional()
+}).refine(data => {
+  if (data.NODE_ENV !== 'development' && !data.DATABASE_URL) return false;
+  return true;
+}, {
+  message: "DATABASE_URL is required in staging/production environments",
+  path: ["DATABASE_URL"]
 });
 
 const env = envSchema.parse(process.env);
@@ -261,8 +267,22 @@ app.use(express.static(FRONTEND_DIST, {
 app.get(/(.*)/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
 
 app.use((err, req, res, next) => {
-  logger.error({ id: req.id, path: req.path, message: err.message, stack: env.NODE_ENV !== 'production' ? err.stack : undefined }, '💥 Unhandled Server Error');
-  res.status(err.status || 500).error(env.NODE_ENV !== 'production' ? err.message : "An unexpected error occurred.", err.status || 500);
+  const statusCode = err.statusCode || 500;
+  const isOperational = err.isOperational || false;
+
+  logger.error({ 
+    id: req.id, 
+    path: req.path, 
+    message: err.message, 
+    stack: env.NODE_ENV !== 'production' ? err.stack : undefined,
+    isOperational 
+  }, '💥 Server Error');
+
+  res.status(statusCode).error(
+    env.NODE_ENV !== 'production' || isOperational ? err.message : "An unexpected error occurred.",
+    statusCode,
+    err.details || null
+  );
 });
 
 const server = app.listen(PORT, () => {

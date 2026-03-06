@@ -40,11 +40,13 @@
     "src/**/*.{ts,tsx}": [
       "prettier --write",
       "eslint --fix",
+      "vitest run --related --passWithNoTests",
       "tsc-files --noEmit"
     ],
     "server/**/*.js": [
       "prettier --write",
-      "eslint --fix"
+      "eslint --fix",
+      "jest --findRelatedTests --passWithNoTests"
     ]
   },
   "dependencies": {
