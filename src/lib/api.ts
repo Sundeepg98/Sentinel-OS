@@ -28,25 +28,38 @@ export async function fetchWithAuth(url: string, getToken: () => Promise<string 
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  // --- 🛡️ ENGINEERING BASIC: REQUEST TIMEOUT ---
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s Timeout
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData?.error?.message || errorData.error || `HTTP Error: ${response.status}`);
-  }
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
 
-  const result = await response.json();
-  
-  // Unwrap the standardized API envelope if present
-  if (result && result.status === 'success' && 'data' in result) {
-    return result.data;
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData?.error?.message || errorData.error || `HTTP Error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    // Unwrap the standardized API envelope if present
+    if (result && result.status === 'success' && 'data' in result) {
+      return result.data;
+    }
+    
+    return result;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('Technical Intelligence Engine Request Timed Out (10s limit).');
+    }
+    throw err;
   }
-  
-  // Fallback for endpoints that might not be enveloped yet (like /health)
-  return result;
 }
 
 export async function reportError(error: Error, componentStack?: string) {

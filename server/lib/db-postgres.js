@@ -62,59 +62,11 @@ async function initDB() {
     // 1. Install pgvector extension
     await pool.query('CREATE EXTENSION IF NOT EXISTS vector');
 
-    // 2. Initial Setup
+    // 2. Initial Setup (Meta Table Only)
     await db.exec(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         version TEXT PRIMARY KEY,
         applied_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE TABLE IF NOT EXISTS dossiers (
-        id TEXT PRIMARY KEY,
-        company TEXT,
-        label TEXT,
-        content TEXT,
-        metadata JSONB,
-        last_processed TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE TABLE IF NOT EXISTS chunks_metadata (
-        id SERIAL PRIMARY KEY,
-        file_id TEXT,
-        chunk_text TEXT,
-        metadata JSONB,
-        embedding vector(3072)
-      );
-
-      CREATE TABLE IF NOT EXISTS user_state (
-        user_id TEXT,
-        key TEXT,
-        value JSONB,
-        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (user_id, key)
-      );
-
-      CREATE TABLE IF NOT EXISTS interaction_history (
-        id SERIAL PRIMARY KEY,
-        user_id TEXT,
-        type TEXT,
-        module_id TEXT,
-        question TEXT,
-        user_answer TEXT,
-        evaluation JSONB,
-        score INTEGER,
-        timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE TABLE IF NOT EXISTS system_logs (
-        id SERIAL PRIMARY KEY,
-        type TEXT, -- 'AI' or 'UI'
-        category TEXT,
-        message TEXT,
-        payload TEXT,
-        stack TEXT,
-        url TEXT,
-        timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
@@ -127,10 +79,15 @@ async function initDB() {
         if (!check) {
           console.log(`🚀 Applying Cloud Migration: ${file}`);
           const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-          // Basic translation from SQLite to Postgres syntax
+          // Advanced translation from SQLite to Postgres syntax
           const pgSql = sql
-            .replace(/DATETIME/g, 'TIMESTAMPTZ')
-            .replace(/integer PRIMARY KEY AUTOINCREMENT/gi, 'SERIAL PRIMARY KEY');
+            .replace(/DATETIME DEFAULT CURRENT_TIMESTAMP/gi, 'TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP')
+            .replace(/integer PRIMARY KEY AUTOINCREMENT/gi, 'SERIAL PRIMARY KEY')
+            .replace(/metadata TEXT/gi, 'metadata JSONB')
+            .replace(/evaluation TEXT/gi, 'evaluation JSONB')
+            .replace(/value TEXT NOT NULL/gi, 'value JSONB NOT NULL')
+            .replace(/vector\(3072\)/gi, 'vector(3072)') // Preserve vector type
+            .replace(/CASCADE/gi, 'CASCADE');
           
           await db.exec(pgSql);
           await db.prepare("INSERT INTO schema_migrations (version) VALUES (?)").run(file);

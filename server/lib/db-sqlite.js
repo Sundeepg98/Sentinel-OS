@@ -23,19 +23,6 @@ async function initDB() {
     );
   `);
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS system_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      type TEXT, -- 'AI' or 'UI'
-      category TEXT,
-      message TEXT,
-      payload TEXT,
-      stack TEXT,
-      url TEXT,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-
   // Local migrations only for SQLite
   const migrationsDir = path.join(__dirname, '..', 'migrations');
   if (fs.existsSync(migrationsDir)) {

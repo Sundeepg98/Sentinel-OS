@@ -1,18 +1,12 @@
--- Migration 001: Base Schema
-CREATE TABLE IF NOT EXISTS user_state (
-  user_id TEXT DEFAULT 'local-admin',
-  key TEXT,
-  value TEXT NOT NULL,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY(user_id, key)
-);
+-- Migration 001: Consolidated Base Schema (Staff Edition)
+-- Unified schema for all environment tiers.
 
-CREATE TABLE IF NOT EXISTS intelligence_cache (
-  file_id TEXT PRIMARY KEY,
-  content_hash TEXT NOT NULL,
-  label TEXT,
+CREATE TABLE IF NOT EXISTS dossiers (
+  id TEXT PRIMARY KEY,
   company TEXT,
-  keywords TEXT,
+  label TEXT,
+  content TEXT,
+  metadata TEXT, -- JSON in Postgres, TEXT in SQLite
   last_processed DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -21,5 +15,37 @@ CREATE TABLE IF NOT EXISTS chunks_metadata (
   file_id TEXT,
   chunk_text TEXT,
   metadata TEXT,
-  FOREIGN KEY(file_id) REFERENCES intelligence_cache(file_id) ON DELETE CASCADE
+  embedding vector(3072), -- Managed by pgvector in Cloud
+  FOREIGN KEY(file_id) REFERENCES dossiers(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS user_state (
+  user_id TEXT,
+  key TEXT,
+  value TEXT NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, key)
+);
+
+CREATE TABLE IF NOT EXISTS interaction_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT,
+  type TEXT,
+  module_id TEXT,
+  question TEXT,
+  user_answer TEXT,
+  evaluation TEXT,
+  score INTEGER,
+  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS system_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT,
+  category TEXT,
+  message TEXT,
+  payload TEXT,
+  stack TEXT,
+  url TEXT,
+  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 );

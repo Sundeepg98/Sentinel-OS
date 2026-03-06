@@ -59,9 +59,11 @@ router.get('/stats', async (req, res) => {
   let chunksCount, historyCount, learnedCount;
   
   if (isPostgres) {
-    const chunksRes = await db.query("SELECT count(*) as count FROM chunks_metadata");
-    const historyRes = await db.query("SELECT count(*) as count FROM interaction_history");
-    const learnedRes = await db.query("SELECT count(*) as count FROM dossiers WHERE company = 'user'");
+    const [chunksRes, historyRes, learnedRes] = await Promise.all([
+      db.query("SELECT count(*) as count FROM chunks_metadata"),
+      db.query("SELECT count(*) as count FROM interaction_history"),
+      db.query("SELECT count(*) as count FROM dossiers WHERE company = 'user'")
+    ]);
     chunksCount = parseInt(chunksRes.rows[0].count);
     historyCount = parseInt(historyRes.rows[0].count);
     learnedCount = parseInt(learnedRes.rows[0].count);
@@ -167,9 +169,16 @@ router.get('/insights', validateQuery(schemas.insightsQuerySchema), async (req, 
  */
 router.get('/search', validateQuery(schemas.searchQuerySchema), (req, res) => {
   const { q } = req.query;
+  const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+  const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+
   if (!q) return res.success([]);
-  const results = globalState.searchIndex.search(q, { limit: 10 });
-  res.success(results.map(id => ({ id, ...globalState.knowledgeGraph.files[id] })));
+  
+  // FlexSearch doesn't natively support offset, so we slice the results
+  const results = globalState.searchIndex.search(q, { limit: limit + offset });
+  const paginatedResults = results.slice(offset);
+  
+  res.success(paginatedResults.map(id => ({ id, ...globalState.knowledgeGraph.files[id] })));
 });
 
 /**
