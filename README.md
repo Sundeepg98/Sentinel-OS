@@ -29,8 +29,9 @@ Sentinel-OS is built on four core engineering pillars:
 
 ### 4. Protocol & Reliability
 - **Strict API Contract**: Standardized `{ status, data, meta }` envelopes for 100% predictable data fetching.
+- **Persistent Observability**: AI failure logs and UI crashes are persisted to the database, ensuring 100% auditability across server restarts.
+- **Automated Durability**: A dedicated backup utility for rolling-window database exports (SQLite or Postgres).
 - **Industrial Quality Gates**: Pre-commit Husky hooks enforcing ESLint, Prettier, and TypeScript strictness.
-- **Full-Stack Observability**: Backend pino logs synchronized with Frontend Error Telemetry.
 
 ## 🛠️ Tech Stack
 - **Frontend**: React 19, TypeScript, TanStack Query, Framer Motion, Three.js (react-force-graph).

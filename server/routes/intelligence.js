@@ -23,7 +23,8 @@ const rateLimit = require('express-rate-limit');
 const aiRateLimiter = rateLimit({
   windowMs: 60 * 1000, 
   max: 15, 
-  message: { error: "AI Intelligence Engine is cooling down. Please wait 60 seconds." },
+  keyGenerator: (req) => req.userId || req.ip,
+  message: { error: "AI Intelligence Engine is cooling down for your account. Please wait 60 seconds." },
   standardHeaders: true,
   legacyHeaders: false,
 });

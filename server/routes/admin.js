@@ -87,16 +87,22 @@ router.delete('/files/:companyId/:filename', async (req, res) => {
  * @openapi
  * /admin/ai-logs:
  *   get:
- *     summary: Retrieve AI generation failure logs from the database
+ *     summary: Retrieve AI generation failure logs from the database with pagination
  */
 router.get('/ai-logs', async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 100, 200);
+  const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+
   try {
     let rows;
     if (isPostgres) {
-      const dbRes = await db.query("SELECT * FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT 100");
+      const dbRes = await db.query(
+        "SELECT * FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT $1 OFFSET $2",
+        [limit, offset]
+      );
       rows = dbRes.rows;
     } else {
-      rows = db.prepare("SELECT * FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT 100").all();
+      rows = db.prepare("SELECT * FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT ? OFFSET ?").all(limit, offset);
     }
     res.success(rows);
   } catch (e) {
@@ -134,16 +140,22 @@ router.post('/error-logs', async (req, res) => {
  * @openapi
  * /admin/ui-logs:
  *   get:
- *     summary: Retrieve recorded frontend crashes from the database
+ *     summary: Retrieve recorded frontend crashes from the database with pagination
  */
 router.get('/ui-logs', async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 100, 200);
+  const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+
   try {
     let rows;
     if (isPostgres) {
-      const dbRes = await db.query("SELECT * FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT 100");
+      const dbRes = await db.query(
+        "SELECT * FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT $1 OFFSET $2",
+        [limit, offset]
+      );
       rows = dbRes.rows;
     } else {
-      rows = db.prepare("SELECT * FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT 100").all();
+      rows = db.prepare("SELECT * FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT ? OFFSET ?").all(limit, offset);
     }
     res.success(rows);
   } catch (e) {
