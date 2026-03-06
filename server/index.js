@@ -419,6 +419,12 @@ v1Router.get('/intelligence/insights', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /intelligence/search:
+ *   get:
+ *     summary: Perform a high-speed keyword search across the technical index
+ */
 v1Router.get('/intelligence/search', (req, res) => {
   const { q } = req.query;
   if (!q) return res.success([]);
@@ -426,6 +432,12 @@ v1Router.get('/intelligence/search', (req, res) => {
   res.success(results.map(id => ({ id, ...globalState.knowledgeGraph.files[id] })));
 });
 
+/**
+ * @openapi
+ * /intelligence/semantic-search:
+ *   post:
+ *     summary: Deep vector search for conceptually related architectural modules
+ */
 v1Router.post('/intelligence/semantic-search', validateBody(schemas.semanticSearchSchema), async (req, res) => {
   const { q, limit } = req.body;
   try {
@@ -514,6 +526,12 @@ v1Router.post('/intelligence/incident/evaluate', aiRateLimiter, validateBody(sch
   }
 });
 
+/**
+ * @openapi
+ * /intelligence/evaluate:
+ *   post:
+ *     summary: Perform AI-driven evaluation of candidate responses
+ */
 v1Router.post('/intelligence/evaluate', aiRateLimiter, validateBody(schemas.evaluateRequestSchema), async (req, res) => {
   const { userAnswer, question, idealResponse, fileId } = req.body;
   try {
@@ -536,6 +554,12 @@ v1Router.post('/intelligence/evaluate', aiRateLimiter, validateBody(schemas.eval
   } catch (error) { res.error(error.message, 500); }
 });
 
+/**
+ * @openapi
+ * /dossier/{companyId}:
+ *   get:
+ *     summary: Retrieve the full technical context for a specific enterprise
+ */
 v1Router.get('/dossier/:companyId', async (req, res) => {
   try {
     const companyModules = Object.entries(globalState.knowledgeGraph.files)
@@ -553,6 +577,12 @@ v1Router.get('/dossier/:companyId', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /companies:
+ *   get:
+ *     summary: List all available technical context clusters
+ */
 v1Router.get('/companies', async (req, res) => {
   const entries = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
   res.success(entries.filter(d => d.isDirectory()).map(d => ({ id: d.name, name: d.name.toUpperCase() })));

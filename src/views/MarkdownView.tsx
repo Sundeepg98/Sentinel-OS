@@ -32,7 +32,10 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({ data, label }) => {
             </div>
           </div>
         </div>
-        <button className="p-2 hover:bg-white/5 rounded-lg text-neutral-500 transition-colors">
+        <button 
+          aria-label="Open in external viewer"
+          className="p-2 hover:bg-white/5 rounded-lg text-neutral-500 transition-colors"
+        >
           <ExternalLink size={18} />
         </button>
       </header>
@@ -50,6 +53,8 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({ data, label }) => {
       ">
         <ReactMarkdown 
           remarkPlugins={[remarkGfm]}
+          disallowedElements={['script', 'iframe', 'object', 'embed']}
+          unwrapDisallowed={true}
           components={{
             // 🚀 HYDRATION FIX: Render pre blocks as top-level elements to avoid <p> nesting
             pre: ({ node: _node, ...props }) => (

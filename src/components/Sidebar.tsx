@@ -97,6 +97,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 
                 <div 
                   onClick={(e) => togglePin(e, fullId)}
+                  role="button"
+                  aria-label={isPinned ? "Unpin from Arena" : "Pin to Architect Arena"}
                   className={cn(
                     "p-1.5 rounded-md transition-all opacity-0 group-hover:opacity-100",
                     isPinned ? "text-indigo-400 opacity-100 bg-indigo-500/10" : "text-neutral-600 hover:text-neutral-400 hover:bg-white/5"

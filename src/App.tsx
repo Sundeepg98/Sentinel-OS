@@ -114,6 +114,7 @@ const MainView = () => {
                 dossierData.setCompany(e.target.value);
                 resetViews();
               }}
+              aria-label="Select technical context profile"
               className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs font-medium text-neutral-300 outline-none focus:border-white/20 transition-all uppercase tracking-widest cursor-pointer"
             >
               {dossierData.allCompanies.map((c: any) => (
@@ -125,6 +126,7 @@ const MainView = () => {
 
             <button
               onClick={() => setIsGraphOpen(true)}
+              aria-label="Open 3D Knowledge Graph"
               className="p-2 bg-white/[0.03] border border-white/[0.08] rounded-lg text-neutral-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all shadow-sm"
               title="Open Knowledge Graph"
             >
