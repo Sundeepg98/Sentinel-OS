@@ -12,7 +12,11 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
-  }
+  },
+  // 🛡️ ENGINEERING BASIC: Strict Connection Pooling
+  max: 20, // Max number of clients in the pool
+  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
 });
 
 const db = {
@@ -41,6 +45,10 @@ const db = {
         return pool.query(pgSql, params);
       }
     };
+  },
+  close: async () => {
+    console.log("🗄️ Draining PostgreSQL connection pool...");
+    await pool.end();
   }
 };
 

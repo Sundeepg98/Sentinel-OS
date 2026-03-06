@@ -34,6 +34,14 @@ const semanticSearchSchema = z.object({
   limit: z.number().min(1).max(20).default(5)
 });
 
+const searchQuerySchema = z.object({
+  q: z.string().min(1).max(200, "Query too long")
+});
+
+const insightsQuerySchema = z.object({
+  fileId: z.string().min(3).max(255)
+});
+
 // --- MIDDLEWARE ---
 
 const validateBody = (schema) => (req, res, next) => {
@@ -45,13 +53,25 @@ const validateBody = (schema) => (req, res, next) => {
   }
 };
 
+const validateQuery = (schema) => (req, res, next) => {
+  try {
+    req.query = schema.parse(req.query);
+    next();
+  } catch (error) {
+    res.error("Invalid Query Parameters", 400, error.errors);
+  }
+};
+
 module.exports = {
   validateBody,
+  validateQuery,
   schemas: {
     drillRequestSchema,
     evaluateRequestSchema,
     incidentRequestSchema,
     incidentEvaluateSchema,
-    semanticSearchSchema
+    semanticSearchSchema,
+    searchQuerySchema,
+    insightsQuerySchema
   }
 };

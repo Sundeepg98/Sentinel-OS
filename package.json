@@ -18,7 +18,7 @@
     "dev:backend": "dotenv -e .env.local -- node server/index.js",
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:windows": "powershell -Command \"Get-NetTCPConnection -LocalPort 5173,3002 -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -gt 4 } | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }\" ; npm run dev",
-    "clean": "rimraf dist playwright-report test-results bundle-analysis.html server/logs/*.json",
+    "clean": "rimraf --glob dist playwright-report test-results bundle-analysis.html \"server/logs/*.json\"",
     "build": "npm run clean && tsc -b && vite build",
     "lint": "eslint .",
     "format": "prettier --write .",

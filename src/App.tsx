@@ -2,14 +2,6 @@ import { useState, useEffect, Suspense, lazy, useCallback, useMemo } from 'react
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { SignedIn, SignedOut, SignIn, UserButton, useAuth } from '@clerk/clerk-react';
 import { Sidebar } from './components/Sidebar';
-import { Dashboard } from './views/Dashboard';
-import { Internals } from './views/Internals';
-import { ArchitectArena } from './views/ArchitectArena';
-import { WarRoom } from './views/WarRoom';
-import { Diagnostics } from './views/Diagnostics';
-import { Tracker } from './views/Tracker';
-import { MarkdownView } from './views/MarkdownView';
-import { SystemDesign } from './views/SystemDesign';
 import { InsightPanel } from './components/InsightPanel';
 import { DeepSearch } from './components/DeepSearch';
 import { useDossier } from './hooks/useDossier';
@@ -21,6 +13,16 @@ import { StatusBanner } from './components/ui/StatusBanner';
 import { cn } from './lib/utils';
 import { AnimatePresence } from 'framer-motion';
 import { DossierContext, useDossierContext } from './lib/context';
+
+// --- ⚡ ENGINEERING BASIC: BUNDLE OPTIMIZATION (CODE SPLITTING) ---
+const Dashboard = lazy(() => import('./views/Dashboard').then(m => ({ default: m.Dashboard })));
+const Internals = lazy(() => import('./views/Internals').then(m => ({ default: m.Internals })));
+const ArchitectArena = lazy(() => import('./views/ArchitectArena').then(m => ({ default: m.ArchitectArena })));
+const WarRoom = lazy(() => import('./views/WarRoom').then(m => ({ default: m.WarRoom })));
+const Diagnostics = lazy(() => import('./views/Diagnostics').then(m => ({ default: m.Diagnostics })));
+const Tracker = lazy(() => import('./views/Tracker').then(m => ({ default: m.Tracker })));
+const MarkdownView = lazy(() => import('./views/MarkdownView').then(m => ({ default: m.MarkdownView })));
+const SystemDesign = lazy(() => import('./views/SystemDesign').then(m => ({ default: m.SystemDesign })));
 
 // Properly type the lazy loaded component to avoid TS errors
 const KnowledgeGraph = lazy(() =>
@@ -79,14 +81,20 @@ const MainView = () => {
 
   const renderActiveView = () => {
     if (!activeModule) return null;
-    switch (activeModule.type) {
-      case 'grid': return <Dashboard data={activeModule.data} label={activeModule.label} />;
-      case 'markdown': return <MarkdownView data={activeModule.data} label={activeModule.label} />;
-      case 'checklist': return <Tracker data={activeModule.data} label={activeModule.label} moduleId={activeModule.id} />;
-      case 'playbook': return <Internals data={activeModule.data} label={activeModule.label} />;
-      case 'map': return <SystemDesign data={activeModule.data} label={activeModule.label} />;
-      default: return <MarkdownView data={typeof activeModule.data === 'string' ? activeModule.data : JSON.stringify(activeModule.data)} label={activeModule.label} />;
-    }
+    return (
+      <Suspense fallback={<div className="flex-1 flex items-center justify-center h-full"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin" /></div>}>
+        {(() => {
+          switch (activeModule.type) {
+            case 'grid': return <Dashboard data={activeModule.data} label={activeModule.label} />;
+            case 'markdown': return <MarkdownView data={activeModule.data} label={activeModule.label} />;
+            case 'checklist': return <Tracker data={activeModule.data} label={activeModule.label} moduleId={activeModule.id} />;
+            case 'playbook': return <Internals data={activeModule.data} label={activeModule.label} />;
+            case 'map': return <SystemDesign data={activeModule.data} label={activeModule.label} />;
+            default: return <MarkdownView data={typeof activeModule.data === 'string' ? activeModule.data : JSON.stringify(activeModule.data)} label={activeModule.label} />;
+          }
+        })()}
+      </Suspense>
+    );
   };
 
   return (

@@ -32,7 +32,7 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 const { authGuard } = require('./lib/auth');
-const { validateBody, schemas } = require('./lib/validation');
+const { validateBody, validateQuery, schemas } = require('./lib/validation');
 const { 
   GEMINI_API_KEY, 
   DEFAULT_MODEL, 
@@ -410,7 +410,7 @@ v1Router.get('/intelligence/graph', async (req, res) => {
  *   get:
  *     summary: Retrieve contextual keywords and related semantic links for a specific dossier
  */
-v1Router.get('/intelligence/insights', async (req, res) => {
+v1Router.get('/intelligence/insights', validateQuery(schemas.insightsQuerySchema), async (req, res) => {
   const { fileId: rawFileId } = req.query;
   if (!rawFileId) return res.error('Missing fileId', 400);
   
@@ -444,7 +444,7 @@ v1Router.get('/intelligence/insights', async (req, res) => {
  *   get:
  *     summary: Perform a high-speed keyword search across the technical index
  */
-v1Router.get('/intelligence/search', (req, res) => {
+v1Router.get('/intelligence/search', validateQuery(schemas.searchQuerySchema), (req, res) => {
   const { q } = req.query;
   if (!q) return res.success([]);
   const results = globalState.searchIndex.search(q, { limit: 10 });
@@ -662,10 +662,18 @@ function gracefulShutdown() {
     activeWorker.terminate();
   }
 
-  server.close(() => { 
+  server.close(async () => { 
     logger.info("📡 Express server closed."); 
-    if (!isPostgres) db.close(); 
-    logger.info("🗄️ Database connection closed."); 
+    try {
+      if (!isPostgres) {
+        db.close(); 
+      } else if (db.close) {
+        await db.close();
+      }
+      logger.info("🗄️ Database connection closed."); 
+    } catch (e) {
+      logger.error("Failed to close database:", e);
+    }
     process.exit(0); 
   });
 }
