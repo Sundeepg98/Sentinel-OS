@@ -3,7 +3,7 @@
 This document outlines the foundational engineering mandates for this repository.
 
 ## 1. Local-First Verification
-NEVER push code to the `main` branch without first empirically verifying the change in the local development environment using the Playwright MCP. 
+NEVER push code to the `main` branch without first empirically verifying the change in the local development environment using the Playwright MCP. All verification screenshots and visual proof must be stored in the `.playwright-mcp` directory to maintain workspace cleanliness.
 
 ## 2. Model Standard
 - **Generation**: `gemini-2.5-flash` or `gemini-pro`.
