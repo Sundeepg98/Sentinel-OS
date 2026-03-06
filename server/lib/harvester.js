@@ -4,6 +4,7 @@ const matter = require('gray-matter');
 const { Index } = require('flexsearch');
 const crypto = require('crypto');
 const pLimit = require('p-limit');
+const { z } = require('zod');
 const { db, isPostgres } = require('./db');
 const logger = require('./logger');
 const { getEmbedding } = require('./intelligence');
@@ -13,10 +14,17 @@ const INTELLIGENCE_DIR = path.join(__dirname, '..', '..', 'intelligence');
 let knowledgeGraph = { concepts: {}, files: {} };
 let searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
 
+// --- 🛡️ DATA INTEGRITY SCHEMA ---
+const dossierFrontmatterSchema = z.object({
+  label: z.string().min(1, "Missing label frontmatter"),
+  type: z.enum(['markdown', 'playbook', 'checklist', 'grid', 'map']).default('markdown'),
+  icon: z.string().optional(),
+  keywords: z.array(z.string()).optional()
+});
+
 /**
  * 🛰️ INTELLIGENCE HARVESTER (Cloud-Native Edition)
  * Orchestrates technical dossier parsing and RAG vectorization.
- * Supports both local ephemeral SQLite and persistent Cloud Postgres.
  */
 
 function extractKeywords(text) {
@@ -104,10 +112,10 @@ async function syncIntelligence() {
 
   try {
     // 1. Process Local Files
-    const companies = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
+    const companyFolders = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
     const syncTasks = [];
 
-    for (const company of companies.filter(d => d.isDirectory())) {
+    for (const company of companyFolders.filter(d => d.isDirectory())) {
       const companyPath = path.join(INTELLIGENCE_DIR, company.name);
       const files = await fs.readdir(companyPath);
       
@@ -116,7 +124,15 @@ async function syncIntelligence() {
           const filePath = path.join(companyPath, fileName);
           const fileContent = await fs.readFile(filePath, 'utf-8');
           const { content, data } = matter(fileContent);
-          const fileId = `${company.name}/${fileName}`.toLowerCase(); // 🚀 STRICT NORMALIZATION
+          
+          // 🛡️ ENGINEERING BASIC: DATA QUALITY VALIDATION
+          const validation = dossierFrontmatterSchema.safeParse(data);
+          if (!validation.success) {
+            logger.warn({ file: fileName, errors: validation.error.format() }, '⚠️ Invalid frontmatter in technical dossier');
+          }
+          
+          const validatedData = validation.success ? validation.data : { label: fileName, type: 'markdown' };
+          const fileId = `${company.name}/${fileName}`.toLowerCase(); 
           activeFileIds.add(fileId);
           const currentHash = getFileHash(fileContent);
 
@@ -124,7 +140,6 @@ async function syncIntelligence() {
           let shouldProcess = true;
           if (isPostgres) {
             const cached = await db.prepare("SELECT id FROM dossiers WHERE id = $1").get(fileId);
-            // For Postgres, we prioritize what's in the DB over what's on the ephemeral disk
             if (cached) shouldProcess = false; 
           } else {
             const cached = db.prepare("SELECT content_hash FROM intelligence_cache WHERE file_id = ?").get(fileId);
@@ -132,8 +147,8 @@ async function syncIntelligence() {
           }
 
           if (shouldProcess) {
-            const keywords = extractKeywords(content + ' ' + (data.label || ''));
-            const label = data.label || fileName;
+            const keywords = extractKeywords(content + ' ' + (validatedData.label || ''));
+            const label = validatedData.label || fileName;
             
             if (isPostgres) {
               await db.query(
@@ -148,7 +163,7 @@ async function syncIntelligence() {
 
           // --- HYDRATE GRAPH ---
           const finalKeywords = extractKeywords(content);
-          newGraph.files[fileId] = { label: data.label || fileName, company: company.name, keywords: finalKeywords, content };
+          newGraph.files[fileId] = { label: validatedData.label || fileName, company: company.name, keywords: finalKeywords, content };
           finalKeywords.forEach(k => {
             if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
             newGraph.concepts[k].push({ fileId, company: company.name });
@@ -165,7 +180,6 @@ async function syncIntelligence() {
       const cloudDossiers = await db.prepare("SELECT id, company, label, content, metadata FROM dossiers").all();
       cloudDossiers.forEach(d => {
         if (!activeFileIds.has(d.id)) {
-          const meta = JSON.parse(d.metadata);
           const keywords = extractKeywords(d.content);
           newGraph.files[d.id] = { label: d.label, company: d.company, keywords, content: d.content };
           keywords.forEach(k => {
@@ -180,11 +194,10 @@ async function syncIntelligence() {
     knowledgeGraph = newGraph;
 
     // --- 🗑️ INTELLIGENCE PRUNING (Garbage Collection) ---
-    // Remove database records for files that no longer exist on disk
     if (isPostgres) {
       const allDossiers = await db.prepare("SELECT id FROM dossiers").all();
       for (const d of allDossiers) {
-        if (!activeFileIds.has(d.id) && d.id.includes('/')) { // Only prune local-synced dossiers
+        if (!activeFileIds.has(d.id) && d.id.includes('/')) { 
           logger.info({ dossierId: d.id }, '🗑️ Pruning ghost dossier from DB');
           await db.query("DELETE FROM dossiers WHERE id = $1", [d.id]);
           await db.query("DELETE FROM chunks_metadata WHERE file_id = $1", [d.id]);

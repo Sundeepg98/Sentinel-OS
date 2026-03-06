@@ -23,13 +23,13 @@ const responseEnvelope = (req, res, next) => {
     });
   };
 
-  // Standard Error Formatter
+  // Standard Error Formatter (JSend compliant)
   res.error = (message, statusCode = 500, details = null) => {
     const diff = process.hrtime(start);
     const latencyMs = Math.round((diff[0] * 1e9 + diff[1]) / 1e6);
 
     res.status(statusCode).json({
-      status: 'error',
+      status: `${statusCode}`.startsWith('4') ? 'fail' : 'error',
       error: {
         message,
         details,
