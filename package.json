@@ -1,7 +1,7 @@
 {
   "name": "sentinel-os",
   "private": true,
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Industrial-grade Technical Intelligence Dashboard for Staff+ Engineer Preparation",
   "author": "Sundeep",
   "license": "MIT",

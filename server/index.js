@@ -211,7 +211,7 @@ app.get('/health', async (req, res) => {
       aiEngine: {
         circuitState: getCircuitState()
       },
-      version: '8b150a2'
+      version: '2.6.0'
     });
   } catch (err) {
     res.error("System Unstable", 500, {

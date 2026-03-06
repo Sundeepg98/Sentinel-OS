@@ -6,8 +6,10 @@
 
 if (process.env.DATABASE_URL) {
   // CLOUD MODE (Postgres)
-  module.exports = require('./db-postgres');
+  const { db, initDB, pool, isPostgres } = require('./db-postgres');
+  module.exports = { db, initDB, pool, isPostgres };
 } else {
   // LOCAL MODE (SQLite)
-  module.exports = require('./db-sqlite');
+  const { db, initDB, isPostgres } = require('./db-sqlite');
+  module.exports = { db, initDB, pool: null, isPostgres };
 }

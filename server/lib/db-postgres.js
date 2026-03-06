@@ -134,4 +134,4 @@ async function initDB() {
   }
 }
 
-module.exports = { db, initDB, isPostgres: true };
+module.exports = { db, initDB, pool, isPostgres: true };

@@ -61,30 +61,42 @@ function chunkMarkdown(text, maxLength = 1500) {
 async function processFileVectors(fileId, content, metadata) {
   try {
     if (isPostgres) {
-      // 🐘 POSTGRES LOGIC
-      await db.query("DELETE FROM chunks_metadata WHERE file_id = $1", [fileId]);
-      const chunks = chunkMarkdown(content);
-      for (const chunk of chunks) {
-        const vector = await getEmbedding(chunk);
-        await db.query(
-          "INSERT INTO chunks_metadata (file_id, chunk_text, metadata, embedding) VALUES ($1, $2, $3, $4)",
-          [fileId, chunk, JSON.stringify(metadata), JSON.stringify(vector)]
-        );
+      // 🐘 POSTGRES LOGIC (Atomic Transaction)
+      const client = await db.pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query("DELETE FROM chunks_metadata WHERE file_id = $1", [fileId]);
+        const chunks = chunkMarkdown(content);
+        for (const chunk of chunks) {
+          const vector = await getEmbedding(chunk);
+          await client.query(
+            "INSERT INTO chunks_metadata (file_id, chunk_text, metadata, embedding) VALUES ($1, $2, $3, $4)",
+            [fileId, chunk, JSON.stringify(metadata), JSON.stringify(vector)]
+          );
+        }
+        await client.query('COMMIT');
+      } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+      } finally {
+        client.release();
       }
     } else {
-      // 🗄️ SQLITE LOGIC
-      const oldChunks = db.prepare("SELECT id FROM chunks_metadata WHERE file_id = ?").all(fileId);
-      if (oldChunks.length > 0) {
-        const oldIds = oldChunks.map(c => Number(c.id));
-        db.prepare(`DELETE FROM vec_chunks WHERE id IN (${oldIds.join(',')})`).run();
-        db.prepare(`DELETE FROM chunks_metadata WHERE file_id = ?`).run(fileId);
-      }
-      const chunks = chunkMarkdown(content);
-      for (const chunk of chunks) {
-        const vector = await getEmbedding(chunk);
-        db.prepare(`INSERT INTO chunks_metadata (file_id, chunk_text, metadata) VALUES (?, ?, ?)`).run(fileId, chunk, JSON.stringify(metadata));
-        db.prepare(`INSERT INTO vec_chunks (id, vector) SELECT last_insert_rowid(), ?`).run(new Float32Array(vector));
-      }
+      // 🗄️ SQLITE LOGIC (Atomic Transaction)
+      db.transaction(() => {
+        const oldChunks = db.prepare("SELECT id FROM chunks_metadata WHERE file_id = ?").all(fileId);
+        if (oldChunks.length > 0) {
+          const oldIds = oldChunks.map(c => Number(c.id));
+          db.prepare(`DELETE FROM vec_chunks WHERE id IN (${oldIds.join(',')})`).run();
+          db.prepare(`DELETE FROM chunks_metadata WHERE file_id = ?`).run(fileId);
+        }
+        const chunks = chunkMarkdown(content);
+        for (const chunk of chunks) {
+          const vector = await getEmbedding(chunk);
+          db.prepare(`INSERT INTO chunks_metadata (file_id, chunk_text, metadata) VALUES (?, ?, ?)`).run(fileId, chunk, JSON.stringify(metadata));
+          db.prepare(`INSERT INTO vec_chunks (id, vector) SELECT last_insert_rowid(), ?`).run(new Float32Array(vector));
+        }
+      })();
     }
   } catch (e) { console.error(`Vectorization Error [${fileId}]:`, e.message); }
 }
