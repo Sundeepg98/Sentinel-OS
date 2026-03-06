@@ -34,16 +34,7 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 const { authGuard } = require('./lib/auth');
 const { INTELLIGENCE_DIR } = require('./lib/harvester');
-
-// --- 🛠️ ENGINEERING BASIC: STRUCTURED LOGGING ---
-const logger = pino({
-  level: process.env.LOG_LEVEL || 'info',
-  redact: {
-    paths: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]', 'apiKey', 'password', 'token'],
-    censor: '***REDACTED***'
-  },
-  transport: process.env.NODE_ENV !== 'production' ? { target: 'pino-pretty' } : undefined
-});
+const logger = require('./lib/logger');
 
 // --- 🛠️ ENGINEERING BASIC: ENV VALIDATION ---
 const envSchema = z.object({

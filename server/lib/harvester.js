@@ -5,6 +5,7 @@ const { Index } = require('flexsearch');
 const crypto = require('crypto');
 const pLimit = require('p-limit');
 const { db, isPostgres } = require('./db');
+const logger = require('./logger');
 const { getEmbedding } = require('./intelligence');
 const { parsePlaybook, parseChecklist } = require('./parsers');
 
@@ -91,11 +92,11 @@ async function processFileVectors(fileId, content, metadata) {
         }
       })();
     }
-  } catch (e) { console.error(`Vectorization Error [${fileId}]:`, e.message); }
+  } catch (e) { logger.error({ fileId, error: e.message }, '🧵 Vectorization Error'); }
 }
 
 async function syncIntelligence() {
-  console.log('🔄 Sentinel Intelligence Sync: Scanning...');
+  logger.info('🔄 Sentinel Intelligence Sync: Scanning...');
   const limit = pLimit(5); // 🚀 Throttled Concurrency
   const newGraph = { concepts: {}, files: {} };
   searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
@@ -122,7 +123,7 @@ async function syncIntelligence() {
           // --- CLOUD CACHE CHECK ---
           let shouldProcess = true;
           if (isPostgres) {
-            const cached = await db.prepare("SELECT last_processed FROM dossiers WHERE id = $1").get(fileId);
+            const cached = await db.prepare("SELECT id FROM dossiers WHERE id = $1").get(fileId);
             // For Postgres, we prioritize what's in the DB over what's on the ephemeral disk
             if (cached) shouldProcess = false; 
           } else {
@@ -184,7 +185,7 @@ async function syncIntelligence() {
       const allDossiers = await db.prepare("SELECT id FROM dossiers").all();
       for (const d of allDossiers) {
         if (!activeFileIds.has(d.id) && d.id.includes('/')) { // Only prune local-synced dossiers
-          console.log(`🗑️ [Harvester] Pruning ghost dossier from DB: ${d.id}`);
+          logger.info({ dossierId: d.id }, '🗑️ Pruning ghost dossier from DB');
           await db.query("DELETE FROM dossiers WHERE id = $1", [d.id]);
           await db.query("DELETE FROM chunks_metadata WHERE file_id = $1", [d.id]);
         }
@@ -193,17 +194,15 @@ async function syncIntelligence() {
       const allCached = db.prepare("SELECT file_id FROM intelligence_cache").all();
       for (const c of allCached) {
         if (!activeFileIds.has(c.file_id)) {
-          console.log(`🗑️ [Harvester] Pruning ghost dossier from Cache: ${c.file_id}`);
+          logger.info({ fileId: c.file_id }, '🗑️ Pruning ghost dossier from Cache');
           db.prepare("DELETE FROM intelligence_cache WHERE file_id = ?").run(c.file_id);
-          // chunks_metadata is handled by CASCADE in SQLite schema if configured, 
-          // but we'll be explicit for safety
           db.prepare("DELETE FROM chunks_metadata WHERE file_id = ?").run(c.file_id);
         }
       }
     }
 
-    console.log(`✅ Intelligence Engine ACTIVE.`);
-  } catch (e) { console.error('Sync Error:', e.message); }
+    logger.info('✅ Intelligence Engine ACTIVE.');
+  } catch (e) { logger.error({ error: e.message }, '🧵 Sync Error'); }
 }
 
 module.exports = { syncIntelligence, getKnowledgeGraph: () => knowledgeGraph, getSearchIndex: () => searchIndex, parsePlaybook, parseChecklist, INTELLIGENCE_DIR };

@@ -2,6 +2,7 @@ const { Pool } = require('pg');
 const pgvector = require('pgvector/pg');
 const fs = require('fs');
 const path = require('path');
+const logger = require('./logger');
 
 /**
  * 🐘 POSTGRESQL ENGINE (Cloud-Native Persistence)
@@ -50,13 +51,13 @@ const db = {
     };
   },
   close: async () => {
-    console.log("🗄️ Draining PostgreSQL connection pool...");
+    logger.info("🗄️ Draining PostgreSQL connection pool...");
     await pool.end();
   }
 };
 
 async function initDB() {
-  console.log("🛠️ Initializing Cloud Database Engine (Postgres)...");
+  logger.info("🛠️ Initializing Cloud Database Engine (Postgres)");
   
   try {
     // 1. Install pgvector extension
@@ -77,7 +78,7 @@ async function initDB() {
       for (const file of files) {
         const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE version = ?").get(file);
         if (!check) {
-          console.log(`🚀 Applying Cloud Migration: ${file}`);
+          logger.info({ migration: file }, "🚀 Applying Cloud Migration");
           const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
           // Advanced translation from SQLite to Postgres syntax
           const pgSql = sql
@@ -86,7 +87,7 @@ async function initDB() {
             .replace(/metadata TEXT/gi, 'metadata JSONB')
             .replace(/evaluation TEXT/gi, 'evaluation JSONB')
             .replace(/value TEXT NOT NULL/gi, 'value JSONB NOT NULL')
-            .replace(/vector\(3072\)/gi, 'vector(3072)') // Preserve vector type
+            .replace(/vector\(3072\)/gi, 'vector(3072)') 
             .replace(/CASCADE/gi, 'CASCADE');
           
           await db.exec(pgSql);
@@ -95,9 +96,9 @@ async function initDB() {
       }
     }
 
-    console.log("✅ Cloud Database Synced & Stable.");
+    logger.info("✅ Cloud Database Synced & Stable.");
   } catch (err) {
-    console.error("❌ Cloud Initialization Error:", err.message);
+    logger.error({ error: err.message }, "❌ Cloud Initialization Error");
     throw err;
   }
 }

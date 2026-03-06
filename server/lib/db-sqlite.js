@@ -2,6 +2,7 @@ const Database = require('better-sqlite3');
 const sqliteVec = require('sqlite-vec');
 const path = require('path');
 const fs = require('fs');
+const logger = require('./logger');
 
 /**
  * 🗄️ SQLITE ENGINE (Local Development)
@@ -14,7 +15,7 @@ const db = new Database(dbFile);
 sqliteVec.load(db);
 
 async function initDB() {
-  console.log("🛠️ Initializing Local Database Engine (SQLite)...");
+  logger.info({ db: dbFile }, '🛠️ Initializing Local Database Engine (SQLite)');
   
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -33,19 +34,19 @@ async function initDB() {
     for (const file of migrationFiles) {
       const isApplied = db.prepare("SELECT 1 FROM schema_migrations WHERE version = ?").get(file);
       if (!isApplied) {
-        console.log(`🚀 Applying Migration: ${file}`);
+        logger.info({ migration: file }, '🚀 Applying SQLite Migration');
         const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
         try {
           db.exec(sql);
           db.prepare("INSERT INTO schema_migrations (version) VALUES (?)").run(file);
         } catch (e) {
-          console.error(`❌ Migration Failed [${file}]:`, e.message);
+          logger.error({ migration: file, error: e.message }, '❌ Migration Failed');
         }
       }
     }
   }
   
-  console.log("✅ Local Database Synced & Stable.");
+  logger.info('✅ Local Database Synced & Stable.');
 }
 
 module.exports = { db, initDB, isPostgres: false };

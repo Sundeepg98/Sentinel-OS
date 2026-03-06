@@ -1,7 +1,8 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const path = require('path');
 const fs = require('fs').promises;
-const { LRUCache } = require('lru-cache');
+const LRUCache = require('lru-cache');
+const logger = require('./logger');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const DEFAULT_MODEL = "gemini-2.5-flash"; 
@@ -46,13 +47,12 @@ function recordAiFailure() {
   AI_CIRCUIT.lastFailureTime = Date.now();
   if (AI_CIRCUIT.failures >= AI_CIRCUIT.threshold) {
     AI_CIRCUIT.state = 'OPEN';
-    console.error(`🚨 AI CIRCUIT BREAKER TRIGGERED`);
+    logger.error('🚨 AI CIRCUIT BREAKER TRIGGERED: Blocking generation for 30s');
   }
 }
 
 // --- 🛡️ ENGINEERING BASIC: CONTEXT BUDGETING ---
 function truncateToBudget(text, limit = 15000) {
-  // Rough estimate: 1 char ~= 0.25 tokens. 15k chars is safe for free tier flash.
   if (!text || text.length <= limit) return text;
   return text.substring(0, limit) + "... [Truncated for Token Budget]";
 }
@@ -115,7 +115,7 @@ async function logAiFailure(type, prompt, error) {
       db.prepare("INSERT INTO system_logs (type, category, message, payload, stack) VALUES (?, ?, ?, ?, ?)").run(entry.type, entry.category, entry.message, entry.payload, entry.stack);
     }
   } catch (e) {
-    console.error("❌ Failed to write AI failure log to DB:", e.message);
+    logger.error({ error: e.message }, "❌ Failed to write AI failure log to DB");
   }
 }
 
@@ -123,7 +123,7 @@ async function generateStructuredContent(prompt, schema) {
   // 1. Check Cache
   const cacheKey = `gen:${prompt}:${JSON.stringify(schema)}`;
   if (aiCache.has(cacheKey)) {
-    console.log("💾 Returning AI result from Cache (Layer 2)");
+    logger.debug('💾 Returning AI result from Cache (Layer 2)');
     return aiCache.get(cacheKey);
   }
 
@@ -165,7 +165,7 @@ async function getEmbedding(text) {
   if (aiCache.has(cacheKey)) return aiCache.get(cacheKey);
 
   try {
-    const budgetedText = truncateToBudget(text, 5000); // Embeddings usually have shorter limits
+    const budgetedText = truncateToBudget(text, 5000); 
     const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
     const result = await model.embedContent({
       content: { parts: [{ text: budgetedText }] },
@@ -175,7 +175,7 @@ async function getEmbedding(text) {
     aiCache.set(cacheKey, vector);
     return vector;
   } catch (e) {
-    console.error('Embedding Error:', e.message);
+    logger.error({ error: e.message }, '🧵 Embedding Error');
     return new Array(3072).fill(0);
   }
 }
@@ -183,6 +183,7 @@ async function getEmbedding(text) {
 module.exports = { 
   getEmbedding, 
   generateStructuredContent,
+  truncateToBudget,
   logAiFailure,
   DRILL_SCHEMA,
   INCIDENT_SCHEMA,
