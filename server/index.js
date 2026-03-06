@@ -158,6 +158,36 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 const { responseEnvelope } = require('./lib/response');
 app.use(responseEnvelope);
 
+// --- 🛠️ FILE UPLOAD CONFIGURATION ---
+const storage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const companyId = req.params.companyId || 'mailin';
+    const uploadPath = path.join(INTELLIGENCE_DIR, companyId);
+    try {
+      await fs.mkdir(uploadPath, { recursive: true });
+      cb(null, uploadPath);
+    } catch (e) {
+      cb(e, null);
+    }
+  },
+  filename: (req, file, cb) => {
+    const cleanName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, cleanName.endsWith('.md') ? cleanName : `${cleanName}.md`);
+  }
+});
+
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, 
+  fileFilter: (req, file, cb) => {
+    if (path.extname(file.originalname).toLowerCase() === '.md') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Markdown (.md) files are allowed'));
+    }
+  }
+});
+
 // Serve Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
@@ -181,7 +211,7 @@ app.get('/health', async (req, res) => {
       aiEngine: {
         circuitState: getCircuitState()
       },
-      version: '5bb6b3f'
+      version: '8b150a2'
     });
   } catch (err) {
     res.error("System Unstable", 500, {
@@ -387,6 +417,9 @@ v1Router.get('/intelligence/stats', async (req, res) => {
     uptime: process.uptime(),
     env: env.NODE_ENV,
     auth: env.AUTH_ENABLED ? 'enabled' : 'disabled',
+    aiEngine: {
+      circuitState: getCircuitState()
+    },
     isSyncing
   });
 });
