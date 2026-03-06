@@ -74,7 +74,9 @@ app.use(helmet({
       connectSrc: ["'self'", "https://clerk.accounts.dev", "https://*.clerk.accounts.dev", "https://api.clerk.dev"],
       imgSrc: ["'self'", "data:", "https://*.clerk.com", "https://images.clerk.dev"],
       workerSrc: ["'self'", "blob:"],
-      frameSrc: ["'self'", "https://*.clerk.accounts.dev"]
+      frameSrc: ["'self'", "https://*.clerk.accounts.dev"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"]
     }
   },
   crossOriginEmbedderPolicy: false
@@ -229,6 +231,9 @@ function spawnRAGWorker() {
 // --- API V1 ROUTER ---
 const v1Router = express.Router();
 v1Router.use(authGuard);
+
+// Alias health in API v1
+v1Router.get('/health', (req, res) => res.redirect('/health'));
 
 // --- MOUNT MODULAR ROUTES ---
 v1Router.use('/admin', require('./routes/admin'));

@@ -28,6 +28,7 @@
     "test:frontend": "vitest run",
     "test:frontend:ui": "vitest",
     "test:coverage:frontend": "vitest run --coverage",
+    "test:coverage": "npm run test:coverage:server && npm run test:coverage:frontend",
     "test:e2e": "playwright test",
     "test": "npm run test:server && npm run test:frontend && npm run test:e2e",
     "verify": "node scripts/verify-environments.js",

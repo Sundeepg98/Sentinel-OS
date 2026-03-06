@@ -9,6 +9,16 @@ const { validateParams, schemas } = require('../lib/validation');
 
 const router = express.Router();
 
+const rateLimit = require('express-rate-limit');
+const adminRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50, // 50 actions per 15 minutes
+  keyGenerator: (req) => req.userId || req.ip,
+  message: { error: "Administrative actions are rate-limited. Please slow down." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // --- 🛠️ FILE UPLOAD CONFIGURATION ---
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
@@ -43,9 +53,10 @@ const upload = multer({
  * @openapi
  * /admin/upload/{companyId}:
  *   post:
+ *     tags: [Admin]
  *     summary: Upload a new technical dossier (Markdown)
  */
-router.post('/upload/:companyId', validateParams(schemas.pathParamsSchema), upload.single('file'), (req, res) => {
+router.post('/upload/:companyId', adminRateLimiter, validateParams(schemas.pathParamsSchema), upload.single('file'), (req, res) => {
   if (!req.file) return res.error("No file uploaded", 400);
   res.success({ success: true, filename: req.file.filename });
 });
@@ -56,7 +67,7 @@ router.post('/upload/:companyId', validateParams(schemas.pathParamsSchema), uplo
  *   post:
  *     summary: Create a new company intelligence context
  */
-router.post('/companies/:companyId', validateParams(schemas.pathParamsSchema), async (req, res) => {
+router.post('/companies/:companyId', adminRateLimiter, validateParams(schemas.pathParamsSchema), async (req, res) => {
   const { companyId } = req.params;
   const companyPath = path.join(INTELLIGENCE_DIR, companyId.toLowerCase());
   try {
@@ -73,7 +84,7 @@ router.post('/companies/:companyId', validateParams(schemas.pathParamsSchema), a
  *   delete:
  *     summary: Physically delete a dossier and purge its neural vectors
  */
-router.delete('/files/:companyId/:filename', validateParams(schemas.pathParamsSchema), async (req, res) => {
+router.delete('/files/:companyId/:filename', adminRateLimiter, validateParams(schemas.pathParamsSchema), async (req, res) => {
   const { companyId, filename } = req.params;
   const filePath = path.join(INTELLIGENCE_DIR, companyId, filename);
   try {

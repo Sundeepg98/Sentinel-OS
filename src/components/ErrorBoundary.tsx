@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { reportError } from '../lib/api';
+import { reportError } from '@/lib/api';
 
 interface Props {
   children: ReactNode;

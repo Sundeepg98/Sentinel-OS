@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { Brain, Hash, Loader2, Search, Sparkles } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@clerk/clerk-react';
-import { fetchWithAuth } from '../lib/api';
-import { cn } from '../lib/utils';
-import { useToast } from '../hooks/useToast';
+import { fetchWithAuth } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/useToast';
 
 interface InsightPanelProps {
   fullId: string;

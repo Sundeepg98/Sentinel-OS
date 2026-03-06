@@ -6,20 +6,22 @@ We welcome contributions from technical architects and infrastructure engineers.
 
 1. **Environment Setup**:
    - Copy `.env.example` to `.env.local`.
-   - Ensure `npm run dev` starts both the Vite frontend and Node.js backend.
+   - Ensure `npm run dev:windows` (for Windows) or `npm run dev` starts the full stack.
+   - Run `npm run verify` to check health across all 3 tiers.
 
 2. **Code Standards**:
-   - **TypeScript**: No `any` types allowed in new contributions. Use strict typing.
-   - **Linting**: Run `npm run lint` before committing.
-   - **Formatting**: Prettier is enforced via Husky hooks.
+   - **TypeScript**: No `any` types allowed. Use absolute imports (`@/*`).
+   - **Linting**: `npm run lint` is mandatory.
+   - **Formatting**: `prettier` is enforced on commit.
 
-3. **Database Migrations**:
-   - If you change the SQLite schema, add a new `.sql` file to `server/migrations/`.
-   - Ensure you also update `server/lib/db-postgres.js` for cloud parity.
+3. **Database & Persistence**:
+   - If you change the schema, update `server/migrations/001_base_schema.sql`.
+   - Run `npm run backup` before major migrations.
 
 4. **Testing**:
-   - New features must include a Playwright E2E test in `/tests`.
-   - Backend logic must include a Jest unit test in `/server/tests`.
+   - New features require a Playwright E2E test in `/tests`.
+   - Frontend components require a Vitest unit test in `src/**/*.test.tsx`.
+   - Backend logic requires a Jest unit test in `server/tests/`.
 
 ## 📜 Commit Messages
 

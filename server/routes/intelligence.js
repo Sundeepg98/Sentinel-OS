@@ -30,6 +30,7 @@ const aiRateLimiter = rateLimit({
  * @openapi
  * /intelligence/stream:
  *   get:
+ *     tags: [Intelligence]
  *     summary: Real-time system event stream
  */
 router.get('/stream', (req, res) => {

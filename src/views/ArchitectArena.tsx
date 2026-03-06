@@ -3,9 +3,9 @@ import { Swords, Brain, Loader2, Send, X, ShieldAlert, CheckCircle2, ChevronUp, 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from '@clerk/clerk-react';
-import { useLocalStorage } from '../hooks/useLocalStorage';
-import { useToast } from '../hooks/useToast';
-import { fetchWithAuth } from '../lib/api';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useToast } from '@/hooks/useToast';
+import { fetchWithAuth } from '@/lib/api';
 
 interface ArenaModule {
   id: string;

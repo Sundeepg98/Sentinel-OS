@@ -1,9 +1,9 @@
 import React from 'react';
 import { Zap, CheckCircle2 } from 'lucide-react';
-import { useLocalStorage } from '../hooks/useLocalStorage';
-import type { Task } from '../types';
-import { useDossierContext } from '../lib/context';
-import { cn } from '../lib/utils';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import type { Task } from '@/types';
+import { useDossierContext } from '@/lib/context';
+import { cn } from '@/lib/utils';
 
 interface TrackerProps {
   data: Task[];
