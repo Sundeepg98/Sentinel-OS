@@ -3,9 +3,10 @@ import { Terminal, ShieldAlert, CheckSquare, XCircle, BrainCircuit, Eye, EyeOff 
 import { StatusCard } from '@/components/ui/StatusCard';
 import { useDossierContext } from '@/lib/context';
 import { cn } from '@/lib/utils';
+import type { DashboardData, KPI } from '@/types';
 
 interface DashboardProps {
-  data: any;
+  data: DashboardData;
   label: string;
 }
 
@@ -55,7 +56,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, label }) => {
 
       {kpis && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {kpis.map((kpi: any, i: number) => (
+          {kpis.map((kpi: KPI, i: number) => (
             <StatusCard 
               key={i}
               title={kpi.title} 

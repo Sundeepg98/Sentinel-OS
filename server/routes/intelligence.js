@@ -29,8 +29,11 @@ const aiRateLimiter = rateLimit({
  * @openapi
  * /intelligence/stream:
  *   get:
- *     tags: [Intelligence]
- *     summary: Real-time system event stream
+ *     tags: [Intelligence Engine]
+ *     summary: Real-time system event stream (SSE)
+ *     responses:
+ *       200:
+ *         description: Event stream established
  */
 router.get('/stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
@@ -50,6 +53,7 @@ router.get('/stream', (req, res) => {
  * @openapi
  * /intelligence/stats:
  *   get:
+ *     tags: [Intelligence Engine]
  *     summary: Retrieve system-wide intelligence telemetry
  */
 router.get('/stats', async (req, res) => {
@@ -89,6 +93,7 @@ router.get('/stats', async (req, res) => {
  * @openapi
  * /intelligence/graph:
  *   get:
+ *     tags: [Intelligence Engine]
  *     summary: Generate the 3D Architectural Nervous System data
  */
 router.get('/graph', async (req, res) => {
@@ -131,7 +136,14 @@ router.get('/graph', async (req, res) => {
  * @openapi
  * /intelligence/insights:
  *   get:
+ *     tags: [Intelligence Engine]
  *     summary: Retrieve contextual keywords and related semantic links
+ *     parameters:
+ *       - in: query
+ *         name: fileId
+ *         required: true
+ *         schema:
+ *           type: string
  */
 router.get('/insights', validateQuery(schemas.insightsQuerySchema), async (req, res) => {
   const { fileId: rawFileId } = req.query;
@@ -162,7 +174,22 @@ router.get('/insights', validateQuery(schemas.insightsQuerySchema), async (req, 
  * @openapi
  * /intelligence/search:
  *   get:
+ *     tags: [Intelligence Engine]
  *     summary: Perform a high-speed keyword search
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
  */
 router.get('/search', validateQuery(schemas.searchQuerySchema), (req, res) => {
   const { q } = req.query;
@@ -181,7 +208,19 @@ router.get('/search', validateQuery(schemas.searchQuerySchema), (req, res) => {
  * @openapi
  * /intelligence/semantic-search:
  *   post:
+ *     tags: [Intelligence Engine]
  *     summary: Deep vector search
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               q:
+ *                 type: string
+ *               limit:
+ *                 type: integer
  */
 router.post('/semantic-search', validateBody(schemas.semanticSearchSchema), async (req, res) => {
   const { q, limit } = req.body;
@@ -205,7 +244,17 @@ router.post('/semantic-search', validateBody(schemas.semanticSearchSchema), asyn
  * @openapi
  * /intelligence/drill:
  *   post:
- *     summary: Generate a technical drill
+ *     tags: [Intelligence Engine]
+ *     summary: Generate a high-stakes technical drill
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fileId:
+ *                 type: string
  */
 router.post('/drill', aiRateLimiter, validateBody(schemas.drillRequestSchema), async (req, res) => {
   const { fileId, extraContext = "" } = req.body;
@@ -225,6 +274,7 @@ router.post('/drill', aiRateLimiter, validateBody(schemas.drillRequestSchema), a
  * @openapi
  * /intelligence/incident:
  *   post:
+ *     tags: [Intelligence Engine]
  *     summary: Simulate a critical production incident
  */
 router.post('/incident', aiRateLimiter, validateBody(schemas.incidentRequestSchema), async (req, res) => {
@@ -246,7 +296,8 @@ router.post('/incident', aiRateLimiter, validateBody(schemas.incidentRequestSche
  * @openapi
  * /intelligence/evaluate:
  *   post:
- *     summary: AI-driven evaluation
+ *     tags: [Intelligence Engine]
+ *     summary: AI-driven evaluation of candidate response
  */
 router.post('/evaluate', aiRateLimiter, validateBody(schemas.evaluateRequestSchema), async (req, res) => {
   const { userAnswer, question, idealResponse, fileId } = req.body;

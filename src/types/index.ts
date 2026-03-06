@@ -9,6 +9,20 @@ export interface Module {
   data: any; // Context-specific payload
 }
 
+export interface KPI {
+  title: string;
+  value: string;
+  subValue: string;
+  note: string;
+  color: 'cyan' | 'indigo' | 'emerald' | 'rose' | 'amber';
+}
+
+export interface DashboardData {
+  kpis: KPI[];
+  failCriteria: string[];
+  goldenRule: string;
+}
+
 export interface CompanyDossier {
   id: string;
   name: string;

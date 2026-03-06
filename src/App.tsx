@@ -33,6 +33,7 @@ const MainView = () => {
   const dossierData = useDossierContext();
   const [activeModuleId, setActiveModuleId] = useState<string>('');
   const [isGraphOpen, setIsGraphOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [arenaMode, setArenaMode] = useLocalStorage('arena_mode_active', false);
   const [warRoomMode, setWarRoomMode] = useState(false);
   const [diagnosticsMode, setDiagnosticsMode] = useState(false);
@@ -70,7 +71,7 @@ const MainView = () => {
 
   const activeModule = useMemo(() => {
     if (!dossierData.dossier?.modules) return null;
-    return dossierData.dossier.modules.find((m: any) => m.id === activeModuleId) || dossierData.dossier.modules[0];
+    return dossierData.dossier.modules.find((m) => m.id === activeModuleId) || dossierData.dossier.modules[0];
   }, [dossierData.dossier, activeModuleId]);
 
   const resetViews = useCallback(() => {
@@ -100,6 +101,8 @@ const MainView = () => {
   return (
     <div className="flex h-screen font-sans text-neutral-200 overflow-hidden bg-[#050505] selection:bg-cyan-500/30">
       <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
         activeModuleId={activeModule?.id || ''}
         setActiveModuleId={(id: string) => {
           setActiveModuleId(id);
@@ -114,8 +117,16 @@ const MainView = () => {
       />
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-16 shrink-0 px-8 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/[0.05] z-30">
-          <div className="flex items-center gap-4">
+        <header className="h-16 shrink-0 px-4 md:px-8 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/[0.05] z-30">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden p-2 text-neutral-400 hover:text-white transition-colors bg-white/5 rounded-lg border border-white/5"
+              aria-label="Toggle Navigation Menu"
+            >
+              <Terminal size={18} />
+            </button>
+
             <select
               value={dossierData.companyId}
               onChange={(e) => {
@@ -123,11 +134,11 @@ const MainView = () => {
                 resetViews();
               }}
               aria-label="Select technical context profile"
-              className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs font-medium text-neutral-300 outline-none focus:border-white/20 transition-all uppercase tracking-widest cursor-pointer"
+              className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-medium text-neutral-300 outline-none focus:border-white/20 transition-all uppercase tracking-widest cursor-pointer max-w-[120px] md:max-w-none"
             >
               {dossierData.allCompanies.map((c: any) => (
                 <option key={c.id} value={c.id}>
-                  {c.name} Profile
+                  {c.name}
                 </option>
               ))}
             </select>
@@ -135,13 +146,13 @@ const MainView = () => {
             <button
               onClick={() => setIsGraphOpen(true)}
               aria-label="Open 3D Knowledge Graph"
-              className="p-2 bg-white/[0.03] border border-white/[0.08] rounded-lg text-neutral-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all shadow-sm"
+              className="p-2 bg-white/[0.03] border border-white/[0.08] rounded-lg text-neutral-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all shadow-sm hidden sm:block"
               title="Open Knowledge Graph"
             >
               <Network size={16} />
             </button>
 
-            <div className="h-4 w-px bg-white/10 mx-1" />
+            <div className="h-4 w-px bg-white/10 mx-1 hidden sm:block" />
 
             {stats?.isSyncing && (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-lg animate-pulse">
@@ -159,45 +170,25 @@ const MainView = () => {
                 setDiagnosticsMode(false);
               }}
               className={cn(
-                'flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border shadow-sm',
+                'flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-lg text-[9px] md:text-[10px] font-bold uppercase tracking-widest transition-all border shadow-sm',
                 arenaMode
                   ? 'bg-indigo-500 border-indigo-400 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]'
                   : 'bg-white/[0.03] border-white/[0.08] text-neutral-400 hover:text-white'
               )}
             >
-              <Swords size={14} /> Arena {pinnedIds.length > 0 && `(${pinnedIds.length})`}
-            </button>
-
-            <button
-              onClick={() => {
-                setWarRoomMode(!warRoomMode);
-                setArenaMode(false);
-                setDiagnosticsMode(false);
-              }}
-              className={cn(
-                'flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border shadow-sm',
-                warRoomMode
-                  ? 'bg-rose-600 border-rose-500 text-white shadow-[0_0_20px_rgba(225,29,72,0.3)]'
-                  : 'bg-white/[0.03] border-white/[0.08] text-neutral-400 hover:text-rose-400 hover:border-rose-500/30'
-              )}
-            >
-              <Terminal size={14} /> War Room
+              <Swords size={14} className="hidden xs:block" /> {arenaMode ? 'Exit Arena' : 'Arena'} {pinnedIds.length > 0 && `(${pinnedIds.length})`}
             </button>
           </div>
 
-          <div className="flex items-center gap-4">
-            <DeepSearch
-              onSelect={(id: string) => {
-                setActiveModuleId(id);
-                resetViews();
-              }}
-            />
-            <button
-              onClick={() => window.open('/api/v1/portfolio/export', '_blank')}
-              className="text-xs font-semibold text-neutral-400 hover:text-white transition-colors uppercase tracking-widest px-3 py-1.5 border border-white/5 hover:border-white/20 rounded-lg bg-white/[0.02]"
-            >
-              Export Portfolio
-            </button>
+          <div className="flex items-center gap-2 md:gap-4">
+            <div className="hidden lg:block">
+              <DeepSearch
+                onSelect={(id: string) => {
+                  setActiveModuleId(id);
+                  resetViews();
+                }}
+              />
+            </div>
             {import.meta.env.VITE_AUTH_ENABLED === 'true' && <UserButton afterSignOutUrl="/" />}
           </div>
         </header>
@@ -213,14 +204,14 @@ const MainView = () => {
                 <Diagnostics />
               </div>
             ) : arenaMode ? (
-              <div className="flex-1 overflow-y-auto p-8 h-full"><ArchitectArena /></div>
+              <div className="flex-1 overflow-y-auto p-4 md:p-8 h-full"><ArchitectArena /></div>
             ) : warRoomMode ? (
-              <div className="flex-1 overflow-hidden p-8 h-full"><WarRoom /></div>
+              <div className="flex-1 overflow-hidden p-4 md:p-8 h-full"><WarRoom /></div>
             ) : !activeModule ? (
-              <div className="flex-1 flex flex-col items-center justify-center opacity-50 p-20 text-center h-full">
-                <AlertCircle className="w-16 h-16 mb-4 text-neutral-600" />
-                <h2 className="text-xl font-bold text-white mb-2">Dossier is Empty</h2>
-                <p className="text-neutral-400 max-w-md">No technical modules found.</p>
+              <div className="flex-1 flex flex-col items-center justify-center opacity-50 p-10 md:p-20 text-center h-full">
+                <AlertCircle className="w-12 md:w-16 h-12 md:h-16 mb-4 text-neutral-600" />
+                <h2 className="text-lg md:text-xl font-bold text-white mb-2">Dossier is Empty</h2>
+                <p className="text-neutral-400 max-w-md text-sm">No technical modules found.</p>
                 <button
                   onClick={() => setDiagnosticsMode(true)}
                   className="mt-6 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-bold uppercase tracking-widest transition-colors"
@@ -230,10 +221,10 @@ const MainView = () => {
               </div>
             ) : (
               <div className="flex flex-1 overflow-hidden h-full">
-                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
                   {renderActiveView()}
                 </div>
-                <div className="w-80 shrink-0 border-l border-white/[0.05] bg-[#080808]/50 overflow-y-auto">
+                <div className="hidden xl:block w-80 shrink-0 border-l border-white/[0.05] bg-[#080808]/50 overflow-y-auto">
                   <InsightPanel
                     fullId={activeModule.fullId || ''}
                     brandColor={dossierData.dossier?.brandColor}
@@ -289,8 +280,8 @@ function App() {
               <MainView />
             </SignedIn>
             <SignedOut>
-              <div className="h-screen w-screen bg-[#050505] flex items-center justify-center">
-                <div className="bg-[#0d0d0d] border border-white/5 p-1 rounded-2xl shadow-2xl">
+              <div className="h-screen w-screen bg-[#050505] flex items-center justify-center p-4">
+                <div className="bg-[#0d0d0d] border border-white/5 p-1 rounded-2xl shadow-2xl w-full max-w-md">
                   <SignIn routing="hash" />
                 </div>
               </div>

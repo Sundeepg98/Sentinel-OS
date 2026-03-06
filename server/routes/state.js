@@ -8,9 +8,38 @@ const router = express.Router();
  * @openapi
  * /state/{key}:
  *   get:
+ *     tags: [User State]
  *     summary: Retrieve persistent user state
+ *     parameters:
+ *       - in: path
+ *         name: key
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
  *   post:
+ *     tags: [User State]
  *     summary: Persist user state
+ *     parameters:
+ *       - in: path
+ *         name: key
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               value:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Success
  */
 router.get('/:key', validateParams(schemas.pathParamsSchema), async (req, res) => {
   let row;

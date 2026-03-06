@@ -52,8 +52,14 @@ const upload = multer({
  * @openapi
  * /admin/upload/{companyId}:
  *   post:
- *     tags: [Admin]
+ *     tags: [Admin Management]
  *     summary: Upload a new technical dossier (Markdown)
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
  */
 router.post('/upload/:companyId', adminRateLimiter, validateParams(schemas.pathParamsSchema), upload.single('file'), (req, res) => {
   if (!req.file) return res.error("No file uploaded", 400);
@@ -64,7 +70,14 @@ router.post('/upload/:companyId', adminRateLimiter, validateParams(schemas.pathP
  * @openapi
  * /admin/companies/{companyId}:
  *   post:
+ *     tags: [Admin Management]
  *     summary: Create a new company intelligence context
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
  */
 router.post('/companies/:companyId', adminRateLimiter, validateParams(schemas.pathParamsSchema), async (req, res) => {
   const { companyId } = req.params;
@@ -81,7 +94,19 @@ router.post('/companies/:companyId', adminRateLimiter, validateParams(schemas.pa
  * @openapi
  * /admin/files/{companyId}/{filename}:
  *   delete:
+ *     tags: [Admin Management]
  *     summary: Physically delete a dossier and purge its neural vectors
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: filename
+ *         required: true
+ *         schema:
+ *           type: string
  */
 router.delete('/files/:companyId/:filename', adminRateLimiter, validateParams(schemas.pathParamsSchema), async (req, res) => {
   const { companyId, filename } = req.params;
@@ -98,7 +123,17 @@ router.delete('/files/:companyId/:filename', adminRateLimiter, validateParams(sc
  * @openapi
  * /admin/ai-logs:
  *   get:
+ *     tags: [Audit & Telemetry]
  *     summary: Retrieve AI generation failure logs from the database with pagination
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
  */
 router.get('/ai-logs', async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 200);
@@ -125,6 +160,7 @@ router.get('/ai-logs', async (req, res) => {
  * @openapi
  * /admin/error-logs:
  *   post:
+ *     tags: [Audit & Telemetry]
  *     summary: Log frontend application crashes to the persistent database
  */
 router.post('/error-logs', async (req, res) => {
@@ -151,7 +187,17 @@ router.post('/error-logs', async (req, res) => {
  * @openapi
  * /admin/ui-logs:
  *   get:
+ *     tags: [Audit & Telemetry]
  *     summary: Retrieve recorded frontend crashes from the database with pagination
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
  */
 router.get('/ui-logs', async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 200);
@@ -178,6 +224,7 @@ router.get('/ui-logs', async (req, res) => {
  * @openapi
  * /admin/export-db:
  *   get:
+ *     tags: [Admin Management]
  *     summary: Export the physical SQLite database (Local only)
  */
 router.get('/export-db', (req, res) => {

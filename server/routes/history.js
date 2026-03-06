@@ -7,6 +7,7 @@ const router = express.Router();
  * @openapi
  * /intelligence/history:
  *   get:
+ *     tags: [Audit & Telemetry]
  *     summary: Retrieve interaction history for the current user with pagination
  *     parameters:
  *       - in: query
