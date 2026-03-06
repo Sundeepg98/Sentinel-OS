@@ -1,33 +1,33 @@
 import { useState, useEffect, Suspense, lazy, useCallback, useMemo } from 'react';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { SignedIn, SignedOut, SignIn, UserButton, useAuth } from '@clerk/clerk-react';
-import { Sidebar } from './components/Sidebar';
-import { InsightPanel } from './components/InsightPanel';
-import { DeepSearch } from './components/DeepSearch';
-import { useDossier } from './hooks/useDossier';
+import { Sidebar } from '@/components/Sidebar';
+import { InsightPanel } from '@/components/InsightPanel';
+import { DeepSearch } from '@/components/DeepSearch';
+import { useDossier } from '@/hooks/useDossier';
 import { Loader2, AlertCircle, Network, Swords, Terminal } from 'lucide-react';
-import { useLocalStorage } from './hooks/useLocalStorage';
-import { ToastProvider } from './hooks/useToast';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { StatusBanner } from './components/ui/StatusBanner';
-import { cn } from './lib/utils';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { ToastProvider } from '@/hooks/useToast';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { StatusBanner } from '@/components/ui/StatusBanner';
+import { cn } from '@/lib/utils';
 import { AnimatePresence } from 'framer-motion';
-import { DossierContext, useDossierContext } from './lib/context';
+import { DossierContext, useDossierContext } from '@/lib/context';
 
 // --- ⚡ ENGINEERING BASIC: BUNDLE OPTIMIZATION (CODE SPLITTING) ---
-const Dashboard = lazy(() => import('./views/Dashboard').then(m => ({ default: m.Dashboard })));
-const Internals = lazy(() => import('./views/Internals').then(m => ({ default: m.Internals })));
-const ArchitectArena = lazy(() => import('./views/ArchitectArena').then(m => ({ default: m.ArchitectArena })));
-const WarRoom = lazy(() => import('./views/WarRoom').then(m => ({ default: m.WarRoom })));
-const Diagnostics = lazy(() => import('./views/Diagnostics').then(m => ({ default: m.Diagnostics })));
-const Tracker = lazy(() => import('./views/Tracker').then(m => ({ default: m.Tracker })));
-const MarkdownView = lazy(() => import('./views/MarkdownView').then(m => ({ default: m.MarkdownView })));
-const SystemDesign = lazy(() => import('./views/SystemDesign').then(m => ({ default: m.SystemDesign })));
+const Dashboard = lazy(() => import('@/views/Dashboard').then(m => ({ default: m.Dashboard })));
+const Internals = lazy(() => import('@/views/Internals').then(m => ({ default: m.Internals })));
+const ArchitectArena = lazy(() => import('@/views/ArchitectArena').then(m => ({ default: m.ArchitectArena })));
+const WarRoom = lazy(() => import('@/views/WarRoom').then(m => ({ default: m.WarRoom })));
+const Diagnostics = lazy(() => import('@/views/Diagnostics').then(m => ({ default: m.Diagnostics })));
+const Tracker = lazy(() => import('@/views/Tracker').then(m => ({ default: m.Tracker })));
+const MarkdownView = lazy(() => import('@/views/MarkdownView').then(m => ({ default: m.MarkdownView })));
+const SystemDesign = lazy(() => import('@/views/SystemDesign').then(m => ({ default: m.SystemDesign })));
 
 // Properly type the lazy loaded component to avoid TS errors
 const KnowledgeGraph = lazy(() =>
-  import('./components/KnowledgeGraph').then((module) => ({ default: module.KnowledgeGraph }))
-);
+  import('@/components/KnowledgeGraph').then((module) => ({ default: module.KnowledgeGraph }))
+) as React.FC<{ isOpen: boolean; onClose: () => void; onSelectModule: (id: string) => void }>;
 
 const MainView = () => {
   const dossierData = useDossierContext();

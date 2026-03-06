@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import ForceGraph3D from 'react-force-graph-3d';
-import { useDossierContext } from '../lib/context';
+import { useDossierContext } from '@/lib/context';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Network, X, Maximize2, Zap, Cpu, AlertCircle, Play, ChevronRight, Activity, ShieldAlert, FileText, Loader2 } from 'lucide-react';
 import * as THREE from 'three';
@@ -14,12 +14,12 @@ import {
   VignetteEffect,
   EdgeDetectionMode
 } from 'postprocessing';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@clerk/clerk-react';
 import { useMutation } from '@tanstack/react-query';
-import { fetchWithAuth } from '../lib/api';
-import type { GraphData, GraphNode, GraphLink } from '../types';
-import { useToast } from '../hooks/useToast';
+import { fetchWithAuth } from '@/lib/api';
+import type { GraphData, GraphNode, GraphLink } from '@/types';
+import { useToast } from '@/hooks/useToast';
 
 interface KnowledgeGraphProps {
   isOpen: boolean;

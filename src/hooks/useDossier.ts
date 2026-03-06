@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@clerk/clerk-react';
-import { fetchWithAuth } from '../lib/api';
-import type { CompanyDossier } from '../types';
+import { fetchWithAuth } from '@/lib/api';
+import type { CompanyDossier } from '@/types';
 
 interface CompanyListItem {
   id: string;
