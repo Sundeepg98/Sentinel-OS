@@ -27,6 +27,7 @@
     "test:coverage": "NODE_OPTIONS='--experimental-vm-modules' npx jest server/tests --coverage",
     "test:e2e": "playwright test",
     "test": "npm run test:server && npm run test:e2e",
+    "verify": "node scripts/verify-environments.js",
     "prepare": "husky"
   },
   "lint-staged": {

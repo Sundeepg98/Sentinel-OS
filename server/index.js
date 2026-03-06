@@ -422,6 +422,76 @@ v1Router.post('/intelligence/semantic-search', validateBody(schemas.semanticSear
   } catch (e) { res.error(e.message, 500); }
 });
 
+/**
+ * @openapi
+ * /intelligence/drill:
+ *   post:
+ *     summary: Generate a high-stakes technical drill based on dossier context
+ */
+v1Router.post('/intelligence/drill', aiRateLimiter, validateBody(schemas.drillRequestSchema), async (req, res) => {
+  const { fileId, extraContext = "" } = req.body;
+  if (!GEMINI_API_KEY) return res.error("AI Intelligence Engine Offline (API Key Missing)", 503);
+  
+  try {
+    const context = extraContext || globalState.knowledgeGraph.files[fileId.toLowerCase()]?.content.slice(0, 3000) || "General System Architecture";
+    const prompt = `You are a Staff Engineer interviewer. Generate ONE high-stakes technical drill.\nContext: ${context}`;
+    const text = await generateStructuredContent(prompt, DRILL_SCHEMA);
+    res.success(JSON.parse(text));
+  } catch (error) { 
+    res.error(error.message, 500); 
+  }
+});
+
+/**
+ * @openapi
+ * /intelligence/incident:
+ *   post:
+ *     summary: Simulate a critical production incident based on architecture context
+ */
+v1Router.post('/intelligence/incident', aiRateLimiter, validateBody(schemas.incidentRequestSchema), async (req, res) => {
+  const { moduleIds = [] } = req.body;
+  if (!GEMINI_API_KEY) return res.error("AI Intelligence Engine Offline (API Key Missing)", 503);
+  
+  let context = moduleIds.map(id => globalState.knowledgeGraph.files[id.toLowerCase()]?.content.slice(0, 1000)).join('\n\n') || "General System Architecture";
+
+  try {
+    const prompt = `You are a Chaos Engineering simulator for a Staff Engineer. Context: ${context}. Generate a critical production incident (P0/P1) based on this architecture.`;
+    const text = await generateStructuredContent(prompt, INCIDENT_SCHEMA);
+    res.success(JSON.parse(text));
+  } catch (error) { 
+    res.error(error.message, 500); 
+  }
+});
+
+/**
+ * @openapi
+ * /intelligence/incident/evaluate:
+ *   post:
+ *     summary: Evaluate an incident post-mortem response
+ */
+v1Router.post('/intelligence/incident/evaluate', aiRateLimiter, validateBody(schemas.incidentEvaluateSchema), async (req, res) => {
+  const { userAnswer, incident } = req.body;
+  if (!GEMINI_API_KEY) return res.error("AI Intelligence Engine Offline (API Key Missing)", 503);
+
+  try {
+    const prompt = `Staff Engineer Incident Post-Mortem.\nIncident: ${incident.title}\nActual Root Cause: ${incident.rootCause}\nIdeal Mitigation: ${incident.idealMitigation}\nCandidate's Response: "${userAnswer}"`;
+    const text = await generateStructuredContent(prompt, POST_MORTEM_SCHEMA);
+    const json = JSON.parse(text);
+
+    if (json && json.score) {
+      const numericScore = parseInt(json.score.split('/')[0]);
+      if (isPostgres) {
+        await db.query("INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) VALUES ($1, 'incident', $2, $3, $4, $5, $6)", [req.userId, incident.title, incident.title, userAnswer, text, isNaN(numericScore) ? 0 : numericScore]);
+      } else {
+        db.prepare(`INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) VALUES (?, 'incident', ?, ?, ?, ?, ?)`).run(req.userId, incident.title, incident.title, userAnswer, text, isNaN(numericScore) ? 0 : numericScore);
+      }
+    }
+    res.success(json);
+  } catch (error) { 
+    res.error(error.message, 500); 
+  }
+});
+
 v1Router.post('/intelligence/evaluate', aiRateLimiter, validateBody(schemas.evaluateRequestSchema), async (req, res) => {
   const { userAnswer, question, idealResponse, fileId } = req.body;
   try {
