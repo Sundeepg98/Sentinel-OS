@@ -22,8 +22,11 @@ jobs:
     - name: Install Dependencies
       run: npm install
 
-    - name: TypeScript Check
+    - name: TypeScript Check & Build
       run: npm run build
+
+    - name: Performance Gate (Bundle Size)
+      run: npm run bundle-guard
 
     - name: Security Audit
       run: npm audit --audit-level=high

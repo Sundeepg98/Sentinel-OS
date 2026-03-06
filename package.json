@@ -32,6 +32,7 @@
     "test": "npm run test:server && npm run test:frontend && npm run test:e2e",
     "verify": "node scripts/verify-environments.js",
     "backup": "node scripts/backup-db.js",
+    "bundle-guard": "node scripts/bundle-guard.js",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -67,6 +68,7 @@
     "gray-matter": "^4.0.3",
     "helmet": "^8.1.0",
     "hpp": "^0.2.3",
+    "lru-cache": "^11.2.6",
     "lucide-react": "^0.576.0",
     "morgan": "^1.10.1",
     "multer": "^2.1.1",

@@ -1,6 +1,7 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const path = require('path');
 const fs = require('fs').promises;
+const { LRUCache } = require('lru-cache');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const DEFAULT_MODEL = "gemini-2.5-flash"; 
@@ -8,12 +9,18 @@ const EMBEDDING_MODEL = "gemini-embedding-001";
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || '');
 
+// --- 🛡️ ENGINEERING BASIC: AI RESPONSE CACHE ---
+const aiCache = new LRUCache({
+  max: 500, // Store up to 500 unique AI responses
+  ttl: 1000 * 60 * 60, // 1 hour time-to-live
+});
+
 // --- 🛡️ ENGINEERING BASIC: CIRCUIT BREAKER ---
 const AI_CIRCUIT = {
-  state: 'CLOSED', // 'CLOSED', 'OPEN', 'HALF_OPEN'
+  state: 'CLOSED',
   failures: 0,
   threshold: 5,
-  cooldown: 30000, // 30 seconds
+  cooldown: 30000,
   lastFailureTime: null
 };
 
@@ -39,8 +46,15 @@ function recordAiFailure() {
   AI_CIRCUIT.lastFailureTime = Date.now();
   if (AI_CIRCUIT.failures >= AI_CIRCUIT.threshold) {
     AI_CIRCUIT.state = 'OPEN';
-    console.error(`🚨 AI CIRCUIT BREAKER TRIGGERED: Open for ${AI_CIRCUIT.cooldown}ms`);
+    console.error(`🚨 AI CIRCUIT BREAKER TRIGGERED`);
   }
+}
+
+// --- 🛡️ ENGINEERING BASIC: CONTEXT BUDGETING ---
+function truncateToBudget(text, limit = 15000) {
+  // Rough estimate: 1 char ~= 0.25 tokens. 15k chars is safe for free tier flash.
+  if (!text || text.length <= limit) return text;
+  return text.substring(0, limit) + "... [Truncated for Token Budget]";
 }
 
 // SCHEMAS
@@ -87,25 +101,18 @@ const POST_MORTEM_SCHEMA = {
 
 async function logAiFailure(type, prompt, error) {
   const { db, isPostgres } = require('./db');
-  
   try {
     const entry = {
       type: 'AI',
       category: type,
       message: error.message || String(error),
-      payload: prompt,
+      payload: truncateToBudget(prompt, 1000),
       stack: error.stack
     };
-
     if (isPostgres) {
-      await db.query(
-        "INSERT INTO system_logs (type, category, message, payload, stack) VALUES ($1, $2, $3, $4, $5)",
-        [entry.type, entry.category, entry.message, entry.payload, entry.stack]
-      );
+      await db.query("INSERT INTO system_logs (type, category, message, payload, stack) VALUES ($1, $2, $3, $4, $5)", [entry.type, entry.category, entry.message, entry.payload, entry.stack]);
     } else {
-      db.prepare(
-        "INSERT INTO system_logs (type, category, message, payload, stack) VALUES (?, ?, ?, ?, ?)"
-      ).run(entry.type, entry.category, entry.message, entry.payload, entry.stack);
+      db.prepare("INSERT INTO system_logs (type, category, message, payload, stack) VALUES (?, ?, ?, ?, ?)").run(entry.type, entry.category, entry.message, entry.payload, entry.stack);
     }
   } catch (e) {
     console.error("❌ Failed to write AI failure log to DB:", e.message);
@@ -113,9 +120,20 @@ async function logAiFailure(type, prompt, error) {
 }
 
 async function generateStructuredContent(prompt, schema) {
+  // 1. Check Cache
+  const cacheKey = `gen:${prompt}:${JSON.stringify(schema)}`;
+  if (aiCache.has(cacheKey)) {
+    console.log("💾 Returning AI result from Cache (Layer 2)");
+    return aiCache.get(cacheKey);
+  }
+
+  // 2. Check Circuit
   if (!checkCircuit()) {
     throw new Error("AI Intelligence Engine is temporarily offline (Circuit Breaker Active).");
   }
+
+  // 3. Enforce Token Budget
+  const budgetedPrompt = truncateToBudget(prompt);
 
   const model = genAI.getGenerativeModel({ 
     model: DEFAULT_MODEL,
@@ -126,26 +144,36 @@ async function generateStructuredContent(prompt, schema) {
   });
   
   try {
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent(budgetedPrompt);
     const text = (await result.response).text();
     recordAiSuccess();
+    
+    // 4. Update Cache
+    aiCache.set(cacheKey, text);
     return text;
   } catch (error) {
     recordAiFailure();
-    await logAiFailure("generation", prompt, error);
+    await logAiFailure("generation", budgetedPrompt, error);
     throw error;
   }
 }
 
 async function getEmbedding(text) {
   if (!GEMINI_API_KEY) return new Array(3072).fill(0);
+  
+  const cacheKey = `emb:${text}`;
+  if (aiCache.has(cacheKey)) return aiCache.get(cacheKey);
+
   try {
+    const budgetedText = truncateToBudget(text, 5000); // Embeddings usually have shorter limits
     const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
     const result = await model.embedContent({
-      content: { parts: [{ text }] },
+      content: { parts: [{ text: budgetedText }] },
       taskType: "RETRIEVAL_DOCUMENT"
     });
-    return result.embedding.values;
+    const vector = result.embedding.values;
+    aiCache.set(cacheKey, vector);
+    return vector;
   } catch (e) {
     console.error('Embedding Error:', e.message);
     return new Array(3072).fill(0);

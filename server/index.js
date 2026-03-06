@@ -114,6 +114,22 @@ app.use((req, res, next) => {
   next();
 });
 
+// --- 🛡️ ENGINEERING BASIC: REQUEST IDEMPOTENCY ---
+const { LRUCache } = require('lru-cache');
+const idempotencyCache = new LRUCache({ max: 1000, ttl: 1000 * 60 * 5 }); // 5 min window
+
+app.use((req, res, next) => {
+  if (req.method === 'POST' || req.method === 'DELETE') {
+    const key = `${req.userId}:${req.id}:${req.path}`;
+    if (idempotencyCache.has(key)) {
+      logger.warn({ requestId: req.id }, '🔁 Duplicate Request Detected (Idempotency Active)');
+      return res.success({ _idempotent: true, message: "Request already processed" });
+    }
+    idempotencyCache.set(key, true);
+  }
+  next();
+});
+
 morgan.token('id', (req) => req.id);
 app.use(morgan(':id :method :url :status :res[content-length] - :response-time ms'));
 
