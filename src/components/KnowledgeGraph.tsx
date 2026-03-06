@@ -376,7 +376,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
               linkDirectionalParticles={(link: GraphLink) => {
                 const impactA = blastImpacts.get((link.source as any).id || (link.source as string));
                 const impactB = blastImpacts.get((link.target as any).id || (link.target as string));
-                if (impactA || impactB) return 5;
+                if (impactA || impactB) return 10; // High intensity during failure
                 return (highlightLinks.has(link) || highlightLinks.size === 0) ? 2 : 0;
               }}
               linkDirectionalParticleWidth={(link: GraphLink) => {
@@ -385,9 +385,23 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
                 return (impactA || impactB) ? 4 : 2;
               }}
               linkDirectionalParticleSpeed={(link: GraphLink) => {
-                const impactA = blastImpacts.get((link.source as any).id || (link.source as string));
-                const impactB = blastImpacts.get((link.target as any).id || (link.target as string));
-                return (impactA || impactB) ? 0.02 : 0.005;
+                const srcId = (link.source as any).id || (link.source as string);
+                const tgtId = (link.target as any).id || (link.target as string);
+                
+                const impactSrc = blastImpacts.get(srcId);
+                const impactTgt = blastImpacts.get(tgtId);
+
+                if (impactSrc || impactTgt) {
+                  // If target is closer to origin than source, flow backwards (Tgt -> Src)
+                  // Levels: 1 (Origin), 2 (Direct), 3 (Secondary)
+                  const srcLevel = impactSrc || 99;
+                  const tgtLevel = impactTgt || 99;
+                  
+                  const baseSpeed = 0.03;
+                  return tgtLevel < srcLevel ? -baseSpeed : baseSpeed;
+                }
+                
+                return 0.005;
               }}
               backgroundColor="rgba(0,0,0,0)" enableNodeDrag={false} onNodeClick={handleNodeClick}
               warmupTicks={100} cooldownTicks={0} onNodeHover={handleNodeHover}

@@ -10,6 +10,12 @@ const authGuard = async (req, res, next) => {
   const AUTH_ENABLED = process.env.AUTH_ENABLED === 'true';
   const BYPASS_TOKEN = process.env.DEV_BYPASS_TOKEN || 'sentinel_staff_2026';
   
+  // 🚀 STREAM BYPASS: EventSource doesn't support custom headers
+  if (req.path === '/intelligence/stream') {
+    req.userId = 'stream-guest';
+    return next();
+  }
+
   // 🚀 DEVELOPER BYPASS (For testing the AUTH logic without the UI friction)
   const bypassHeader = req.headers['x-sentinel-bypass'];
   if (bypassHeader === BYPASS_TOKEN) {
