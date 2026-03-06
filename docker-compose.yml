@@ -7,9 +7,33 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
       - VITE_CLERK_PUBLISHABLE_KEY=${VITE_CLERK_PUBLISHABLE_KEY}
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=postgres://sentinel:sentinel_pass@db:5432/sentinel_db
       - AUTH_ENABLED=true
       - VITE_AUTH_ENABLED=true
+      - NODE_ENV=development
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - ./intelligence:/app/intelligence
     restart: always
+
+  db:
+    image: ankane/pgvector:latest
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=sentinel
+      - POSTGRES_PASSWORD=sentinel_pass
+      - POSTGRES_DB=sentinel_db
+    volumes:
+      - sentinel_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d sentinel_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+volumes:
+  sentinel_data:

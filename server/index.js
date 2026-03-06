@@ -125,7 +125,26 @@ app.use((req, res, next) => {
 morgan.token('id', (req) => req.id);
 app.use(morgan(':id :method :url :status :res[content-length] - :response-time ms'));
 
-app.use(cors());
+// --- 🛡️ ENGINEERING BASIC: STRICT CORS POLICY ---
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://sentinel-os-staging.onrender.com',
+  'https://sentinel-os-bcsv.onrender.com'
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      callback(new Error('Strict CORS Policy: Origin not allowed'));
+    }
+  },
+  credentials: true
+}));
+
 // 🛡️ SECURITY BASIC: Prevent Large Payload DoS Attacks
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
