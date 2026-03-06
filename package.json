@@ -35,10 +35,12 @@
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [
+      "prettier --write",
       "eslint --fix",
       "tsc-files --noEmit"
     ],
     "server/**/*.js": [
+      "prettier --write",
       "eslint --fix"
     ]
   },

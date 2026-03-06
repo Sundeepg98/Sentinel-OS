@@ -105,6 +105,17 @@ async function initDB() {
         score INTEGER,
         timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS system_logs (
+        id SERIAL PRIMARY KEY,
+        type TEXT, -- 'AI' or 'UI'
+        category TEXT,
+        message TEXT,
+        payload TEXT,
+        stack TEXT,
+        url TEXT,
+        timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     // 3. Process Versioned Migrations

@@ -122,8 +122,8 @@ app.use(compression({
 }));
 
 app.use((req, res, next) => {
-  req.id = uuidv4();
-  res.setHeader('X-Request-ID', req.id);
+  req.id = req.headers['x-correlation-id'] || uuidv4();
+  res.setHeader('X-Correlation-ID', req.id);
   next();
 });
 
@@ -321,15 +321,56 @@ v1Router.post('/admin/upload/:companyId', adminRateLimiter, upload.single('file'
 
 /**
  * @openapi
+ * /admin/companies/{companyId}:
+ *   post:
+ *     summary: Create a new company intelligence context
+ */
+v1Router.post('/admin/companies/:companyId', adminRateLimiter, async (req, res) => {
+  const { companyId } = req.params;
+  const companyPath = path.join(INTELLIGENCE_DIR, companyId.toLowerCase());
+  try {
+    await fs.mkdir(companyPath, { recursive: true });
+    logger.info(`🏢 [Admin] Company context created: ${companyId}`);
+    res.success({ success: true });
+  } catch (e) {
+    res.error("Failed to create company context", 500, e.message);
+  }
+});
+
+/**
+ * @openapi
+ * /admin/files/{companyId}/{filename}:
+ *   delete:
+ *     summary: Physically delete a dossier and purge its neural vectors
+ */
+v1Router.delete('/admin/files/:companyId/:filename', adminRateLimiter, async (req, res) => {
+  const { companyId, filename } = req.params;
+  const filePath = path.join(INTELLIGENCE_DIR, companyId, filename);
+  try {
+    await fs.unlink(filePath);
+    logger.info(`🗑️ [Admin] File deleted: ${filename} from ${companyId}`);
+    res.success({ success: true });
+  } catch (e) {
+    res.error("Failed to delete technical dossier", 500, e.message);
+  }
+});
+
+/**
+ * @openapi
  * /admin/ai-logs:
  *   get:
- *     summary: Retrieve AI generation failure logs
+ *     summary: Retrieve AI generation failure logs from the database
  */
 v1Router.get('/admin/ai-logs', async (req, res) => {
-  const logPath = path.join(__dirname, 'logs', 'ai-failures.json');
   try {
-    const data = await fs.readFile(logPath, 'utf-8');
-    res.success(JSON.parse(data));
+    let rows;
+    if (isPostgres) {
+      const dbRes = await db.query("SELECT * FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT 100");
+      rows = dbRes.rows;
+    } else {
+      rows = db.prepare("SELECT * FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT 100").all();
+    }
+    res.success(rows);
   } catch (e) {
     res.success([]); 
   }
@@ -339,22 +380,25 @@ v1Router.get('/admin/ai-logs', async (req, res) => {
  * @openapi
  * /admin/error-logs:
  *   post:
- *     summary: Log frontend application crashes
+ *     summary: Log frontend application crashes to the persistent database
  */
 v1Router.post('/admin/error-logs', async (req, res) => {
-  const errorData = req.body;
-  const logPath = path.join(__dirname, 'logs', 'ui-errors.json');
+  const { message, stack, componentStack, url } = req.body;
   try {
-    let logs = [];
-    try {
-      const existing = await fs.readFile(logPath, 'utf-8');
-      logs = JSON.parse(existing);
-    } catch (e) {}
-    logs.push(errorData);
-    await fs.writeFile(logPath, JSON.stringify(logs.slice(-100), null, 2));
+    const payload = componentStack ? `Component: ${componentStack}` : null;
+    if (isPostgres) {
+      await db.query(
+        "INSERT INTO system_logs (type, category, message, payload, stack, url) VALUES ($1, $2, $3, $4, $5, $6)",
+        ['UI', 'CRASH', message, payload, stack, url]
+      );
+    } else {
+      db.prepare(
+        "INSERT INTO system_logs (type, category, message, payload, stack, url) VALUES (?, ?, ?, ?, ?, ?)"
+      ).run('UI', 'CRASH', message, payload, stack, url);
+    }
     res.success({ logged: true });
   } catch (e) {
-    res.error("Failed to log error", 500, e.message);
+    res.error("Failed to persist UI error log", 500, e.message);
   }
 });
 
@@ -362,13 +406,18 @@ v1Router.post('/admin/error-logs', async (req, res) => {
  * @openapi
  * /admin/ui-logs:
  *   get:
- *     summary: Retrieve recorded frontend crashes
+ *     summary: Retrieve recorded frontend crashes from the database
  */
 v1Router.get('/admin/ui-logs', async (req, res) => {
-  const logPath = path.join(__dirname, 'logs', 'ui-errors.json');
   try {
-    const data = await fs.readFile(logPath, 'utf-8');
-    res.success(JSON.parse(data));
+    let rows;
+    if (isPostgres) {
+      const dbRes = await db.query("SELECT * FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT 100");
+      rows = dbRes.rows;
+    } else {
+      rows = db.prepare("SELECT * FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT 100").all();
+    }
+    res.success(rows);
   } catch (e) {
     res.success([]); 
   }

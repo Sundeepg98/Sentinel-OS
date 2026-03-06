@@ -7,7 +7,11 @@ export async function fetchWithAuth(url: string, getToken: () => Promise<string 
   const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true';
   const BYPASS_TOKEN = 'sentinel_staff_2026';
   
+  // 🛰️ ENGINEERING BASIC: REQUEST CORRELATION
+  const correlationId = crypto.randomUUID();
+  
   const headers = new Headers(options.headers);
+  headers.set('X-Correlation-ID', correlationId);
   
   // 🚀 DEVELOPER BYPASS
   headers.set('x-sentinel-bypass', BYPASS_TOKEN);

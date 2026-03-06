@@ -86,26 +86,29 @@ const POST_MORTEM_SCHEMA = {
 };
 
 async function logAiFailure(type, prompt, error) {
-  const logPath = path.join(__dirname, '..', 'logs', 'ai-failures.json');
-  const entry = {
-    timestamp: new Date().toISOString(),
-    type,
-    prompt,
-    error: error.message || error,
-    stack: error.stack
-  };
+  const { db, isPostgres } = require('./db');
   
   try {
-    let currentLogs = [];
-    try {
-      const data = await fs.readFile(logPath, 'utf-8');
-      currentLogs = JSON.parse(data);
-    } catch (e) {}
-    currentLogs.push(entry);
-    if (currentLogs.length > 100) currentLogs = currentLogs.slice(-100);
-    await fs.writeFile(logPath, JSON.stringify(currentLogs, null, 2));
+    const entry = {
+      type: 'AI',
+      category: type,
+      message: error.message || String(error),
+      payload: prompt,
+      stack: error.stack
+    };
+
+    if (isPostgres) {
+      await db.query(
+        "INSERT INTO system_logs (type, category, message, payload, stack) VALUES ($1, $2, $3, $4, $5)",
+        [entry.type, entry.category, entry.message, entry.payload, entry.stack]
+      );
+    } else {
+      db.prepare(
+        "INSERT INTO system_logs (type, category, message, payload, stack) VALUES (?, ?, ?, ?, ?)"
+      ).run(entry.type, entry.category, entry.message, entry.payload, entry.stack);
+    }
   } catch (e) {
-    console.error("Failed to write AI failure log:", e.message);
+    console.error("❌ Failed to write AI failure log to DB:", e.message);
   }
 }
 

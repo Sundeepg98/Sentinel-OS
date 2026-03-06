@@ -83,6 +83,13 @@ async function processFileVectors(fileId, content, metadata) {
       }
     } else {
       // 🗄️ SQLITE LOGIC (Atomic Transaction)
+      const chunks = chunkMarkdown(content);
+      const chunkVectors = [];
+      for (const chunk of chunks) {
+        const vector = await getEmbedding(chunk);
+        chunkVectors.push({ chunk, vector });
+      }
+
       db.transaction(() => {
         const oldChunks = db.prepare("SELECT id FROM chunks_metadata WHERE file_id = ?").all(fileId);
         if (oldChunks.length > 0) {
@@ -90,9 +97,8 @@ async function processFileVectors(fileId, content, metadata) {
           db.prepare(`DELETE FROM vec_chunks WHERE id IN (${oldIds.join(',')})`).run();
           db.prepare(`DELETE FROM chunks_metadata WHERE file_id = ?`).run(fileId);
         }
-        const chunks = chunkMarkdown(content);
-        for (const chunk of chunks) {
-          const vector = await getEmbedding(chunk);
+        
+        for (const { chunk, vector } of chunkVectors) {
           db.prepare(`INSERT INTO chunks_metadata (file_id, chunk_text, metadata) VALUES (?, ?, ?)`).run(fileId, chunk, JSON.stringify(metadata));
           db.prepare(`INSERT INTO vec_chunks (id, vector) SELECT last_insert_rowid(), ?`).run(new Float32Array(vector));
         }
@@ -180,6 +186,31 @@ async function syncIntelligence() {
     }
 
     knowledgeGraph = newGraph;
+
+    // --- 🗑️ INTELLIGENCE PRUNING (Garbage Collection) ---
+    // Remove database records for files that no longer exist on disk
+    if (isPostgres) {
+      const allDossiers = await db.prepare("SELECT id FROM dossiers").all();
+      for (const d of allDossiers) {
+        if (!activeFileIds.has(d.id) && d.id.includes('/')) { // Only prune local-synced dossiers
+          console.log(`🗑️ [Harvester] Pruning ghost dossier from DB: ${d.id}`);
+          await db.query("DELETE FROM dossiers WHERE id = $1", [d.id]);
+          await db.query("DELETE FROM chunks_metadata WHERE file_id = $1", [d.id]);
+        }
+      }
+    } else {
+      const allCached = db.prepare("SELECT file_id FROM intelligence_cache").all();
+      for (const c of allCached) {
+        if (!activeFileIds.has(c.file_id)) {
+          console.log(`🗑️ [Harvester] Pruning ghost dossier from Cache: ${c.file_id}`);
+          db.prepare("DELETE FROM intelligence_cache WHERE file_id = ?").run(c.file_id);
+          // chunks_metadata is handled by CASCADE in SQLite schema if configured, 
+          // but we'll be explicit for safety
+          db.prepare("DELETE FROM chunks_metadata WHERE file_id = ?").run(c.file_id);
+        }
+      }
+    }
+
     console.log(`✅ Intelligence Engine ACTIVE.`);
   } catch (e) { console.error('Sync Error:', e.message); }
 }
