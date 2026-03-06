@@ -4,7 +4,7 @@ const fs = require('fs').promises;
 const multer = require('multer');
 const { db, isPostgres } = require('../lib/db');
 const { INTELLIGENCE_DIR } = require('../lib/harvester');
-const { validateParams, schemas } = require('../lib/validation');
+const { validateParams, validateBody, schemas } = require('../lib/validation');
 
 const router = express.Router();
 
@@ -163,7 +163,7 @@ router.get('/ai-logs', async (req, res) => {
  *     tags: [Audit & Telemetry]
  *     summary: Log frontend application crashes to the persistent database
  */
-router.post('/error-logs', async (req, res) => {
+router.post('/error-logs', validateBody(schemas.errorLogSchema), async (req, res) => {
   const { message, stack, componentStack, url } = req.body;
   try {
     const payload = componentStack ? `Component: ${componentStack}` : null;

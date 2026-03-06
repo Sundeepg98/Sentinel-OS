@@ -38,6 +38,7 @@ async function runInitialSync() {
     const triggerUpdate = async (filePath) => {
       if (!filePath.endsWith('.md')) return;
       
+      parentPort.postMessage({ status: 'syncing' }); // 🚀 Notify UI start
       logger.info({ file: path.basename(filePath) }, '🔄 [RAG Worker] Change detected. Re-syncing...');
       const updateStart = Date.now();
       await syncIntelligence();

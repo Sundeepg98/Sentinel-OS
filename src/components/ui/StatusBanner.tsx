@@ -32,6 +32,9 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({ online, syncing }) =
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        if (data.type === 'SYNC_START') {
+          setInternalSyncing(true);
+        }
         if (data.type === 'SYNC_COMPLETE') {
           setInternalSyncing(false);
         }

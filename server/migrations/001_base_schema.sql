@@ -49,3 +49,9 @@ CREATE TABLE IF NOT EXISTS system_logs (
   url TEXT,
   timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- --- 🚀 PERFORMANCE INDICES ---
+CREATE INDEX IF NOT EXISTS idx_chunks_file_id ON chunks_metadata(file_id);
+CREATE INDEX IF NOT EXISTS idx_logs_type_timestamp ON system_logs(type, timestamp);
+CREATE INDEX IF NOT EXISTS idx_history_user_timestamp ON interaction_history(user_id, timestamp);
+CREATE INDEX IF NOT EXISTS idx_user_state_key ON user_state(key);

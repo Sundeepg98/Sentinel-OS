@@ -36,7 +36,8 @@ export function useDossier() {
   // 3. Discover available companies
   const { data: allCompanies = [] } = useQuery<CompanyListItem[]>({
     queryKey: ['companies'],
-    queryFn: () => fetchWithAuth('/api/v1/companies', getToken)
+    queryFn: () => fetchWithAuth('/api/v1/companies', getToken),
+    staleTime: 1000 * 60 * 15, // 15 min stale time for company list
   });
 
   // 4. Fetch active dossier
@@ -45,6 +46,8 @@ export function useDossier() {
     queryFn: () => fetchWithAuth(`/api/v1/dossier/${companyId}`, getToken),
     enabled: !!companyId,
     placeholderData: (previousData) => previousData,
+    staleTime: 1000 * 60 * 5, // 5 min stale time for static technical dossiers
+    gcTime: 1000 * 60 * 30, // Keep in cache for 30 mins
   });
 
   const setCompany = (id: string) => {

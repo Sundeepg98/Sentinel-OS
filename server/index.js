@@ -166,6 +166,11 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.get('/health', async (req, res) => {
   const { getCircuitState } = require('./lib/intelligence');
   const os = require('os');
+  
+  // 🛡️ SECURITY BASIC: Restrict deep telemetry to admin/bypass
+  const hasBypass = req.headers['x-sentinel-bypass'] === process.env.DEV_BYPASS_TOKEN;
+  const isDeep = hasBypass || req.userId; // Simplified check for this refactor
+
   try {
     const dbStatus = isPostgres ? 'cloud' : 'local';
     if (isPostgres) {
@@ -174,8 +179,7 @@ app.get('/health', async (req, res) => {
       db.prepare('SELECT 1').get();
     }
 
-    const mem = process.memoryUsage();
-    res.success({ 
+    const payload = { 
       status: 'healthy', 
       db: dbStatus,
       worker: {
@@ -185,16 +189,23 @@ app.get('/health', async (req, res) => {
       aiEngine: {
         circuitState: getCircuitState()
       },
-      resources: {
+      version: '2.6.0'
+    };
+
+    if (isDeep) {
+      const mem = process.memoryUsage();
+      payload.resources = {
         memory: {
           rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
           heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)}MB`
         },
         loadAvg: os.loadavg(),
         uptime: `${Math.round(process.uptime())}s`
-      },
-      version: '2.6.0'
-    });
+      };
+      payload.auth = process.env.AUTH_ENABLED === 'true' ? 'enabled' : 'disabled';
+    }
+
+    res.success(payload);
   } catch (err) {
     res.error("System Unstable", 500, { db: "DOWN", message: err.message });
   }
@@ -207,6 +218,13 @@ function spawnRAGWorker() {
   globalState.activeWorker = new Worker(path.join(__dirname, 'lib', 'rag-worker.js'));
   
   globalState.activeWorker.on('message', (msg) => {
+    if (msg.status === 'syncing') {
+      const payload = JSON.stringify({ type: 'SYNC_START' });
+      globalState.clients.forEach(c => {
+        try { c.res.write(`data: ${payload}\n\n`); } catch (_e) {}
+      });
+    }
+
     if (msg.status === 'complete') {
       logger.info(`📡 Intelligence Hydrated from Worker (${msg.duration}s)`);
       globalState.knowledgeGraph = msg.knowledgeGraph;

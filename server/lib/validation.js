@@ -48,6 +48,17 @@ const pathParamsSchema = z.object({
   key: z.string().regex(/^[a-zA-Z0-9._-]+$/).optional(),
 });
 
+const errorLogSchema = z.object({
+  message: z.string().min(1),
+  stack: z.string().optional(),
+  componentStack: z.string().optional(),
+  url: z.string().url().optional()
+});
+
+const userStateSchema = z.object({
+  value: z.any() // User state can be any valid JSON structure
+});
+
 // --- MIDDLEWARE ---
 
 const validateBody = (schema) => (req, res, next) => {
@@ -89,6 +100,8 @@ module.exports = {
     semanticSearchSchema,
     searchQuerySchema,
     insightsQuerySchema,
-    pathParamsSchema
+    pathParamsSchema,
+    errorLogSchema,
+    userStateSchema
   }
 };

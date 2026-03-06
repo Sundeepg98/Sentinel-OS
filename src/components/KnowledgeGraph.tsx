@@ -172,7 +172,24 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
 
       return () => {
         cancelAnimationFrame(animationFrameId);
+        
+        // --- 🛡️ RESOURCE DISPOSAL ---
         composer.dispose();
+        smaaEffect.dispose();
+        bloomEffect.dispose();
+        vignetteEffect.dispose();
+        
+        // Dispose geometries and materials
+        scene.traverse((object: any) => {
+          if (object.geometry) object.geometry.dispose();
+          if (object.material) {
+            if (Array.isArray(object.material)) {
+              object.material.forEach((material: any) => material.dispose());
+            } else {
+              object.material.dispose();
+            }
+          }
+        });
       };
     }
   }, [isOpen, graphData]);
@@ -315,7 +332,12 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 font-sans overflow-hidden">
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 font-sans overflow-hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="graph-title"
+    >
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/95 backdrop-blur-3xl" />
       
       <div className="relative w-full max-w-7xl h-full flex gap-6 pointer-events-none">
@@ -331,9 +353,9 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
             <div className="flex items-center gap-3">
               <div className="p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/20"><Network className="w-5 h-5 text-indigo-400" /></div>
               <div>
-                <h2 className="text-lg font-semibold text-white tracking-wide uppercase">Architectural Nervous System</h2>
+                <h2 id="graph-title" className="text-lg font-semibold text-white tracking-wide uppercase">Architectural Nervous System</h2>
                 <div className="text-[10px] text-neutral-500 uppercase tracking-widest mt-0.5 font-mono flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div> Post-Processing Engine: High-Justice
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true"></div> Post-Processing Engine: High-Justice
                 </div>
               </div>
             </div>

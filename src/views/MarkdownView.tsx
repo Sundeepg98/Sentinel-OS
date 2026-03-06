@@ -16,6 +16,10 @@ interface MarkdownViewProps {
  */
 export const MarkdownView: React.FC<MarkdownViewProps> = ({ data, label }) => {
   const content = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  
+  // ⚡ ENGINEERING BASIC: Dynamic Read Time Calculation
+  const wordCount = content.split(/\s+/).length;
+  const readTime = Math.max(1, Math.ceil(wordCount / 200));
 
   return (
     <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -27,7 +31,7 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({ data, label }) => {
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">{label}</h1>
             <div className="flex items-center gap-3 mt-1.5 text-[10px] text-neutral-500 uppercase tracking-widest font-mono">
-              <span className="flex items-center gap-1.5"><Clock size={12} className="text-neutral-600" /> Read Time: ~8 min</span>
+              <span className="flex items-center gap-1.5"><Clock size={12} className="text-neutral-600" /> Read Time: ~{readTime} min</span>
               <span className="w-1 h-1 rounded-full bg-neutral-800" />
               <span className="text-neutral-400">Staff-Level Intelligence</span>
             </div>
