@@ -1,4 +1,5 @@
 const { createClerkClient } = require('@clerk/clerk-sdk-node');
+const logger = require('./logger');
 
 const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
@@ -34,9 +35,6 @@ const authGuard = async (req, res, next) => {
       return res.status(401).json({ error: "Missing Authorization Header" });
     }
 
-    // Verify the session via Clerk
-    // Note: In a high-traffic production app, we would verify the JWT locally using the PEM key
-    // to save a network round-trip. For now, we'll use the SDK for 100% correctness.
     const requestState = await clerkClient.authenticateRequest(req);
     
     if (requestState.isSignedIn) {
@@ -46,7 +44,7 @@ const authGuard = async (req, res, next) => {
       res.status(401).json({ error: "Unauthorized Session" });
     }
   } catch (error) {
-    console.error('🔐 Auth Error:', error.message);
+    logger.error({ error: error.message }, '🔐 Auth Error');
     res.status(401).json({ error: "Authentication Failed" });
   }
 };

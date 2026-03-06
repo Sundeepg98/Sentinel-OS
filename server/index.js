@@ -89,6 +89,18 @@ app.use(helmet({
     maxAge: 31536000,
     includeSubDomains: true,
     preload: true
+  },
+  permissionsPolicy: {
+    features: {
+      accelerometer: [],
+      camera: [],
+      geolocation: [],
+      gyroscope: [],
+      magnetometer: [],
+      microphone: [],
+      payment: [],
+      usb: []
+    }
   }
 }));
 

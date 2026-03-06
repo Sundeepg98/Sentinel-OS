@@ -136,7 +136,7 @@ const MainView = () => {
               aria-label="Select technical context profile"
               className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-medium text-neutral-300 outline-none focus:border-white/20 transition-all uppercase tracking-widest cursor-pointer max-w-[120px] md:max-w-none"
             >
-              {dossierData.allCompanies.map((c: any) => (
+              {dossierData.allCompanies.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>

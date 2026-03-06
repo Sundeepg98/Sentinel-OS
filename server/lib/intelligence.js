@@ -122,7 +122,7 @@ async function generateStructuredContent(prompt, schema) {
   // 1. Check Cache
   const cacheKey = `gen:${prompt}:${JSON.stringify(schema)}`;
   if (aiCache.has(cacheKey)) {
-    logger.debug('💾 Returning AI result from Cache (Layer 2)');
+    logger.debug({ cacheKey }, '💾 Returning AI result from Cache (Layer 2)');
     return aiCache.get(cacheKey);
   }
 

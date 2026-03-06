@@ -104,9 +104,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             
             {dossier.modules.map((mod) => {
-              const IconComponent = (Icons as any)[mod.icon] || Icons.HelpCircle;
-              const fullId = mod.fullId || `${dossier.id}/${mod.id}.md`;
-              const isPinned = arenaIds.includes(fullId);
+              const IconComponent = (Icons as Record<string, any>)[mod.icon] || Icons.HelpCircle;
+              const fullId = mod.fullId || `${dossier.id}/${mod.id}.md`;              const isPinned = arenaIds.includes(fullId);
 
               return (
                 <button

@@ -36,7 +36,7 @@ export const WarRoom = () => {
   const [showCanvas, setShowCanvas] = useState(false);
   
   const logsEndRef = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<any>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -56,7 +56,7 @@ export const WarRoom = () => {
       timerRef.current = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
-            clearInterval(timerRef.current);
+            if (timerRef.current) clearInterval(timerRef.current);
             setStatus('completed');
             toast("Simulation Time Expired. System Failure Imminent.", "error");
             return 0;
@@ -64,9 +64,9 @@ export const WarRoom = () => {
           return prev - 1;
         });
       }, 1000);
-      return () => clearInterval(timerRef.current);
+      return () => { if (timerRef.current) clearInterval(timerRef.current); };
     }
-  }, [status, timeLeft]);
+  }, [status, timeLeft, toast]);
 
   // 1. Incident Generation Mutation
   const incidentMutation = useMutation({
@@ -87,7 +87,7 @@ export const WarRoom = () => {
       setShowCanvas(false);
       toast("P0 Incident Triggered. Secure the perimeter.", "info");
     },
-    onError: (e: any) => {
+    onError: (e: Error) => {
       toast("Chaos Synthesis Failed: " + e.message, "error");
       setStatus('idle');
     }
@@ -107,7 +107,7 @@ export const WarRoom = () => {
       setStatus('completed');
       toast("Incident Evaluation Received.", "success");
     },
-    onError: (e: any) => {
+    onError: (e: Error) => {
       toast("Post-Mortem Failure: " + e.message, "error");
       setStatus('completed');
     }

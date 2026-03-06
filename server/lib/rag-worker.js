@@ -55,7 +55,8 @@ async function runInitialSync() {
     watcher
       .on('add', triggerUpdate)
       .on('change', triggerUpdate)
-      .on('unlink', triggerUpdate);
+      .on('unlink', triggerUpdate)
+      .on('error', (err) => logger.error({ error: err.message }, '👁️ [RAG Worker] Watcher Error'));
 
   } catch (error) {
     logger.error({ error: error.message }, '❌ [RAG Worker] Sync Error');
