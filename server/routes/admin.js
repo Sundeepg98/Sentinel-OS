@@ -5,6 +5,7 @@ const multer = require('multer');
 const { db, isPostgres } = require('../lib/db');
 const { INTELLIGENCE_DIR } = require('../lib/harvester');
 const { globalState } = require('../lib/state');
+const { validateParams, schemas } = require('../lib/validation');
 
 const router = express.Router();
 
@@ -44,7 +45,7 @@ const upload = multer({
  *   post:
  *     summary: Upload a new technical dossier (Markdown)
  */
-router.post('/upload/:companyId', upload.single('file'), (req, res) => {
+router.post('/upload/:companyId', validateParams(schemas.pathParamsSchema), upload.single('file'), (req, res) => {
   if (!req.file) return res.error("No file uploaded", 400);
   res.success({ success: true, filename: req.file.filename });
 });
@@ -55,7 +56,7 @@ router.post('/upload/:companyId', upload.single('file'), (req, res) => {
  *   post:
  *     summary: Create a new company intelligence context
  */
-router.post('/companies/:companyId', async (req, res) => {
+router.post('/companies/:companyId', validateParams(schemas.pathParamsSchema), async (req, res) => {
   const { companyId } = req.params;
   const companyPath = path.join(INTELLIGENCE_DIR, companyId.toLowerCase());
   try {
@@ -72,7 +73,7 @@ router.post('/companies/:companyId', async (req, res) => {
  *   delete:
  *     summary: Physically delete a dossier and purge its neural vectors
  */
-router.delete('/files/:companyId/:filename', async (req, res) => {
+router.delete('/files/:companyId/:filename', validateParams(schemas.pathParamsSchema), async (req, res) => {
   const { companyId, filename } = req.params;
   const filePath = path.join(INTELLIGENCE_DIR, companyId, filename);
   try {

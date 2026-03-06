@@ -1,6 +1,6 @@
 const express = require('express');
 const { db, isPostgres } = require('../lib/db');
-const { validateBody, validateQuery, schemas } = require('../lib/validation');
+const { validateBody, validateQuery, validateParams, schemas } = require('../lib/validation');
 const { globalState } = require('../lib/state');
 const { 
   DEFAULT_MODEL, 
@@ -16,9 +16,6 @@ const {
 
 const router = express.Router();
 
-// AI Rate Limiter should be passed or re-declared. Let's pass it or re-declare. 
-// For simplicity in this refactor, I'll re-declare or assume it's attached.
-// Better: import it from a middleware lib.
 const rateLimit = require('express-rate-limit');
 const aiRateLimiter = rateLimit({
   windowMs: 60 * 1000, 
@@ -174,7 +171,6 @@ router.get('/search', validateQuery(schemas.searchQuerySchema), (req, res) => {
 
   if (!q) return res.success([]);
   
-  // FlexSearch doesn't natively support offset, so we slice the results
   const results = globalState.searchIndex.search(q, { limit: limit + offset });
   const paginatedResults = results.slice(offset);
   

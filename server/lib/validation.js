@@ -42,6 +42,12 @@ const insightsQuerySchema = z.object({
   fileId: z.string().min(3).max(255)
 });
 
+const pathParamsSchema = z.object({
+  companyId: z.string().regex(/^[a-zA-Z0-9_-]+$/).optional(),
+  filename: z.string().regex(/^[a-zA-Z0-9._-]+$/).optional(),
+  key: z.string().regex(/^[a-zA-Z0-9._-]+$/).optional(),
+});
+
 // --- MIDDLEWARE ---
 
 const validateBody = (schema) => (req, res, next) => {
@@ -62,9 +68,19 @@ const validateQuery = (schema) => (req, res, next) => {
   }
 };
 
+const validateParams = (schema) => (req, res, next) => {
+  try {
+    req.params = schema.parse(req.params);
+    next();
+  } catch (error) {
+    res.error("Invalid Path Parameters", 400, error.errors);
+  }
+};
+
 module.exports = {
   validateBody,
   validateQuery,
+  validateParams,
   schemas: {
     drillRequestSchema,
     evaluateRequestSchema,
@@ -72,6 +88,7 @@ module.exports = {
     incidentEvaluateSchema,
     semanticSearchSchema,
     searchQuerySchema,
-    insightsQuerySchema
+    insightsQuerySchema,
+    pathParamsSchema
   }
 };

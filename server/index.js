@@ -146,6 +146,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // --- 🏥 HEALTH CHECK ---
 app.get('/health', async (req, res) => {
   const { getCircuitState } = require('./lib/intelligence');
+  const os = require('os');
   try {
     const dbStatus = isPostgres ? 'cloud' : 'local';
     if (isPostgres) {
@@ -154,6 +155,7 @@ app.get('/health', async (req, res) => {
       db.prepare('SELECT 1').get();
     }
 
+    const mem = process.memoryUsage();
     res.success({ 
       status: 'healthy', 
       db: dbStatus,
@@ -163,6 +165,14 @@ app.get('/health', async (req, res) => {
       },
       aiEngine: {
         circuitState: getCircuitState()
+      },
+      resources: {
+        memory: {
+          rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
+          heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)}MB`
+        },
+        loadAvg: os.loadavg(),
+        uptime: `${Math.round(process.uptime())}s`
       },
       version: '2.6.0'
     });
