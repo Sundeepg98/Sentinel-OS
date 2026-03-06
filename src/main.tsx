@@ -41,11 +41,8 @@ createRoot(document.getElementById('root')!).render(
         <div className="max-w-md space-y-4">
           <div className="text-rose-500 font-bold text-xl uppercase tracking-widest">Configuration Error</div>
           <p className="text-neutral-400 text-sm leading-relaxed">
-            Technical keys are missing. Please ensure <code className="text-indigo-400">VITE_CLERK_PUBLISHABLE_KEY</code> is defined in your environment.
+            Technical keys are missing. Please ensure <code className="text-indigo-400">VITE_CLERK_PUBLISHABLE_KEY</code> is defined.
           </p>
-          <div className="pt-4">
-            <div className="text-[10px] text-neutral-600 font-mono uppercase tracking-tighter">Error Code: ERR_MISSING_INFRA_KEY</div>
-          </div>
         </div>
       </div>
     )}
