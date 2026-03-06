@@ -2,37 +2,48 @@ import React, { useState, useEffect } from 'react';
 import { WifiOff, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+interface StatusBannerProps {
+  online?: boolean;
+  syncing?: boolean;
+}
+
 /**
  * 🛰️ NERVOUS SYSTEM HEALTH BANNER
  * Notifies the user of backend connectivity status in real-time.
  */
-export const StatusBanner: React.FC = () => {
-  const [isOnline, setIsOnline] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
+export const StatusBanner: React.FC<StatusBannerProps> = ({ online, syncing }) => {
+  const [internalOnline, setInternalOnline] = useState(true);
+  const [internalSyncing, setInternalSyncing] = useState(false);
+
+  // Use props if provided, otherwise fallback to internal SSE state
+  const isOnline = online !== undefined ? online : internalOnline;
+  const isSyncing = syncing !== undefined ? syncing : internalSyncing;
 
   useEffect(() => {
-    // 1. Monitor SSE Stream for connectivity
+    // Only connect to SSE if props are NOT provided (Standard runtime mode)
+    if (online !== undefined || syncing !== undefined) return;
+
     const eventSource = new EventSource('/api/v1/intelligence/stream');
     
     eventSource.onopen = () => {
-      setIsOnline(true);
+      setInternalOnline(true);
     };
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'SYNC_COMPLETE') {
-          setIsSyncing(false);
+          setInternalSyncing(false);
         }
       } catch (err) {}
     };
 
     eventSource.onerror = () => {
-      setIsOnline(false);
+      setInternalOnline(false);
     };
 
     return () => eventSource.close();
-  }, []);
+  }, [online, syncing]);
 
   return (
     <AnimatePresence>

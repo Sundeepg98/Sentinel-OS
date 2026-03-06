@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const compression = require('compression');
 const multer = require('multer');
+const hpp = require('hpp');
 const { v4: uuidv4 } = require('uuid');
 const { z } = require('zod');
 const morgan = require('morgan');
@@ -38,6 +39,7 @@ const {
   DEFAULT_MODEL, 
   generateStructuredContent, 
   getEmbedding,
+  getCircuitState,
   DRILL_SCHEMA,
   INCIDENT_SCHEMA,
   EVAL_SCHEMA,
@@ -99,6 +101,9 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
+// --- 🛡️ SECURITY BASIC: Prevent HTTP Parameter Pollution ---
+app.use(hpp());
+
 const globalRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000, // 100 requests per minute average
@@ -153,36 +158,10 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 const { responseEnvelope } = require('./lib/response');
 app.use(responseEnvelope);
 
-// --- 🛠️ FILE UPLOAD CONFIGURATION ---
-const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const companyId = req.params.companyId || 'mailin';
-    const uploadPath = path.join(INTELLIGENCE_DIR, companyId);
-    try {
-      await fs.mkdir(uploadPath, { recursive: true });
-      cb(null, uploadPath);
-    } catch (e) {
-      cb(e, null);
-    }
-  },
-  filename: (req, file, cb) => {
-    const cleanName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    cb(null, cleanName.endsWith('.md') ? cleanName : `${cleanName}.md`);
-  }
-});
+// Serve Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-const upload = multer({ 
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, 
-  fileFilter: (req, file, cb) => {
-    if (path.extname(file.originalname).toLowerCase() === '.md') {
-      cb(null, true);
-    } else {
-      cb(new Error('Only Markdown (.md) files are allowed'));
-    }
-  }
-});
-
+// --- 🏥 HEALTH CHECK ---
 app.get('/health', async (req, res) => {
   try {
     const dbStatus = isPostgres ? 'cloud' : 'local';
@@ -199,7 +178,10 @@ app.get('/health', async (req, res) => {
         active: !!activeWorker,
         syncing: isSyncing
       },
-      version: 'b0ff789'
+      aiEngine: {
+        circuitState: getCircuitState()
+      },
+      version: '5bb6b3f'
     });
   } catch (err) {
     res.error("System Unstable", 500, {
@@ -209,12 +191,14 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// --- SYNCED STATE ---
 const globalState = {
   knowledgeGraph: { concepts: {}, files: {} },
   searchIndex: new Index({ preset: 'score', tokenize: 'forward' }),
   clients: [] 
 };
 
+// --- RAG WORKER ISOLATION ---
 let isSyncing = false;
 let activeWorker = null;
 
@@ -256,6 +240,7 @@ function spawnRAGWorker() {
   });
 }
 
+// --- API V1 ROUTER ---
 const v1Router = express.Router();
 v1Router.use(authGuard);
 
@@ -275,6 +260,7 @@ const adminRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// --- REAL-TIME STREAM ---
 v1Router.get('/intelligence/stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -289,12 +275,26 @@ v1Router.get('/intelligence/stream', (req, res) => {
   });
 });
 
+// --- ADMIN & MANAGEMENT ENDPOINTS ---
+
+/**
+ * @openapi
+ * /admin/upload/{companyId}:
+ *   post:
+ *     summary: Upload a new technical dossier (Markdown)
+ */
 v1Router.post('/admin/upload/:companyId', adminRateLimiter, upload.single('file'), (req, res) => {
   if (!req.file) return res.error("No file uploaded", 400);
   logger.info(`📁 [Admin] File uploaded: ${req.file.filename} to ${req.params.companyId}`);
   res.success({ success: true, filename: req.file.filename });
 });
 
+/**
+ * @openapi
+ * /admin/ai-logs:
+ *   get:
+ *     summary: Retrieve AI generation failure logs
+ */
 v1Router.get('/admin/ai-logs', async (req, res) => {
   const logPath = path.join(__dirname, 'logs', 'ai-failures.json');
   try {
@@ -305,6 +305,12 @@ v1Router.get('/admin/ai-logs', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /admin/error-logs:
+ *   post:
+ *     summary: Log frontend application crashes
+ */
 v1Router.post('/admin/error-logs', async (req, res) => {
   const errorData = req.body;
   const logPath = path.join(__dirname, 'logs', 'ui-errors.json');
@@ -324,12 +330,38 @@ v1Router.post('/admin/error-logs', async (req, res) => {
 
 /**
  * @openapi
+ * /admin/ui-logs:
+ *   get:
+ *     summary: Retrieve recorded frontend crashes
+ */
+v1Router.get('/admin/ui-logs', async (req, res) => {
+  const logPath = path.join(__dirname, 'logs', 'ui-errors.json');
+  try {
+    const data = await fs.readFile(logPath, 'utf-8');
+    res.success(JSON.parse(data));
+  } catch (e) {
+    res.success([]); 
+  }
+});
+
+/**
+ * @openapi
+ * /admin/export-db:
+ *   get:
+ *     summary: Export the physical SQLite database (Local only)
+ */
+v1Router.get('/admin/export-db', (req, res) => {
+  const dbPath = path.join(__dirname, 'sentinel.db');
+  res.download(dbPath, `sentinel-backup-${new Date().toISOString().split('T')[0]}.db`);
+});
+
+// --- STANDARD AI ENDPOINTS (v1) ---
+
+/**
+ * @openapi
  * /intelligence/stats:
  *   get:
  *     summary: Retrieve system-wide intelligence telemetry
- *     responses:
- *       200:
- *         description: Standardized envelope with RAG and system stats
  */
 v1Router.get('/intelligence/stats', async (req, res) => {
   let chunksCount, historyCount, learnedCount;
@@ -364,9 +396,6 @@ v1Router.get('/intelligence/stats', async (req, res) => {
  * /intelligence/graph:
  *   get:
  *     summary: Generate the 3D Architectural Nervous System data
- *     responses:
- *       200:
- *         description: Nodes and links for the Three.js force-graph
  */
 v1Router.get('/intelligence/graph', async (req, res) => {
   const nodes = []; const links = [];
@@ -607,6 +636,14 @@ v1Router.get('/companies', async (req, res) => {
   res.success(entries.filter(d => d.isDirectory()).map(d => ({ id: d.name, name: d.name.toUpperCase() })));
 });
 
+/**
+ * @openapi
+ * /state/{key}:
+ *   get:
+ *     summary: Retrieve persistent user state
+ *   post:
+ *     summary: Persist user state
+ */
 v1Router.get('/state/:key', async (req, res) => {
   let row;
   if (isPostgres) {
@@ -680,3 +717,12 @@ function gracefulShutdown() {
 
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error({ reason, promise }, '💥 Unhandled Rejection at Promise');
+});
+
+process.on('uncaughtException', (err) => {
+  logger.error(err, '💥 Uncaught Exception thrown');
+  gracefulShutdown();
+});

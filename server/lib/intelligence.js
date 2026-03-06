@@ -1,13 +1,47 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const path = require('path');
 const fs = require('fs').promises;
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const DEFAULT_MODEL = "gemini-2.5-flash"; 
 const EMBEDDING_MODEL = "gemini-embedding-001";
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || '');
+
+// --- 🛡️ ENGINEERING BASIC: CIRCUIT BREAKER ---
+const AI_CIRCUIT = {
+  state: 'CLOSED', // 'CLOSED', 'OPEN', 'HALF_OPEN'
+  failures: 0,
+  threshold: 5,
+  cooldown: 30000, // 30 seconds
+  lastFailureTime: null
+};
+
+function checkCircuit() {
+  if (AI_CIRCUIT.state === 'OPEN') {
+    const elapsed = Date.now() - AI_CIRCUIT.lastFailureTime;
+    if (elapsed > AI_CIRCUIT.cooldown) {
+      AI_CIRCUIT.state = 'HALF_OPEN';
+      return true;
+    }
+    return false;
+  }
+  return true;
+}
+
+function recordAiSuccess() {
+  AI_CIRCUIT.failures = 0;
+  AI_CIRCUIT.state = 'CLOSED';
+}
+
+function recordAiFailure() {
+  AI_CIRCUIT.failures++;
+  AI_CIRCUIT.lastFailureTime = Date.now();
+  if (AI_CIRCUIT.failures >= AI_CIRCUIT.threshold) {
+    AI_CIRCUIT.state = 'OPEN';
+    console.error(`🚨 AI CIRCUIT BREAKER TRIGGERED: Open for ${AI_CIRCUIT.cooldown}ms`);
+  }
+}
 
 // SCHEMAS
 const DRILL_SCHEMA = {
@@ -66,11 +100,8 @@ async function logAiFailure(type, prompt, error) {
     try {
       const data = await fs.readFile(logPath, 'utf-8');
       currentLogs = JSON.parse(data);
-    } catch (e) {
-      // File doesn't exist yet, start new array
-    }
+    } catch (e) {}
     currentLogs.push(entry);
-    // Keep only last 100 failures
     if (currentLogs.length > 100) currentLogs = currentLogs.slice(-100);
     await fs.writeFile(logPath, JSON.stringify(currentLogs, null, 2));
   } catch (e) {
@@ -79,6 +110,10 @@ async function logAiFailure(type, prompt, error) {
 }
 
 async function generateStructuredContent(prompt, schema) {
+  if (!checkCircuit()) {
+    throw new Error("AI Intelligence Engine is temporarily offline (Circuit Breaker Active).");
+  }
+
   const model = genAI.getGenerativeModel({ 
     model: DEFAULT_MODEL,
     generationConfig: {
@@ -89,8 +124,11 @@ async function generateStructuredContent(prompt, schema) {
   
   try {
     const result = await model.generateContent(prompt);
-    return (await result.response).text();
+    const text = (await result.response).text();
+    recordAiSuccess();
+    return text;
   } catch (error) {
+    recordAiFailure();
     await logAiFailure("generation", prompt, error);
     throw error;
   }
@@ -121,5 +159,6 @@ module.exports = {
   POST_MORTEM_SCHEMA,
   DEFAULT_MODEL, 
   EMBEDDING_MODEL,
-  GEMINI_API_KEY
+  GEMINI_API_KEY,
+  getCircuitState: () => AI_CIRCUIT.state
 };
