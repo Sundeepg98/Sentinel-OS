@@ -1,5 +1,4 @@
 const { Pool } = require('pg');
-const pgvector = require('pgvector/pg');
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');

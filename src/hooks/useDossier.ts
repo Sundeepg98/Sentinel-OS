@@ -13,27 +13,25 @@ export function useDossier() {
   const { getToken } = useAuth();
   
   // 1. Get active company from URL directly (Single Source of Truth)
-  const [searchParams, setSearchParams] = useState(new URLSearchParams(window.location.search));
+  const [searchParams, setSearchParams] = useState(() => new URLSearchParams(window.location.search));
 
   // Listen for browser navigation (back/forward)
   useEffect(() => {
     const handlePopState = () => setSearchParams(new URLSearchParams(window.location.search));
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  const companyIdFromUrl = searchParams.get('company');
-  const companyId = companyIdFromUrl || 'mailin';
-
-  // 2. Synchronize URL if missing
-  useEffect(() => {
-    if (!companyIdFromUrl) {
+    
+    // Initial sync if missing
+    if (!window.location.search.includes('company=')) {
       const url = new URL(window.location.href);
       url.searchParams.set('company', 'mailin');
       window.history.replaceState({}, '', url.toString());
       setSearchParams(new URLSearchParams(url.search));
     }
-  }, [companyIdFromUrl]);
+
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const companyId = searchParams.get('company') || 'mailin';
 
   // 3. Discover available companies
   const { data: allCompanies = [] } = useQuery<CompanyListItem[]>({

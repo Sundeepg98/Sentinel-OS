@@ -1,6 +1,6 @@
 const express = require('express');
 const { db, isPostgres } = require('../lib/db');
-const { validateBody, validateQuery, validateParams, schemas } = require('../lib/validation');
+const { validateBody, validateQuery, schemas } = require('../lib/validation');
 const { globalState } = require('../lib/state');
 const { 
   DEFAULT_MODEL, 
@@ -10,7 +10,6 @@ const {
   DRILL_SCHEMA,
   INCIDENT_SCHEMA,
   EVAL_SCHEMA,
-  POST_MORTEM_SCHEMA,
   GEMINI_API_KEY
 } = require('../lib/intelligence');
 
@@ -154,7 +153,7 @@ router.get('/insights', validateQuery(schemas.insightsQuerySchema), async (req, 
       related = semanticMatches.map(m => ({ fileId: m.file_id, company: m.file_id.split('/')[0], sharedKeyword: 'semantic similarity' }));
     }
     res.success({ keywords: file.keywords, related });
-  } catch (e) { 
+  } catch (_e) { 
     res.success({ keywords: file.keywords, related: [] }); 
   }
 });

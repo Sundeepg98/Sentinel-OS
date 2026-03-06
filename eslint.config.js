@@ -38,6 +38,7 @@ export default defineConfig([
       sourceType: 'commonjs',
       globals: {
         ...globals.node,
+        ...globals.jest,
         process: 'readonly',
         __dirname: 'readonly',
         require: 'readonly',

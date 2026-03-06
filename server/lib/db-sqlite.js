@@ -12,6 +12,7 @@ const isTest = process.env.NODE_ENV === 'test';
 const dbFile = isTest ? ':memory:' : path.join(__dirname, '..', 'sentinel.db');
 
 const db = new Database(dbFile);
+db.pragma('journal_mode = WAL'); // 🚀 PERFORMANCE BASIC: Non-blocking writes
 sqliteVec.load(db);
 
 async function initDB() {

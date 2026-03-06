@@ -13,19 +13,19 @@ interface TrackerProps {
 
 export const Tracker: React.FC<TrackerProps> = ({ data, label, moduleId }) => {
   const { dossier } = useDossierContext();
-  
-  if (!dossier) return null;
-  
-  const [tasks, setTasks] = useLocalStorage<Task[]>(`tracker-${dossier.id}-${moduleId}`, data || []);
+  const [tasks, setTasks] = useLocalStorage<Task[]>(dossier ? `tracker-${dossier.id}-${moduleId}` : `temp-tracker-${moduleId}`, data || []);
 
   // Sync with backend on mount
   React.useEffect(() => {
+    if (!dossier) return;
     fetch(`/api/v1/state/tracker-${dossier.id}-${moduleId}`)
       .then(res => res.json())
       .then(dbData => {
         if (dbData.value) setTasks(dbData.value);
       });
-  }, [dossier.id, moduleId, setTasks]);
+  }, [dossier?.id, moduleId, setTasks]);
+
+  if (!dossier) return null;
 
   const toggle = (id: number) => {
     const newTasks = tasks.map(t => t.id === id ? { ...t, done: !t.done } : t);

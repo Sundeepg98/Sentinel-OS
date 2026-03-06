@@ -11,7 +11,6 @@ const hpp = require('hpp');
 const { v4: uuidv4 } = require('uuid');
 const { z } = require('zod');
 const morgan = require('morgan');
-const pino = require('pino');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const { db, initDB, isPostgres } = require('./lib/db');
@@ -33,7 +32,6 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 const { authGuard } = require('./lib/auth');
-const { INTELLIGENCE_DIR } = require('./lib/harvester');
 const logger = require('./lib/logger');
 
 // --- 🛠️ ENGINEERING BASIC: ENV VALIDATION ---
@@ -60,7 +58,7 @@ const ensureLogsDir = async () => {
   try {
     await fs.mkdir(logDir, { recursive: true });
   } catch (err) {
-    logger.error('Failed to create logs directory:', err);
+    logger.error({ err }, 'Failed to create logs directory');
   }
 };
 ensureLogsDir();
@@ -209,7 +207,7 @@ function spawnRAGWorker() {
       
       const payload = JSON.stringify({ type: 'SYNC_COMPLETE', hotReload: !!msg.isHotReload });
       globalState.clients.forEach(c => {
-        try { c.res.write(`data: ${payload}\n\n`); } catch (e) {}
+        try { c.res.write(`data: ${payload}\n\n`); } catch (_e) {}
       });
 
       logger.info(`🔍 Search Index Synchronized. Notified ${globalState.clients.length} clients.`);
@@ -231,6 +229,12 @@ function spawnRAGWorker() {
 // --- API V1 ROUTER ---
 const v1Router = express.Router();
 v1Router.use(authGuard);
+
+// 📡 ENGINEERING BASIC: USER-SCOPED LOGGING
+v1Router.use((req, res, next) => {
+  req.log = logger.child({ userId: req.userId, requestId: req.id });
+  next();
+});
 
 // Alias health in API v1
 v1Router.get('/health', (req, res) => res.redirect('/health'));

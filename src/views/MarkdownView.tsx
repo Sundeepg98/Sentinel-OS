@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 import { FileText, Clock, ExternalLink } from 'lucide-react';
 
 interface MarkdownViewProps {
@@ -10,8 +11,8 @@ interface MarkdownViewProps {
 
 /**
  * 📝 STABILIZED MARKDOWN RENDERER
- * Uses custom component overrides to prevent illegal HTML nesting 
- * (e.g. <div> or <pre> inside <p>) which fixes hydration warnings.
+ * Uses rehype-sanitize for robust XSS protection and custom 
+ * component overrides to fix layout nesting warnings.
  */
 export const MarkdownView: React.FC<MarkdownViewProps> = ({ data, label }) => {
   const content = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
@@ -53,8 +54,7 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({ data, label }) => {
       ">
         <ReactMarkdown 
           remarkPlugins={[remarkGfm]}
-          disallowedElements={['script', 'iframe', 'object', 'embed']}
-          unwrapDisallowed={true}
+          rehypePlugins={[rehypeSanitize]}
           components={{
             // 🚀 HYDRATION FIX: Render pre blocks as top-level elements to avoid <p> nesting
             pre: ({ node: _node, ...props }) => (

@@ -31,7 +31,7 @@ async function runInitialSync() {
     logger.info({ dir: INTELLIGENCE_DIR }, '👁️ [RAG Worker] Watching for dossier changes');
     
     const watcher = chokidar.watch(INTELLIGENCE_DIR, {
-      ignored: /(^|[\/\\])\../, // ignore dotfiles
+      ignored: /(^|[/\\])\../, // ignore dotfiles
       persistent: true
     });
 

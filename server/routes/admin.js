@@ -4,7 +4,6 @@ const fs = require('fs').promises;
 const multer = require('multer');
 const { db, isPostgres } = require('../lib/db');
 const { INTELLIGENCE_DIR } = require('../lib/harvester');
-const { globalState } = require('../lib/state');
 const { validateParams, schemas } = require('../lib/validation');
 
 const router = express.Router();
@@ -117,7 +116,7 @@ router.get('/ai-logs', async (req, res) => {
       rows = db.prepare("SELECT * FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT ? OFFSET ?").all(limit, offset);
     }
     res.success(rows);
-  } catch (e) {
+  } catch (_e) {
     res.success([]); 
   }
 });
@@ -170,7 +169,7 @@ router.get('/ui-logs', async (req, res) => {
       rows = db.prepare("SELECT * FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT ? OFFSET ?").all(limit, offset);
     }
     res.success(rows);
-  } catch (e) {
+  } catch (_e) {
     res.success([]); 
   }
 });

@@ -1,5 +1,4 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const path = require('path');
 const fs = require('fs').promises;
 const LRUCache = require('lru-cache');
 const logger = require('./logger');
