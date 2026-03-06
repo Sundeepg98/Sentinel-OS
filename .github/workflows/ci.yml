@@ -25,14 +25,17 @@ jobs:
     - name: TypeScript Check
       run: npm run build
 
+    - name: Security Audit
+      run: npm audit --audit-level=high
+
     - name: Lint Check
       run: npm run lint
 
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
 
-    - name: Run Backend Tests with Coverage
-      run: npm run test:server
+    - name: Run Backend Tests with Coverage Gate
+      run: npm run test:server -- --coverage --threshold=70
       env:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         NODE_ENV: test

@@ -166,18 +166,27 @@ const upload = multer({
 
 app.get('/health', async (req, res) => {
   try {
+    const dbStatus = isPostgres ? 'cloud' : 'local';
     if (isPostgres) {
       await db.query('SELECT 1');
     } else {
       db.prepare('SELECT 1').get();
     }
+
     res.success({ 
       status: 'healthy', 
-      db: isPostgres ? 'cloud' : 'local',
-      version: 'b0ff789' // Inject current short hash
+      db: dbStatus,
+      worker: {
+        active: !!activeWorker,
+        syncing: isSyncing
+      },
+      version: 'b0ff789'
     });
   } catch (err) {
-    res.error("Database Connection Failure", 500, err.message);
+    res.error("System Unstable", 500, {
+      db: "DOWN",
+      message: err.message
+    });
   }
 });
 
@@ -188,13 +197,15 @@ const globalState = {
 };
 
 let isSyncing = false;
+let activeWorker = null;
+
 function spawnRAGWorker() {
   if (isSyncing) return;
   isSyncing = true;
   
-  const worker = new Worker(path.join(__dirname, 'lib', 'rag-worker.js'));
+  activeWorker = new Worker(path.join(__dirname, 'lib', 'rag-worker.js'));
   
-  worker.on('message', (msg) => {
+  activeWorker.on('message', (msg) => {
     if (msg.status === 'complete') {
       logger.info(`📡 Intelligence Hydrated from Worker (${msg.duration}s)`);
       globalState.knowledgeGraph = msg.knowledgeGraph;
@@ -215,12 +226,15 @@ function spawnRAGWorker() {
     }
   });
 
-  worker.on('error', (err) => {
+  activeWorker.on('error', (err) => {
     logger.error('🧵 Worker Error:', err);
     isSyncing = false;
   });
 
-  worker.on('exit', () => { isSyncing = false; });
+  activeWorker.on('exit', () => { 
+    isSyncing = false; 
+    activeWorker = null;
+  });
 }
 
 const v1Router = express.Router();
@@ -230,6 +244,14 @@ const aiRateLimiter = rateLimit({
   windowMs: 60 * 1000, 
   max: 15, 
   message: { error: "AI Intelligence Engine is cooling down. Please wait 60 seconds." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const adminRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50, // 50 actions per 15 minutes
+  message: { error: "Administrative actions are rate-limited. Please slow down." },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -248,7 +270,7 @@ v1Router.get('/intelligence/stream', (req, res) => {
   });
 });
 
-v1Router.post('/admin/upload/:companyId', upload.single('file'), (req, res) => {
+v1Router.post('/admin/upload/:companyId', adminRateLimiter, upload.single('file'), (req, res) => {
   if (!req.file) return res.error("No file uploaded", 400);
   logger.info(`📁 [Admin] File uploaded: ${req.file.filename} to ${req.params.companyId}`);
   res.success({ success: true, filename: req.file.filename });
@@ -585,6 +607,12 @@ const server = app.listen(PORT, () => {
 
 function gracefulShutdown() {
   logger.info("🛑 Signal received. Shutting down gracefully...");
+  
+  if (activeWorker) {
+    logger.info("🧵 Terminating RAG Worker...");
+    activeWorker.terminate();
+  }
+
   server.close(() => { 
     logger.info("📡 Express server closed."); 
     if (!isPostgres) db.close(); 
