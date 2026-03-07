@@ -121,6 +121,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   key={mod.id}
                   onClick={() => handleModuleClick(mod.id)}
+                  aria-current={activeModuleId === mod.id && !diagnosticsActive ? 'page' : undefined}
                   className={cn(
                     "w-full flex items-center group gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 border text-left",
                     (activeModuleId === mod.id && !diagnosticsActive)

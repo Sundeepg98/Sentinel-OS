@@ -201,5 +201,7 @@ module.exports = {
   DEFAULT_MODEL, 
   EMBEDDING_MODEL,
   GEMINI_API_KEY,
-  getCircuitState: () => AI_CIRCUIT.state
+  getCircuitState: () => AI_CIRCUIT.state,
+  recordAiSuccess,
+  recordAiFailure
 };
