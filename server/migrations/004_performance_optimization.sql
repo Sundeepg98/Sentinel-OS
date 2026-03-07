@@ -1,3 +1,2 @@
--- Migration 004: Performance Optimization
-CREATE INDEX IF NOT EXISTS idx_user_history ON interaction_history(user_id, timestamp);
-CREATE INDEX IF NOT EXISTS idx_user_state ON user_state(user_id, key);
+-- Migration 004: Performance Optimization (Consolidated into 001)
+-- This file is kept for versioning integrity.

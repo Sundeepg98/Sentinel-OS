@@ -67,7 +67,7 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({ data, label }) => {
               </div>
             ),
             // Ensure codes inside paragraphs don't break layout
-            code: ({ node: _node, inline, ...props }: any) => 
+            code: ({ node: _node, inline, ...props }: { node?: any, inline?: boolean, children?: React.ReactNode }) => 
               inline ? (
                 <code {...props} className="bg-indigo-500/10 text-indigo-300 px-1.5 py-0.5 rounded text-[0.9em]" />
               ) : (

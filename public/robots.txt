@@ -3,4 +3,4 @@ Allow: /
 Disallow: /api/
 Disallow: /admin/
 
-Sitemap: https://sentinel-os-bcsv.onrender.com/sitemap.xml
+Sitemap: /sitemap.xml

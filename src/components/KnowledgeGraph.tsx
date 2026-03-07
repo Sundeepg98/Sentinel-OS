@@ -102,10 +102,10 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
             }
           });
           const weightedNodes = Object.values(nodesById).map((n) => {
-            const neighborsCount = (n as any).neighbors?.length || 0;
+            const node = n as GraphNode & { neighbors: any[] };
             return {
-              ...n,
-              weight: n.group === 'module' ? 10 : n.group === 'learned' ? 8 : Math.min(Math.max(neighborsCount, 2), 8)
+              ...node,
+              weight: node.group === 'module' ? 10 : node.group === 'learned' ? 8 : Math.min(Math.max(node.neighbors.length || 1, 2), 8)
             };
           }) as GraphNode[];
           setGraphData({ nodes: weightedNodes, links: data.links });

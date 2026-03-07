@@ -1,8 +1,18 @@
 import React from 'react';
-import * as Icons from 'lucide-react';
+import { 
+  Server, X, Pin, Activity, HelpCircle, 
+  Database, Brain, Shield, FileText, Zap, 
+  Layout, Cpu, Network, Swords, Terminal, Search
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDossierContext } from '@/lib/context';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+
+// Map for dynamic icon lookup from dossier metadata
+const IconMap: Record<string, React.FC<any>> = {
+  Database, Brain, Shield, FileText, Zap, 
+  Layout, Cpu, Network, Swords, Terminal, Search, HelpCircle
+};
 
 interface SidebarProps {
   activeModuleId: string;
@@ -78,12 +88,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 "p-1.5 rounded-md border border-white/10 shadow-sm",
                 dossier.brandColor === 'cyan' ? "bg-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.15)]" : "bg-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
               )}>
-                <Icons.Server className={cn("w-5 h-5", dossier.brandColor === 'cyan' ? "text-cyan-400" : "text-indigo-400")} />
+                <Server className={cn("w-5 h-5", dossier.brandColor === 'cyan' ? "text-cyan-400" : "text-indigo-400")} />
               </div>
               {dossier.name}<span className="text-neutral-500 font-light">_OS</span>
             </h1>
             <button onClick={onClose} className="md:hidden p-2 text-neutral-500 hover:text-white transition-colors">
-              <Icons.X size={20} />
+              <X size={20} />
             </button>
           </div>
           <div className="px-8 mb-4">
@@ -92,7 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="text-[11px] font-medium text-neutral-400 tracking-wide">Target: {dossier.targetRole}</span>
             </div>
           </div>
-          
+
           <nav className="px-4 space-y-1 mt-4">
             <div className="px-4 pb-2 text-[10px] font-semibold text-neutral-600 uppercase tracking-widest flex justify-between items-center">
               <span>Modules</span>
@@ -102,9 +112,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </span>
               )}
             </div>
-            
+
             {dossier.modules.map((mod) => {
-              const IconComponent = (Icons as Record<string, any>)[mod.icon] || Icons.HelpCircle;
+              const IconComponent = IconMap[mod.icon] || HelpCircle;
               const fullId = mod.fullId || `${dossier.id}/${mod.id}.md`;              const isPinned = arenaIds.includes(fullId);
 
               return (
@@ -127,7 +137,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <IconComponent size={18} strokeWidth={1.5} />
                   </div>
                   <span className="flex-1 truncate">{mod.label}</span>
-                  
+
                   <div 
                     onClick={(e) => togglePin(e, fullId)}
                     role="button"
@@ -138,14 +148,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     )}
                     title={isPinned ? "Remove from Arena" : "Add to Architect Arena"}
                   >
-                    <Icons.Pin size={14} className={isPinned ? "fill-current" : ""} />
+                    <Pin size={14} className={isPinned ? "fill-current" : ""} />
                   </div>
                 </button>
               );
             })}
           </nav>
         </div>
-        
+
         <div className="p-4 border-t border-white/[0.05] space-y-4">
           <button
             onClick={handleDiagnosticsClick}
@@ -154,20 +164,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               diagnosticsActive 
                 ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.15)]" 
                 : "bg-white/[0.02] border-white/[0.05] text-neutral-500 hover:text-white hover:border-white/10"
-          )}
-        >
-          <Icons.Activity size={16} />
-          System Status
-        </button>
+            )}
+          >
+            <Activity size={16} />
+            System Status
+          </button>
 
-        <div className="bg-gradient-to-r from-neutral-900 to-neutral-950 p-4 rounded-xl border border-white/[0.05]">
-          <p className="text-xs text-neutral-400 leading-relaxed">
-            Engineering Dossier v2.6.0<br/>
-            <span className="text-neutral-600 font-mono text-[9px]">ARCHITECT_MODE: ENABLED</span>
-          </p>
+          <div className="bg-gradient-to-r from-neutral-900 to-neutral-950 p-4 rounded-xl border border-white/[0.05]">
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Engineering Dossier v2.6.0<br/>
+              <span className="text-neutral-600 font-mono text-[9px]">ARCHITECT_MODE: ENABLED</span>
+            </p>
+          </div>
         </div>
-      </div>
-    </aside>
+      </aside>
     </>
   );
 };

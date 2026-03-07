@@ -90,8 +90,9 @@ export const Diagnostics: React.FC = () => {
       });
       toast(`Successfully uploaded ${file.name}`, "success");
       queryClient.invalidateQueries({ queryKey: ['dossier'] });
-    } catch (e: any) {
-      toast(e.message, "error");
+    } catch (e: unknown) {
+      const err = e as Error;
+      toast(err.message, "error");
     } finally {
       setUploading(false);
     }
