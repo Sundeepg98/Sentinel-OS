@@ -13,9 +13,9 @@ vi.stubGlobal('IntersectionObserver', IntersectionObserverMock);
 
 // Mock EventSource
 class EventSourceMock {
-  onopen: any = null;
-  onmessage: any = null;
-  onerror: any = null;
+  onopen: ((event: unknown) => void) | null = null;
+  onmessage: ((event: any) => void) | null = null; // message data can be any, but we cast usage
+  onerror: ((event: unknown) => void) | null = null;
   url: string;
   constructor(url: string) {
     this.url = url;

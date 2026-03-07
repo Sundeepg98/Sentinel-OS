@@ -1,21 +1,22 @@
 /**
  * 🛰️ SHARED API UTILITY
- * Handles JWT injection and error normalization.
+ * Handles JWT injection, correlation IDs, error normalization, and resilience.
  */
 
-export async function fetchWithAuth(url: string, getToken: () => Promise<string | null>, options: RequestInit = {}) {
-  const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true';
-  const BYPASS_TOKEN = 'sentinel_staff_2026';
-  
-  // 🛰️ ENGINEERING BASIC: REQUEST CORRELATION
+import { env } from './env';
+
+export async function fetchWithAuth<T = unknown>(
+  url: string, 
+  getToken: () => Promise<string | null>, 
+  options: RequestInit = {}
+): Promise<T> {
+  const AUTH_ENABLED = env.VITE_AUTH_ENABLED;
   const correlationId = crypto.randomUUID();
-  
+
   const headers = new Headers(options.headers);
   headers.set('X-Correlation-ID', correlationId);
-  
-  // 🚀 DEVELOPER BYPASS
-  headers.set('x-sentinel-bypass', BYPASS_TOKEN);
-  
+  headers.set('x-sentinel-bypass', 'sentinel_staff_2026'); // Staff bypass for intelligence access
+
   if (AUTH_ENABLED) {
     const token = await getToken();
     if (token) {
@@ -37,7 +38,7 @@ export async function fetchWithAuth(url: string, getToken: () => Promise<string 
     options.signal.addEventListener('abort', () => controller.abort());
   }
 
-  const performFetch = async (attempt = 1): Promise<any> => {
+  const performFetch = async (attempt = 1): Promise<T> => {
     try {
       const response = await fetch(url, {
         ...options,
@@ -54,14 +55,17 @@ export async function fetchWithAuth(url: string, getToken: () => Promise<string 
       
       // Unwrap the standardized API envelope if present
       if (result && result.status === 'success' && 'data' in result) {
-        return result.data;
+        return result.data as T;
       }
       
-      return result;
-    } catch (err: any) {
+      return result as T;
+    } catch (err: unknown) {
       // 🔄 ENGINEERING BASIC: RETRY LOGIC (GET only, max 2 retries)
       if (options.method === 'GET' || !options.method) {
-        if (attempt < 3 && (err.name === 'TypeError' || err.message.includes('Failed to fetch'))) {
+        const message = err instanceof Error ? err.message : String(err);
+        const name = err instanceof Error ? err.name : '';
+        
+        if (attempt < 3 && (name === 'TypeError' || message.includes('Failed to fetch'))) {
           await new Promise(res => setTimeout(res, 1000 * attempt));
           return performFetch(attempt + 1);
         }
@@ -74,9 +78,9 @@ export async function fetchWithAuth(url: string, getToken: () => Promise<string 
     const data = await performFetch();
     clearTimeout(timeoutId);
     return data;
-  } catch (err: any) {
+  } catch (err: unknown) {
     clearTimeout(timeoutId);
-    if (err.name === 'AbortError') {
+    if (err instanceof Error && err.name === 'AbortError') {
       throw new Error('Technical Intelligence Engine Request Timed Out (10s limit).');
     }
     throw err;
@@ -98,9 +102,15 @@ export async function reportError(error: Error, componentStack?: string) {
         componentStack,
         timestamp: new Date().toISOString(),
         url: window.location.href,
+        metadata: {
+          userAgent: navigator.userAgent,
+          platform: (navigator as any).platform,
+          language: navigator.language,
+          screen: `${window.screen.width}x${window.screen.height}`,
+        }
       }),
     });
-  } catch (e) {
+  } catch (e: unknown) {
     console.error('Failed to report error:', e);
   }
 }

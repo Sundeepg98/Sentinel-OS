@@ -22,6 +22,46 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
+      workbox: {
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/clerk\.accounts\.dev\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'clerk-auth-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 // 1 day
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: /\/api\/v1\/dossier\/.*/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'dossier-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 * 7 // 1 week
+              }
+            }
+          },
+          {
+            urlPattern: /\/api\/v1\/companies/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'companies-cache',
+              expiration: {
+                maxEntries: 5,
+                maxAgeSeconds: 60 * 60 * 24 * 7 // 1 week
+              }
+            }
+          }
+        ]
+      },
       manifest: {
         name: 'Sentinel-OS',
         short_name: 'Sentinel',

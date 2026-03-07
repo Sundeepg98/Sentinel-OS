@@ -3,9 +3,9 @@ import { Swords, Brain, Loader2, Send, X, ShieldAlert, CheckCircle2, ChevronUp, 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from '@clerk/clerk-react';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useToast } from '@/hooks/useToast';
 import { fetchWithAuth } from '@/lib/api';
+import { useDossierContext } from '@/lib/context';
 
 interface ArenaModule {
   id: string;
@@ -52,7 +52,7 @@ interface SpeechRecognition extends EventTarget {
 export const ArchitectArena: React.FC = () => {
   const { toast } = useToast();
   const { getToken } = useAuth();
-  const [arenaIds, setArenaIds] = useLocalStorage<string[]>('architect_arena_selection', []);
+  const { arenaIds = [], setArenaIds = () => {} } = useDossierContext();
   const [drill, setDrill] = useState<Drill | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
   const [evalData, setEvalData] = useState<EvaluationData | null>(null);
@@ -66,7 +66,7 @@ export const ArchitectArena: React.FC = () => {
   // 1. Fetch All Modules for filtering
   const { data: allModules = [] } = useQuery<ArenaModule[]>({
     queryKey: ['arena-discovery'],
-    queryFn: () => fetchWithAuth('/api/v1/intelligence/search?q=*', getToken),
+    queryFn: () => fetchWithAuth<ArenaModule[]>('/api/v1/intelligence/search?q=*', getToken),
     enabled: arenaIds.length > 0
   });
 
@@ -80,17 +80,17 @@ export const ArchitectArena: React.FC = () => {
   const drillMutation = useMutation({
     mutationFn: async () => {
       // 1. SEMANTIC CROSS-POLLINATION
-      const semanticContext = await fetchWithAuth('/api/v1/intelligence/semantic-search', getToken, {
+      const semanticContext = await fetchWithAuth<SemanticResult[]>('/api/v1/intelligence/semantic-search', getToken, {
         method: 'POST',
         body: JSON.stringify({ 
           q: selectedModules.map(m => m.label).join(" and "), 
           limit: 5 
         })
       });
-      const crossDossierContext = (semanticContext as SemanticResult[]).map((c) => c.chunk_text).join("\n\n---\n\n");
+      const crossDossierContext = semanticContext.map((c) => c.chunk_text).join("\n\n---\n\n");
 
       // 2. GENERATE DRILL
-      return fetchWithAuth('/api/v1/intelligence/drill', getToken, {
+      return fetchWithAuth<Drill>('/api/v1/intelligence/drill', getToken, {
         method: 'POST',
         body: JSON.stringify({ 
           fileId: arenaIds[0], 
@@ -100,7 +100,7 @@ export const ArchitectArena: React.FC = () => {
       });
     },
     onSuccess: (data) => {
-      setDrill(data as Drill);
+      setDrill(data);
       setEvalData(null);
       setUserAnswer('');
     },
@@ -111,7 +111,7 @@ export const ArchitectArena: React.FC = () => {
   const evalMutation = useMutation({
     mutationFn: () => {
       if (!drill) throw new Error('No drill active');
-      return fetchWithAuth('/api/v1/intelligence/evaluate', getToken, {
+      return fetchWithAuth<EvaluationData>('/api/v1/intelligence/evaluate', getToken, {
         method: 'POST',
         body: JSON.stringify({ 
           fileId: arenaIds[0],
@@ -123,7 +123,7 @@ export const ArchitectArena: React.FC = () => {
       });
     },
     onSuccess: (data) => {
-      setEvalData(data as EvaluationData);
+      setEvalData(data);
       toast("Strategy evaluated.", "success");
     },
     onError: (e: Error) => toast(e.message, "error")

@@ -45,27 +45,27 @@ export const Diagnostics: React.FC = () => {
 
   const { data: stats } = useQuery<Stats>({
     queryKey: ['stats'],
-    queryFn: () => fetchWithAuth('/api/v1/intelligence/stats', getToken),
+    queryFn: () => fetchWithAuth<Stats>('/api/v1/intelligence/stats', getToken),
     refetchInterval: 30000,
   });
 
   // 🕵️ AI FAILURE LOGS QUERY
   const { data: aiLogs = [] } = useQuery<LogEntry[]>({
     queryKey: ['ai-logs'],
-    queryFn: () => fetchWithAuth('/api/v1/admin/ai-logs', getToken),
+    queryFn: () => fetchWithAuth<LogEntry[]>('/api/v1/admin/ai-logs', getToken),
     enabled: activeTab === 'ai-logs',
   });
 
   // 🖥️ UI ERROR LOGS QUERY
   const { data: uiLogs = [] } = useQuery<LogEntry[]>({
     queryKey: ['ui-logs'],
-    queryFn: () => fetchWithAuth('/api/v1/admin/ui-logs', getToken),
+    queryFn: () => fetchWithAuth<LogEntry[]>('/api/v1/admin/ui-logs', getToken),
     enabled: activeTab === 'ui-logs',
   });
 
   // 📁 FILE DELETION MUTATION
   const deleteMutation = useMutation({
-    mutationFn: (filename: string) => fetchWithAuth(`/api/v1/admin/files/${dossier?.id}/${filename}`, getToken, {
+    mutationFn: (filename: string) => fetchWithAuth<{success: boolean}>(`/api/v1/admin/files/${dossier?.id}/${filename}`, getToken, {
       method: 'DELETE'
     }),
     onSuccess: () => {

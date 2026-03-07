@@ -198,15 +198,15 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
       <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-white/5 overflow-x-auto">
         <div className="flex items-center gap-2">
           {[
-            { id: 'pencil', icon: MousePointer2, label: 'Draw' },
-            { id: 'rect', icon: Square, label: 'Block' },
-            { id: 'circle', icon: Circle, label: 'Node' },
-            { id: 'line', icon: Minus, label: 'Link' },
-            { id: 'text', icon: Type, label: 'Label' },
+            { id: 'pencil' as const, icon: MousePointer2, label: 'Draw' },
+            { id: 'rect' as const, icon: Square, label: 'Block' },
+            { id: 'circle' as const, icon: Circle, label: 'Node' },
+            { id: 'line' as const, icon: Minus, label: 'Link' },
+            { id: 'text' as const, icon: Type, label: 'Label' },
           ].map(t => (
             <button
               key={t.id}
-              onClick={() => setTool(t.id as any)}
+              onClick={() => setTool(t.id)}
               className={cn(
                 "p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider",
                 tool === t.id ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "text-neutral-500 hover:text-white"

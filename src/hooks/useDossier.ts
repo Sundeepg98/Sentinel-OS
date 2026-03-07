@@ -3,11 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@clerk/clerk-react';
 import { fetchWithAuth } from '@/lib/api';
 import type { CompanyDossier } from '@/types';
-
-interface CompanyListItem {
-  id: string;
-  name: string;
-}
+import type { CompanyListItem } from '@/lib/context';
 
 export function useDossier() {
   const { getToken } = useAuth();
@@ -35,14 +31,14 @@ export function useDossier() {
   // 3. Discover available companies
   const { data: allCompanies = [] } = useQuery<CompanyListItem[]>({
     queryKey: ['companies'],
-    queryFn: () => fetchWithAuth('/api/v1/companies', getToken),
+    queryFn: () => fetchWithAuth<CompanyListItem[]>('/api/v1/companies', getToken),
     staleTime: 1000 * 60 * 15, // 15 min stale time for company list
   });
 
   // 4. Fetch active dossier
-  const { data: dossier = null, isLoading } = useQuery<CompanyDossier>({
+  const { data: dossier = null, isLoading } = useQuery<CompanyDossier | null>({
     queryKey: ['dossier', companyId],
-    queryFn: () => fetchWithAuth(`/api/v1/dossier/${companyId}`, getToken),
+    queryFn: () => fetchWithAuth<CompanyDossier>(`/api/v1/dossier/${companyId}`, getToken),
     enabled: !!companyId,
     placeholderData: (previousData) => previousData,
     staleTime: 1000 * 60 * 5, // 5 min stale time for static technical dossiers

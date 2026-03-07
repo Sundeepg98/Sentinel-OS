@@ -21,6 +21,10 @@ interface Drill {
   idealResponse: string;
 }
 
+interface InsightData {
+  keywords: string[];
+}
+
 export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   const { getToken } = useAuth();
   const { toast: showToast } = useToast();
@@ -30,19 +34,19 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   const [userAnswer, setUserAnswer] = useState('');
 
   // 1. Fetch Insights (Keywords)
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<InsightData>({
     queryKey: ['insights', fullId],
-    queryFn: () => fetchWithAuth(`/api/v1/intelligence/insights?fileId=${encodeURIComponent(fullId)}`, getToken),
+    queryFn: () => fetchWithAuth<InsightData>(`/api/v1/intelligence/insights?fileId=${encodeURIComponent(fullId)}`, getToken),
     enabled: !!fullId,
     staleTime: 1000 * 60 * 5,
   });
 
   const generateDrill = useMutation({
-    mutationFn: () => fetchWithAuth('/api/v1/intelligence/drill', getToken, {
+    mutationFn: () => fetchWithAuth<Drill>('/api/v1/intelligence/drill', getToken, {
       method: 'POST',
       body: JSON.stringify({ fileId: fullId })
     }),
-    onSuccess: (data) => setDrill(data as Drill),
+    onSuccess: (data) => setDrill(data),
     onError: () => showToast('Failed to generate technical drill', 'error')
   });
 
@@ -50,7 +54,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   const evaluateDrill = useMutation({
     mutationFn: () => {
       if (!drill) throw new Error("No drill active");
-      return fetchWithAuth('/api/v1/intelligence/evaluate', getToken, {
+      return fetchWithAuth<EvaluationData>('/api/v1/intelligence/evaluate', getToken, {
         method: 'POST',
         body: JSON.stringify({ 
           fileId: fullId,
@@ -61,7 +65,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
       });
     },
     onSuccess: (data) => {
-      setEvalData(data as EvaluationData);
+      setEvalData(data);
       queryClient.invalidateQueries({ queryKey: ['graph'] });
     },
     onError: () => showToast('Evaluation failed', 'error')
@@ -146,7 +150,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
           <div className="flex flex-wrap gap-2">
             {isLoading ? (
               [1,2,3,4].map(i => <div key={i} className="h-6 w-16 bg-white/5 animate-pulse rounded-md" />)
-            ) : (data?.keywords?.length > 0) ? (
+            ) : (data?.keywords && data.keywords.length > 0) ? (
               data.keywords.map((k: string) => (
                 <button 
                   key={k} 

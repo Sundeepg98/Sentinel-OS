@@ -72,7 +72,7 @@ export const WarRoom = () => {
   const incidentMutation = useMutation({
     mutationFn: () => {
       const moduleIds = dossier?.modules?.map(m => m.fullId).slice(0, 3) || [];
-      return fetchWithAuth('/api/v1/intelligence/incident', getToken, {
+      return fetchWithAuth<Incident>('/api/v1/intelligence/incident', getToken, {
         method: 'POST',
         body: JSON.stringify({ moduleIds })
       });
@@ -97,13 +97,13 @@ export const WarRoom = () => {
   const evalMutation = useMutation({
     mutationFn: () => {
       if (!incident) throw new Error('No active incident');
-      return fetchWithAuth('/api/v1/intelligence/incident/evaluate', getToken, {
+      return fetchWithAuth<Evaluation>('/api/v1/intelligence/incident/evaluate', getToken, {
         method: 'POST',
         body: JSON.stringify({ incident, userAnswer: userMitigation })
       });
     },
     onSuccess: (data) => {
-      setEvaluation(data as unknown as Evaluation);
+      setEvaluation(data);
       setStatus('completed');
       toast("Incident Evaluation Received.", "success");
     },

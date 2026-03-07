@@ -57,7 +57,8 @@ const errorLogSchema = z.object({
   message: z.string().min(1),
   stack: z.string().optional(),
   componentStack: z.string().optional(),
-  url: z.string().url().optional()
+  url: z.string().url().optional(),
+  metadata: z.record(z.any()).optional()
 });
 
 const userStateSchema = z.object({

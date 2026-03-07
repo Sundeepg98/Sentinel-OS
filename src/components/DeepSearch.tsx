@@ -62,9 +62,9 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
       if (debouncedQuery.length < 2) return [];
       
       if (searchMode === 'keyword') {
-        return fetchWithAuth(`/api/v1/intelligence/search?q=${encodeURIComponent(debouncedQuery)}`, getToken);
+        return fetchWithAuth<SearchResult[]>(`/api/v1/intelligence/search?q=${encodeURIComponent(debouncedQuery)}`, getToken);
       } else {
-        const rawData = await fetchWithAuth('/api/v1/intelligence/semantic-search', getToken, {
+        const rawData = await fetchWithAuth<SemanticSearchResult[]>('/api/v1/intelligence/semantic-search', getToken, {
           method: 'POST',
           body: JSON.stringify({ q: debouncedQuery, limit: 10 })
         });

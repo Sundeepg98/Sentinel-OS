@@ -2,14 +2,15 @@ import React from 'react';
 import { 
   Server, X, Pin, Activity, HelpCircle, 
   Database, Brain, Shield, FileText, Zap, 
-  Layout, Cpu, Network, Swords, Terminal, Search
+  Layout, Cpu, Network, Swords, Terminal, Search,
+  type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDossierContext } from '@/lib/context';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 // Map for dynamic icon lookup from dossier metadata
-const IconMap: Record<string, React.FC<any>> = {
+const IconMap: Record<string, LucideIcon> = {
   Database, Brain, Shield, FileText, Zap, 
   Layout, Cpu, Network, Swords, Terminal, Search, HelpCircle
 };
@@ -103,7 +104,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          <nav className="px-4 space-y-1 mt-4">
+          <nav className="px-4 mt-4">
             <div className="px-4 pb-2 text-[10px] font-semibold text-neutral-600 uppercase tracking-widest flex justify-between items-center">
               <span>Modules</span>
               {arenaIds.length > 0 && (
@@ -113,47 +114,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
 
-            {dossier.modules.map((mod) => {
-              const IconComponent = IconMap[mod.icon] || HelpCircle;
-              const fullId = mod.fullId || `${dossier.id}/${mod.id}.md`;              const isPinned = arenaIds.includes(fullId);
+            <ul className="space-y-1" role="list">
+              {dossier.modules.map((mod) => {
+                const IconComponent = IconMap[mod.icon] || HelpCircle;
+                const fullId = mod.fullId || `${dossier.id}/${mod.id}.md`;
+                const isPinned = arenaIds.includes(fullId);
 
-              return (
-                <button
-                  key={mod.id}
-                  onClick={() => handleModuleClick(mod.id)}
-                  aria-current={activeModuleId === mod.id && !diagnosticsActive ? 'page' : undefined}
-                  className={cn(
-                    "w-full flex items-center group gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 border text-left",
-                    (activeModuleId === mod.id && !diagnosticsActive)
-                      ? "bg-white/[0.06] text-white border-white/[0.08] shadow-sm" 
-                      : "bg-transparent text-neutral-400 border-transparent hover:bg-white/[0.02] hover:text-neutral-200"
-                  )}
-                >
-                  <div className={cn(
-                    "transition-colors", 
-                    (activeModuleId === mod.id && !diagnosticsActive)
-                      ? (dossier.brandColor === 'cyan' ? "text-cyan-400" : "text-indigo-400") 
-                      : "text-neutral-500"
-                  )}>
-                    <IconComponent size={18} strokeWidth={1.5} />
-                  </div>
-                  <span className="flex-1 truncate">{mod.label}</span>
+                return (
+                  <li key={mod.id}>
+                    <button
+                      onClick={() => handleModuleClick(mod.id)}
+                      aria-current={activeModuleId === mod.id && !diagnosticsActive ? 'page' : undefined}
+                      className={cn(
+                        "w-full flex items-center group gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 border text-left",
+                        (activeModuleId === mod.id && !diagnosticsActive)
+                          ? "bg-white/[0.06] text-white border-white/[0.08] shadow-sm" 
+                          : "bg-transparent text-neutral-400 border-transparent hover:bg-white/[0.02] hover:text-neutral-200"
+                      )}
+                    >
+                      <div className={cn(
+                        "transition-colors", 
+                        (activeModuleId === mod.id && !diagnosticsActive)
+                          ? (dossier.brandColor === 'cyan' ? "text-cyan-400" : "text-indigo-400") 
+                          : "text-neutral-500"
+                      )}>
+                        <IconComponent size={18} strokeWidth={1.5} />
+                      </div>
+                      <span className="flex-1 truncate">{mod.label}</span>
 
-                  <div 
-                    onClick={(e) => togglePin(e, fullId)}
-                    role="button"
-                    aria-label={isPinned ? "Unpin from Arena" : "Pin to Architect Arena"}
-                    className={cn(
-                      "p-1.5 rounded-md transition-all opacity-0 group-hover:opacity-100",
-                      isPinned ? "text-indigo-400 opacity-100 bg-indigo-500/10" : "text-neutral-600 hover:text-neutral-400 hover:bg-white/5"
-                    )}
-                    title={isPinned ? "Remove from Arena" : "Add to Architect Arena"}
-                  >
-                    <Pin size={14} className={isPinned ? "fill-current" : ""} />
-                  </div>
-                </button>
-              );
-            })}
+                      <div 
+                        onClick={(e) => togglePin(e, fullId)}
+                        role="button"
+                        aria-label={isPinned ? "Unpin from Arena" : "Pin to Architect Arena"}
+                        className={cn(
+                          "p-1.5 rounded-md transition-all opacity-0 group-hover:opacity-100",
+                          isPinned ? "text-indigo-400 opacity-100 bg-indigo-500/10" : "text-neutral-600 hover:text-neutral-400 hover:bg-white/5"
+                        )}
+                        title={isPinned ? "Remove from Arena" : "Add to Architect Arena"}
+                      >
+                        <Pin size={14} className={isPinned ? "fill-current" : ""} />
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </nav>
         </div>
 

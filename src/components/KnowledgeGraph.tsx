@@ -27,6 +27,11 @@ interface KnowledgeGraphProps {
   onSelectModule: (moduleId: string) => void;
 }
 
+interface IncidentAdvisory {
+  title: string;
+  description: string;
+}
+
 /**
  * 🛰️ ARCHITECTURAL NERVOUS SYSTEM (Knowledge Graph)
  * Cinematic 3D visualization featuring the Phase 4 Neural Impact Simulator.
@@ -36,7 +41,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   const { setCompany } = useDossierContext();
   const { getToken } = useAuth();
   const { toast: showToast } = useToast();
-  const graphRef = useRef<any>(null); // Keep any for now due to complex lib types, but we'll cast usage
+  const graphRef = useRef<any>(null); 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [graphData, setGraphData] = useState<GraphData>({ nodes: [], links: [] });
@@ -54,7 +59,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   // --- AI ADVISORY HOOK (Gemini 2.5) ---
   const generateImpactAdvisory = useMutation({
     mutationFn: async (moduleIds: string[]) => {
-      const data = await fetchWithAuth('/api/v1/intelligence/incident', getToken, {
+      const data = await fetchWithAuth<IncidentAdvisory>('/api/v1/intelligence/incident', getToken, {
         method: 'POST',
         body: JSON.stringify({ moduleIds })
       });
@@ -72,12 +77,14 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   const hasInitialZoomed = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-// Properly type the graph data fetch
   useEffect(() => {
     if (isOpen) {
-      fetchWithAuth('/api/v1/intelligence/graph', getToken)
+      fetchWithAuth<GraphData>('/api/v1/intelligence/graph', getToken)
         .then(data => {
-          const nodesById = Object.fromEntries(data.nodes.map((n: GraphNode) => [n.id, { ...n, neighbors: [], links: [] }]));
+          const nodesById = Object.fromEntries(
+            data.nodes.map((n: GraphNode) => [n.id, { ...n, neighbors: [] as GraphNode[], links: [] as GraphLink[] }])
+          );
+          
           data.links.forEach((link: GraphLink) => {
             const a = nodesById[link.source as string];
             const b = nodesById[link.target as string];
@@ -198,7 +205,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
       newHighlightNodes.add(node);
       node.neighbors.forEach((neighbor) => newHighlightNodes.add(neighbor));
       node.links.forEach((link) => newHighlightLinks.add(link));
-      const coords = graphRef.current.graph2ScreenCoords(node.x, node.y, node.z);
+      const coords = graphRef.current.graph2ScreenCoords(node.x || 0, node.y || 0, node.z || 0);
       setTooltipPos({ x: coords.x, y: coords.y });
       setHoveredNode(node);
     } else {
@@ -235,7 +242,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     generateImpactAdvisory.mutate(moduleIds);
 
     if (graphRef.current) {
-      graphRef.current.cameraPosition({ x: node.x! * 1.2, y: node.y! * 1.2, z: node.z! * 1.2 }, node, 800);
+      graphRef.current.cameraPosition({ x: (node.x || 0) * 1.2, y: (node.y || 0) * 1.2, z: (node.z || 0) * 1.2 }, node, 800);
     }
   }, [generateImpactAdvisory]);
 
@@ -307,7 +314,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
       const [companyId, fileName] = node.id.split('/');
       const moduleId = fileName.replace('.md', '');
       if (graphRef.current) {
-        graphRef.current.cameraPosition({ x: node.x! * 1.5, y: node.y! * 1.5, z: node.z! * 1.5 }, node, 800);
+        graphRef.current.cameraPosition({ x: (node.x || 0) * 1.5, y: (node.y || 0) * 1.5, z: (node.z || 0) * 1.5 }, node, 800);
       }
       setTimeout(() => {
         setCompany(companyId);
@@ -320,7 +327,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   const impactedModules = useMemo(() => {
     return Array.from(blastImpacts.entries())
       .map(([id, level]) => ({ node: graphData.nodes.find(n => n.id === id), level }))
-      .filter(i => i.node && i.node.group === 'module')
+      .filter((i): i is { node: GraphNode, level: 1 | 2 | 3 } => !!i.node && i.node.group === 'module')
       .sort((a, b) => a.level - b.level);
   }, [blastImpacts, graphData]);
 
