@@ -366,12 +366,32 @@ app.use((req, res, next) => {
 v1Router.get('/health', (req, res) => res.redirect('/health'));
 
 // 🛰️ RESTORED MISSION CRITICAL ROUTES
+/**
+ * @openapi
+ * /companies:
+ *   get:
+ *     tags: [Technical Intelligence]
+ *     summary: Discover available company intelligence profiles
+ */
 v1Router.get('/companies', (req, res) => {
   const companies = [...new Set(Object.values(globalState.knowledgeGraph.files).map(f => f.company))]
     .map(id => ({ id, name: id.charAt(0).toUpperCase() + id.slice(1) }));
   res.success(companies);
 });
 
+/**
+ * @openapi
+ * /dossier/{id}:
+ *   get:
+ *     tags: [Technical Intelligence]
+ *     summary: Retrieve a full technical dossier for a specific company
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ */
 v1Router.get('/dossier/:id', (req, res) => {
   const companyId = req.params.id.toLowerCase();
   const companyModules = Object.entries(globalState.knowledgeGraph.files)

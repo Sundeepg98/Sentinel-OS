@@ -3,7 +3,7 @@
  * Handles JWT injection, correlation IDs, error normalization, and resilience.
  */
 
-import { env } from './env';
+import { env, APP_VERSION } from './env';
 
 export async function fetchWithAuth<T = unknown>(
   url: string, 
@@ -53,6 +53,11 @@ export async function fetchWithAuth<T = unknown>(
 
       const result = await response.json();
       
+      // 🛡️ ENGINEERING BASIC: VERSION PARITY CHECK
+      if (result.meta?.version && result.meta.version !== APP_VERSION) {
+        console.warn(`📡 [Version Mismatch] Client: ${APP_VERSION} | Server: ${result.meta.version}. A reload may be required.`);
+      }
+
       // Unwrap the standardized API envelope if present
       if (result && result.status === 'success' && 'data' in result) {
         return result.data as T;

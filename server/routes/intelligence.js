@@ -45,7 +45,14 @@ router.get('/stream', (req, res) => {
   const clientId = Date.now();
   globalState.clients.push({ id: clientId, res });
   res.write(':ok\n\n');
+
+  // 💓 ENGINEERING BASIC: SSE HEARTBEAT
+  const heartbeat = setInterval(() => {
+    res.write(':heartbeat\n\n');
+  }, 30000);
+
   req.on('close', () => {
+    clearInterval(heartbeat);
     globalState.clients = globalState.clients.filter(c => c.id !== clientId);
   });
 });

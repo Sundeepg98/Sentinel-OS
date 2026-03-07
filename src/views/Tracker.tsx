@@ -1,6 +1,6 @@
 import React from 'react';
 import { Zap, CheckCircle2 } from 'lucide-react';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { usePersistentState } from '@/hooks/usePersistentState';
 import type { Task } from '@/types';
 import { useDossierContext } from '@/lib/context';
 import { cn } from '@/lib/utils';
@@ -13,7 +13,7 @@ interface TrackerProps {
 
 export const Tracker: React.FC<TrackerProps> = ({ data, label, moduleId }) => {
   const { dossier } = useDossierContext();
-  const [tasks, setTasks] = useLocalStorage<Task[]>(dossier ? `tracker-${dossier.id}-${moduleId}` : `temp-tracker-${moduleId}`, data || []);
+  const [tasks, setTasks] = usePersistentState<Task[]>(dossier ? `tracker-${dossier.id}-${moduleId}` : `temp-tracker-${moduleId}`, data || []);
 
   const dossierId = dossier?.id;
 

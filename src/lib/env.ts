@@ -30,4 +30,5 @@ export const validateFrontendEnv = () => {
   }
 };
 
+export const APP_VERSION = '2.7.0';
 export const env = validateFrontendEnv();

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDossierContext } from '@/lib/context';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { usePersistentState } from '@/hooks/usePersistentState';
 
 // Map for dynamic icon lookup from dossier metadata
 const IconMap: Record<string, LucideIcon> = {
@@ -33,7 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClose
 }) => {
   const { dossier, loading } = useDossierContext();
-  const [arenaIds, setArenaIds] = useLocalStorage<string[]>('architect_arena_selection', []);
+  const [arenaIds, setArenaIds] = usePersistentState<string[]>('architect_arena_selection', []);
 
   const togglePin = (e: React.MouseEvent, fullId: string) => {
     e.stopPropagation();

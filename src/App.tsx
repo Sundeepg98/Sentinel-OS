@@ -6,7 +6,7 @@ import { InsightPanel } from '@/components/InsightPanel';
 import { DeepSearch } from '@/components/DeepSearch';
 import { useDossier } from '@/hooks/useDossier';
 import { Loader2, Network, Swords, Terminal } from 'lucide-react';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { usePersistentState } from '@/hooks/usePersistentState';
 import { ToastProvider } from '@/hooks/useToast';
 import { StatusBanner } from '@/components/ui/StatusBanner';
 import { cn } from '@/lib/utils';
@@ -35,7 +35,7 @@ const KnowledgeGraph = lazy(() =>
 function AppContent() {
   const [activeModuleId, setActiveModuleId] = useState('00_master_analysis');
   const [isGraphOpen, setIsGraphOpen] = useState(false);
-  const [isArenaOpen, setArenaMode] = useLocalStorage('architect_arena_mode', false);
+  const [isArenaOpen, setArenaMode] = usePersistentState('architect_arena_mode', false);
   const [isWarRoomOpen, setWarRoomMode] = useState(false);
   const [isDiagnosticsOpen, setDiagnosticsMode] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
