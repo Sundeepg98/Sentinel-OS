@@ -1,3 +1,9 @@
+---
+label: "Turing Job Description"
+type: "markdown"
+icon: "FileText"
+---
+
 # DevOps (Pulumi + TypeScript) - Turing Job Description
 
 ## About Turing
@@ -16,22 +22,22 @@ You will collaborate with cross-functional teams to translate infrastructure req
 
 ## Responsibilities
 
-• Design, develop, and maintain cloud infrastructure as code using Pulumi with TypeScript.
-• Create reusable TypeScript abstractions and components for infrastructure resources.
-• Manage infrastructure deployments and lifecycle using Pulumi CLI commands (pulumi up, preview, destroy).
-• Handle stack state management and retrieve stack outputs for integration with applications and workflows.
-• Write and maintain Jest or Mocha tests for infrastructure code to ensure quality and reliability.
-• Troubleshoot and debug deployment issues using logs and Pulumi diagnostics tools.
-• Collaborate with DevOps and engineering teams to continuously improve infrastructure code and automation pipelines.
+â€¢ Design, develop, and maintain cloud infrastructure as code using Pulumi with TypeScript.
+â€¢ Create reusable TypeScript abstractions and components for infrastructure resources.
+â€¢ Manage infrastructure deployments and lifecycle using Pulumi CLI commands (pulumi up, preview, destroy).
+â€¢ Handle stack state management and retrieve stack outputs for integration with applications and workflows.
+â€¢ Write and maintain Jest or Mocha tests for infrastructure code to ensure quality and reliability.
+â€¢ Troubleshoot and debug deployment issues using logs and Pulumi diagnostics tools.
+â€¢ Collaborate with DevOps and engineering teams to continuously improve infrastructure code and automation pipelines.
 
 ## Requirements
 
-• Proficiency in Pulumi using the TypeScript SDK.
-• Strong skills in writing infrastructure code and abstractions with TypeScript.
-• Experience with Pulumi CLI commands such as pulumi up, pulumi preview, and pulumi destroy.
-• Understanding of Pulumi stack states and outputs management.
-• Experience writing unit and integration tests using TypeScript testing frameworks like Jest or Mocha.
-• Ability to debug infrastructure code and deployments using TypeScript and Pulumi tools.
+â€¢ Proficiency in Pulumi using the TypeScript SDK.
+â€¢ Strong skills in writing infrastructure code and abstractions with TypeScript.
+â€¢ Experience with Pulumi CLI commands such as pulumi up, pulumi preview, and pulumi destroy.
+â€¢ Understanding of Pulumi stack states and outputs management.
+â€¢ Experience writing unit and integration tests using TypeScript testing frameworks like Jest or Mocha.
+â€¢ Ability to debug infrastructure code and deployments using TypeScript and Pulumi tools.
 
 ---
 

@@ -1,37 +1,7 @@
 ---
-label: Deliverability Protocols
-type: map
-icon: Shield
-data:
-  - id: security_protocols
-    title: MTA-STS & TLS-RPT
-    tech: Advanced Security Standards
-    bottleneck: MITM Downgrade Attacks
-    scenario: Forcing encrypted connections and receiving connection failure telemetry.
-    code: |
-      # MTA-STS Policy Served via HTTPS
-      version: STSv1
-      mode: enforce
-      mx: mail.mailin.ai
-      max_age: 604800
-  - id: brand_auth
-    title: BIMI & VMC
-    tech: Brand Indicators
-    bottleneck: Recipient Engagement
-    scenario: Using Verified Mark Certificates to display brand logos in inboxes.
-    code: |
-      # BIMI DNS Record
-      default._bimi TXT "v=BIMI1; l=https://mailin.ai/logo.svg; a=https://mailin.ai/vmc.pem"
-  - id: backpressure
-    title: Distributed Backpressure
-    tech: Leaky Bucket / Sliding Window
-    bottleneck: ISP Connection Limits
-    scenario: Throttling traffic to Microsoft (binary limits) vs. Google (ML-driven dynamic limits).
-    code: |
-      # Backpressure Strategies
-      - Leaky Bucket (Fixed output rate)
-      - Redis Sliding Window (Real-time counters)
-      - Exponential Backoff (Retry jitter)
+label: "Deliverability Protocols"
+type: "markdown"
+icon: "Zap"
 ---
 
 # Advanced Deliverability Architecture

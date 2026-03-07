@@ -1,7 +1,7 @@
 ---
-label: Memory Optimization Drill
-type: playbook
-icon: Cpu
+label: "Python Memory Management"
+type: "markdown"
+icon: "Cpu"
 ---
 
 ## Q: Senior Python Memory Optimization

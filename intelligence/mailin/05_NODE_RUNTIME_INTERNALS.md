@@ -1,7 +1,7 @@
 ---
-label: Node.js Runtime & V8
-type: playbook
-icon: Cpu
+label: "Node.js Runtime & V8"
+type: "markdown"
+icon: "Layout"
 ---
 
 ## Q: Event Loop Blockage vs CPU Saturation

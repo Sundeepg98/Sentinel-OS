@@ -1,7 +1,7 @@
 ---
-label: Infra Security & Identity
-type: playbook
-icon: ShieldCheck
+label: "Infrastructure Security"
+type: "markdown"
+icon: "Shield"
 ---
 
 ## Q: Mutual TLS (mTLS) Implementation

@@ -197,11 +197,22 @@ async function syncIntelligence() {
             }
 
             const finalKeywords = extractKeywords(content);
+
+            // 🛡️ STAFF BASIC: Structured Parsing based on Type
+            let parsedContent = content;
+            if (validatedData.type === 'playbook') {
+              parsedContent = parsePlaybook(content);
+            } else if (validatedData.type === 'checklist') {
+              parsedContent = parseChecklist(content);
+            }
+
             newGraph.files[fileId] = {
               label: validatedData.label || fileName,
+              type: validatedData.type || 'markdown',
+              icon: validatedData.icon,
               company: company.name,
               keywords: finalKeywords,
-              content,
+              content: parsedContent,
             };
             finalKeywords.forEach((k) => {
               if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
@@ -221,7 +232,23 @@ async function syncIntelligence() {
     cloudDossiers.forEach((d) => {
       if (!activeFileIds.has(d.id)) {
         const keywords = extractKeywords(d.content);
-        newGraph.files[d.id] = { label: d.label, company: d.company, keywords, content: d.content };
+        const metadata = JSON.parse(d.metadata || '{}');
+
+        let parsedContent = d.content;
+        if (metadata.type === 'playbook') {
+          parsedContent = parsePlaybook(d.content);
+        } else if (metadata.type === 'checklist') {
+          parsedContent = parseChecklist(d.content);
+        }
+
+        newGraph.files[d.id] = {
+          label: d.label,
+          company: d.company,
+          type: metadata.type || 'markdown',
+          icon: metadata.icon,
+          keywords,
+          content: parsedContent,
+        };
         keywords.forEach((k) => {
           if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
           newGraph.concepts[k].push({ fileId: d.id, company: d.company });

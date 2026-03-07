@@ -282,7 +282,25 @@ router.get(
     const results = globalState.searchIndex.search(q, { limit: limit + offset });
     const paginatedResults = results.slice(offset);
 
-    res.success(paginatedResults.map((id) => ({ id, ...globalState.knowledgeGraph.files[id] })));
+    res.success(
+      paginatedResults.map((id) => {
+        const file = globalState.knowledgeGraph.files[id];
+        // 🛡️ STAFF BASIC: Provide a contextual snippet if missing
+        let snippet = '';
+        if (typeof file.content === 'string') {
+          snippet =
+            file.content
+              .substring(0, 150)
+              .replace(/[\r\n]+/g, ' ')
+              .trim() + '...';
+        } else if (Array.isArray(file.content)) {
+          // For playbooks/checklists, take the first item
+          const first = file.content[0];
+          snippet = (first.q || first.text || '').substring(0, 150) + '...';
+        }
+        return { id, label: file.label, company: file.company, snippet };
+      })
+    );
   })
 );
 

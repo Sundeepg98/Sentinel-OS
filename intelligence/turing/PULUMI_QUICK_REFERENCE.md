@@ -1,8 +1,14 @@
+---
+label: "Pulumi Reference"
+type: "markdown"
+icon: "Terminal"
+---
+
 # Pulumi Quick Reference & Cheat Sheet
 
-> **📌 Purpose**: Last-minute review, interview day reference, essential commands and gotchas.
+> **ðŸ“Œ Purpose**: Last-minute review, interview day reference, essential commands and gotchas.
 
-## 🎯 Essential Commands
+## ðŸŽ¯ Essential Commands
 
 ### Stack Management
 ```bash
@@ -35,11 +41,11 @@ pulumi up --debug --logtostderr -v=9
 pulumi logs -f                     # Stream logs
 ```
 
-## ⚡ Core Patterns (Memorize These!)
+## âš¡ Core Patterns (Memorize These!)
 
 ### Input/Output Handling
 ```typescript
-// ✅ CORRECT - Always use .apply()
+// âœ… CORRECT - Always use .apply()
 bucket.id.apply(id => console.log(`Bucket: ${id}`));
 const url = pulumi.interpolate`https://${bucket.websiteDomain}/api`;
 
@@ -47,7 +53,7 @@ const url = pulumi.interpolate`https://${bucket.websiteDomain}/api`;
 const dbUrl = pulumi.all([db.endpoint, db.port])
     .apply(([endpoint, port]) => `postgres://user@${endpoint}:${port}/db`);
 
-// ❌ WRONG - Will fail at runtime!
+// âŒ WRONG - Will fail at runtime!
 console.log(bucket.id.toString());
 const wrongUrl = `https://${bucket.websiteDomain}/api`;
 ```
@@ -71,7 +77,7 @@ export class WebService extends pulumi.ComponentResource {
 }
 ```
 
-## 🚨 Common Gotchas (Avoid These!)
+## ðŸš¨ Common Gotchas (Avoid These!)
 
 | Issue | Problem | Solution |
 |-------|---------|----------|
@@ -84,7 +90,7 @@ export class WebService extends pulumi.ComponentResource {
 | **Cross-language timeline** | Saying "coming in 2025" | **Available since Pulumi 3.0 (2021)** |
 | **Terraform licensing** | BSL not mentioned | **Terraform moved to BSL August 2023** |
 
-## 💡 Latest 2025 Features
+## ðŸ’¡ Latest 2025 Features
 
 ### Pulumi ESC (Environments, Secrets, Config)
 ```yaml
@@ -113,7 +119,7 @@ import * as python from "@pulumi/python";
 const component = new python.MyPythonComponent("my-comp", {});
 ```
 
-## 📊 Impact Metrics (Memorize for Interviews)
+## ðŸ“Š Impact Metrics (Memorize for Interviews)
 
 - **85% faster deployments** (typical improvement with Pulumi)
 - **35% cost reduction** (through better resource optimization)
@@ -122,7 +128,7 @@ const component = new python.MyPythonComponent("my-comp", {});
 - **2021** = When cross-language components became available (Pulumi 3.0)
 - **2023** = Terraform moved to Business Source License (BSL)
 
-## 🔧 Configuration Patterns
+## ðŸ”§ Configuration Patterns
 
 ### Environment-Specific Config
 ```typescript
@@ -148,7 +154,7 @@ const sharedStack = new pulumi.StackReference("org/shared/prod");
 const vpcId = sharedStack.getOutput("vpcId");
 ```
 
-## 🧪 Testing Essentials
+## ðŸ§ª Testing Essentials
 
 ### Unit Test Pattern
 ```typescript
@@ -170,7 +176,7 @@ describe("WebService", () => {
 });
 ```
 
-## 🚀 CI/CD Quick Setup
+## ðŸš€ CI/CD Quick Setup
 
 ### GitHub Actions (v5)
 ```yaml
@@ -192,7 +198,7 @@ deploy:
     - pulumi up --yes
 ```
 
-## 🔍 Debugging Checklist
+## ðŸ” Debugging Checklist
 
 When deployment fails:
 1. **Check syntax**: `tsc --noEmit` (TypeScript compile check)
@@ -202,7 +208,7 @@ When deployment fails:
 5. **Quotas**: Check AWS service limits
 6. **Permissions**: Verify IAM roles
 
-## ⏱️ Interview Day Strategy
+## â±ï¸ Interview Day Strategy
 
 ### 1-Minute Elevator Pitch
 "I'm a DevOps engineer specializing in Pulumi with TypeScript. I've reduced deployment times by 85% through reusable infrastructure components and automated CI/CD pipelines. My focus is on type-safe infrastructure that can be tested and maintained like application code."
@@ -218,7 +224,7 @@ When deployment fails:
 - Don't use `.toString()` on Outputs in live coding
 - Don't forget `registerOutputs()` in components
 
-## 📱 Mobile-Friendly Commands
+## ðŸ“± Mobile-Friendly Commands
 For quick lookup on your phone:
 
 ```bash
@@ -234,7 +240,7 @@ pulumi state delete <urn>
 pulumi stack export > backup.json
 ```
 
-## 🎯 Final Interview Tips
+## ðŸŽ¯ Final Interview Tips
 
 1. **Start simple** - Don't over-engineer initial solutions
 2. **Think out loud** - Explain your reasoning
@@ -245,4 +251,4 @@ pulumi stack export > backup.json
 
 **Remember**: Most interviewers care more about your problem-solving approach than memorizing every API!
 
-Good luck! 🚀
+Good luck! ðŸš€

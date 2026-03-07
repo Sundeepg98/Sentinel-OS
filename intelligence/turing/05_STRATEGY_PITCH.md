@@ -1,7 +1,7 @@
 ---
-label: Interview Strategy & Pitch
-type: markdown
-icon: Target
+label: "Strategy Pitch"
+type: "markdown"
+icon: "Brain"
 ---
 
 # Turing Interview Preparation Strategy

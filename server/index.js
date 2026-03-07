@@ -294,7 +294,8 @@ v1Router.get(
         id: id.split('/').pop().replace('.md', ''),
         fullId: id,
         label: data.label,
-        type: 'markdown',
+        type: data.type || 'markdown',
+        icon: data.icon,
         data: data.content,
       }));
 

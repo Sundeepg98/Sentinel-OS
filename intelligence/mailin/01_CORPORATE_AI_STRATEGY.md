@@ -1,7 +1,7 @@
 ---
-label: Corporate & AI Strategy
-type: markdown
-icon: Briefcase
+label: "Corporate & AI Strategy"
+type: "markdown"
+icon: "Shield"
 ---
 
 # Mailin: Corporate Background and Market Positioning

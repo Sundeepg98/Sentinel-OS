@@ -1,34 +1,7 @@
 ---
-label: Kernel Performance Tuning
-type: map
-icon: Zap
-data:
-  - id: port_starvation
-    title: Ephemeral Port range
-    tech: sysctl net.ipv4.ip_local_port_range
-    bottleneck: Outbound Connection Starvation
-    scenario: Default port range limiting outbound sockets per IP.
-    code: |
-      # Maximize range to ~64,500 ports
-      sysctl -w net.ipv4.ip_local_port_range="1024 65535"
-  - id: socket_velocity
-    title: TCP TIME_WAIT Reuse
-    tech: net.ipv4.tcp_tw_reuse
-    bottleneck: Port Recycling Latency
-    scenario: Connections stuck in TIME_WAIT for 60s (fin_timeout).
-    code: |
-      # Safe recycling of sockets
-      sysctl -w net.ipv4.tcp_tw_reuse=1
-      sysctl -w net.ipv4.tcp_fin_timeout=15
-  - id: connection_backlog
-    title: Somaxconn Backlog
-    tech: net.core.somaxconn
-    bottleneck: Listening Socket Drops
-    scenario: Bursty SMTP handshakes exceeding default queue depth (128).
-    code: |
-      # Increase connection queue depth
-      sysctl -w net.core.somaxconn=65535
-      sysctl -w net.core.netdev_max_backlog=65535
+label: "Kernel Performance Tuning"
+type: "markdown"
+icon: "Cpu"
 ---
 
 # High-Throughput Network Performance

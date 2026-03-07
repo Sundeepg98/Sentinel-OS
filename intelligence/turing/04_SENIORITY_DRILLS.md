@@ -1,7 +1,7 @@
 ---
-label: Seniority & Trade-offs
-type: playbook
-icon: GraduationCap
+label: "Seniority Drills"
+type: "markdown"
+icon: "Swords"
 ---
 
 ## Q: The Monolith vs. Microservices Decision
@@ -32,6 +32,6 @@ Destroying and recreating resources causes unacceptable downtime. Migrating manu
 
 ### Optimal Staff Response
 I would perform an **In-place Decomposition**. 
-1. I’ll start by creating **ComponentResources** to logically group related items (e.g., all VPC resources) within the same stack. 
+1. Iâ€™ll start by creating **ComponentResources** to logically group related items (e.g., all VPC resources) within the same stack. 
 2. Once the code is modular, I use **Stack References**. 
 3. I would utilize `pulumi state delete` and `pulumi import` or the `aliases` property to move resources between stacks without destroying the underlying cloud assets. This maintains 100% uptime while decoupling the infrastructure.

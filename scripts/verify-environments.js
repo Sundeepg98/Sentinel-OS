@@ -29,7 +29,7 @@ async function verify() {
       
       const response = await fetch(`${env.url}/health`, { 
         signal: controller.signal,
-        headers: { 'x-sentinel-bypass': 'sentinel_staff_2026' }
+        headers: { 'x-sentinel-bypass': process.env.VITE_DEV_BYPASS_TOKEN || 'sentinel_staff_2026' }
       });
       clearTimeout(timeout);
       

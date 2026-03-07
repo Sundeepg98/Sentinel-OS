@@ -1,7 +1,7 @@
 ---
-label: Role Benchmarks & Drills
-type: playbook
-icon: GraduationCap
+label: "Role Benchmarks & Drills"
+type: "markdown"
+icon: "Swords"
 ---
 
 ## Q: Distributed State & CAP Theorem

@@ -1,7 +1,7 @@
 ---
-label: Readiness Checklist
-type: checklist
-icon: Zap
+label: "Readiness Checklist"
+type: "checklist"
+icon: "FileText"
 ---
 
 - [ ] Explain SMTP 4xx vs 5xx errors clearly.
