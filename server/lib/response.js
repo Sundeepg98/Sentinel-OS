@@ -5,6 +5,8 @@
  */
 
 const LRUCache = require('lru-cache');
+const pkg = require('../../package.json');
+const APP_VERSION = pkg.version;
 
 // 🛡️ STAFF BASIC: Idempotency cache to prevent duplicate processing on retries
 const idempotencyCache = new LRUCache({
@@ -40,7 +42,7 @@ const responseEnvelope = (req, res, next) => {
         timestamp: new Date().toISOString(),
         requestId: req.id,
         latencyMs,
-        version: '2.8.0',
+        version: APP_VERSION,
         ...extraMeta,
       },
     };
@@ -70,13 +72,14 @@ const responseEnvelope = (req, res, next) => {
       status: `${statusCode}`.startsWith('4') ? 'fail' : 'error',
       error: {
         message,
+        code: (details && details.code) || `SNTL-${statusCode}`,
         details,
       },
       meta: {
         timestamp: new Date().toISOString(),
         requestId: req.id,
         latencyMs,
-        version: '2.8.0',
+        version: APP_VERSION,
       },
     };
 

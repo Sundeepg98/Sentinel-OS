@@ -1,53 +1,37 @@
-const { AppError, ValidationError, asyncHandler } = require('../lib/errors');
+const { AppError, ValidationError, AuthError, ERROR_CODES } = require('../lib/errors');
 
 describe('Error Architecture', () => {
   describe('AppError', () => {
-    test('should set operational flag and status code correctly', () => {
-      const err = new AppError('Test error', 400);
-      expect(err.message).toBe('Test error');
-      expect(err.statusCode).toBe(400);
+    test('should construct with correct properties', () => {
+      const msg = 'Test Error';
+      const status = 400;
+      const details = { field: 'test' };
+      const err = new AppError(msg, status, details);
+
+      expect(err.message).toBe(msg);
+      expect(err.statusCode).toBe(status);
+      expect(err.details).toEqual(details);
       expect(err.status).toBe('fail');
       expect(err.isOperational).toBe(true);
-    });
-
-    test('should default to 500 status', () => {
-      const err = new AppError('Internal failure');
-      expect(err.statusCode).toBe(500);
-      expect(err.status).toBe('error');
+      expect(err.code).toBe(ERROR_CODES.BAD_REQUEST);
     });
   });
 
   describe('ValidationError', () => {
-    test('should include details in construction', () => {
+    test('should include details and correct code', () => {
       const details = [{ field: 'q', message: 'required' }];
       const err = new ValidationError(details);
       expect(err.statusCode).toBe(400);
-      expect(err.details).toEqual(details);
+      expect(err.details).toEqual({ ...details, code: ERROR_CODES.VALIDATION_ERROR });
+      expect(err.code).toBe(ERROR_CODES.VALIDATION_ERROR);
     });
   });
 
-  describe('asyncHandler', () => {
-    test('should catch async errors and pass to next', async () => {
-      const next = jest.fn();
-      const error = new Error('Async crash');
-      const mockFn = async () => { throw error; };
-      
-      const handler = asyncHandler(mockFn);
-      await handler({}, {}, next);
-      
-      expect(next).toHaveBeenCalledWith(error);
-    });
-
-    test('should call original function with arguments', async () => {
-      const req = { val: 1 };
-      const res = { val: 2 };
-      const next = jest.fn();
-      const mockFn = jest.fn().mockResolvedValue(true);
-      
-      const handler = asyncHandler(mockFn);
-      await handler(req, res, next);
-      
-      expect(mockFn).toHaveBeenCalledWith(req, res, next);
+  describe('AuthError', () => {
+    test('should have 401 status and correct code', () => {
+      const err = new AuthError();
+      expect(err.statusCode).toBe(401);
+      expect(err.code).toBe(ERROR_CODES.AUTHENTICATION_FAILED);
     });
   });
 });

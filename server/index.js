@@ -14,13 +14,16 @@ const { db, initDB, isPostgres } = require('./lib/db');
 const { globalState } = require('./lib/state');
 const { spawnRAGWorker } = require('./lib/rag');
 
+const pkg = require('../package.json');
+const APP_VERSION = pkg.version;
+
 // --- 🛠️ ENGINEERING BASIC: API DOCUMENTATION ---
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
     info: {
       title: 'Sentinel-OS API',
-      version: '2.8.0',
+      version: APP_VERSION,
       description: 'Technical Intelligence & RAG Engine API',
     },
     servers: [{ url: '/api/v1' }],
@@ -113,6 +116,7 @@ app.use(
       },
     },
     crossOriginEmbedderPolicy: false,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
     hsts: {
       maxAge: 31536000,
       includeSubDomains: true,
@@ -120,6 +124,14 @@ app.use(
     },
   })
 );
+
+app.use((req, res, next) => {
+  res.setHeader(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), interest-cohort=()'
+  );
+  next();
+});
 
 const config = require('./lib/config');
 
@@ -250,7 +262,7 @@ app.get(
     res.success({
       status: dbStatus === 'connected' && !workerHung ? 'healthy' : 'degraded',
       db: dbStatus,
-      version: '2.8.0',
+      version: APP_VERSION,
       timestamp: new Date().toISOString(),
       system: {
         uptime: process.uptime(),

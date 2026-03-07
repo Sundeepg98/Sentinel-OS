@@ -42,6 +42,14 @@ export class ErrorBoundary extends Component<Props, State> {
             </p>
           </div>
           <div className="p-4 bg-black border border-white/5 rounded-lg max-w-lg w-full overflow-x-auto">
+            <div className="flex items-center justify-between mb-2 pb-2 border-b border-white/5">
+              <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
+                Diagnostic Code
+              </span>
+              <span className="text-[10px] font-mono text-rose-500 font-bold">
+                {(this.state.error as unknown as { code?: string })?.code || 'SNTL-UI-CRASH'}
+              </span>
+            </div>
             <code className="text-rose-400 text-[10px] font-mono whitespace-pre text-left block">
               {this.state.error?.toString()}
             </code>

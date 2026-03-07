@@ -42,33 +42,20 @@ describe('usePersistentState hook', () => {
   it('initializes with value from localStorage if present', async () => {
     localStorageMock.setItem('test-key', JSON.stringify('local-val'));
 
-    let result: { current: readonly [unknown, (val: unknown) => void] } | null = null;
-    await act(async () => {
-      const hook = renderHook(() => usePersistentState('test-key', 'default'));
-      result = hook.result as unknown as { current: readonly [unknown, (val: unknown) => void] };
-    });
-
-    expect(result?.current[0]).toBe('local-val');
+    const { result } = renderHook(() => usePersistentState('test-key', 'default'));
+    expect(result.current[0]).toBe('local-val');
   });
 
   it('initializes with default value if localStorage is empty', async () => {
-    let result: { current: readonly [unknown, (val: unknown) => void] } | null = null;
-    await act(async () => {
-      const hook = renderHook(() => usePersistentState('test-key', 'default'));
-      result = hook.result as unknown as { current: readonly [unknown, (val: unknown) => void] };
-    });
-    expect(result?.current[0]).toBe('default');
+    const { result } = renderHook(() => usePersistentState('test-key', 'default'));
+    expect(result.current[0]).toBe('default');
   });
 
   it('updates localStorage on value change', async () => {
-    let result: { current: readonly [unknown, (val: unknown) => void] } | null = null;
-    await act(async () => {
-      const hook = renderHook(() => usePersistentState('test-key', 'default'));
-      result = hook.result as unknown as { current: readonly [unknown, (val: unknown) => void] };
-    });
+    const { result } = renderHook(() => usePersistentState<string>('test-key', 'default'));
 
     await act(async () => {
-      if (result) result.current[1]('new-val');
+      result.current[1]('new-val');
     });
 
     expect(localStorageMock.getItem('test-key')).toBe(JSON.stringify('new-val'));
