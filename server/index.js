@@ -219,7 +219,18 @@ app.post(
   })
 );
 
-// --- 🏥 HEALTH CHECK ---
+/**
+ * @openapi
+ * /health:
+ *   get:
+ *     tags: [System]
+ *     summary: Deep architecture health probe
+ *     responses:
+ *       200:
+ *         description: System Healthy
+ *       503:
+ *         description: System Degraded
+ */
 app.get(
   '/health',
   asyncHandler(async (req, res) => {
@@ -232,15 +243,23 @@ app.get(
       dbStatus = 'unreachable';
     }
 
+    const workerHung = globalState.lastWorkerHeartbeat
+      ? Date.now() - globalState.lastWorkerHeartbeat > 30000
+      : false;
+
     res.success({
-      status: dbStatus === 'connected' ? 'healthy' : 'degraded',
+      status: dbStatus === 'connected' && !workerHung ? 'healthy' : 'degraded',
       db: dbStatus,
       version: '2.8.0',
       timestamp: new Date().toISOString(),
       aiEngine: {
         activeWorker: !!globalState.activeWorker,
+        workerStatus: workerHung ? 'HUNG' : 'OK',
         isSyncing: globalState.isSyncing,
         lastSyncAt: globalState.lastSyncAt,
+        lastHeartbeatAt: globalState.lastWorkerHeartbeat
+          ? new Date(globalState.lastWorkerHeartbeat).toISOString()
+          : null,
         circuitState: getCircuitState(),
       },
     });

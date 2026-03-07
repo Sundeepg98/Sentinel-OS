@@ -13,7 +13,7 @@ const INTELLIGENCE_DIR = path.join(__dirname, '..', '..', 'intelligence');
 let knowledgeGraph = { concepts: {}, files: {} };
 let searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
 
-// --- Ã°Å¸â€ºÂ¡Ã¯Â¸Â DATA INTEGRITY SCHEMA ---
+// --- 🛡️ DATA INTEGRITY SCHEMA ---
 const dossierFrontmatterSchema = z.object({
   label: z.string().min(1, 'Missing label frontmatter'),
   type: z.enum(['markdown', 'playbook', 'checklist', 'grid', 'map']).default('markdown'),
@@ -113,7 +113,7 @@ async function processFileVectors(fileId, content, metadata) {
 
           const metaId = Number(info.lastInsertRowid);
 
-          // Ã°Å¸â€ºÂ¡Ã¯Â¸Â STAFF BASIC: Let sqlite-vec auto-assign ID and update metadata to link them
+          // 🛡️ STAFF BASIC: Let sqlite-vec auto-assign ID and update metadata to link them
           const vecInfo = db
             .prepare(`INSERT INTO vec_chunks (vector) VALUES (?)`)
             .run(new Float32Array(vector));
@@ -124,12 +124,12 @@ async function processFileVectors(fileId, content, metadata) {
       })();
     }
   } catch (e) {
-    logger.error({ fileId, error: e.message }, 'Ã°Å¸Â§Âµ Vectorization Error');
+    logger.error({ fileId, error: e.message }, '🧵 Vectorization Error');
   }
 }
 
 async function syncIntelligence() {
-  logger.info({ dir: INTELLIGENCE_DIR }, 'Ã°Å¸â€â€ž Sentinel Intelligence Sync: Scanning...');
+  logger.info({ dir: INTELLIGENCE_DIR }, '🔄 Sentinel Intelligence Sync: Scanning...');
   const pLimitMod = await import('p-limit');
   const pLimit = pLimitMod.default || pLimitMod.pLimit || pLimitMod;
   const limit = pLimit(5);
@@ -139,7 +139,7 @@ async function syncIntelligence() {
 
   try {
     const companyFolders = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
-    logger.info({ count: companyFolders.length }, 'ðŸ“‚ [Sync] Found items in intelligence dir');
+    logger.info({ count: companyFolders.length }, '📂 [Sync] Found items in intelligence dir');
     const syncTasks = [];
 
     for (const company of companyFolders.filter((d) => d.isDirectory())) {
@@ -169,11 +169,11 @@ async function syncIntelligence() {
                 .get(fileId);
               if (cached && cached.content_hash === currentHash) shouldProcess = false;
             } catch (e) {
-              logger.warn({ fileId, error: e.message }, 'âš ï¸ [Sync] Hash check error');
+              logger.warn({ fileId, error: e.message }, '⚠️ [Sync] Hash check error');
             }
 
             if (shouldProcess) {
-              logger.info({ fileId }, 'âš¡ [Sync] Triggering vectorization');
+              logger.info({ fileId }, '⚡ [Sync] Triggering vectorization');
               const label = validatedData.label || fileName;
               const sql = `
               INSERT INTO dossiers (id, company, label, content, metadata, content_hash) 
@@ -193,7 +193,7 @@ async function syncIntelligence() {
                 currentHash
               );
               await processFileVectors(fileId, content, data);
-              logger.info({ fileId }, 'âœ… [Sync] Vectorization complete');
+              logger.info({ fileId }, '✅ [Sync] Vectorization complete');
             }
 
             const finalKeywords = extractKeywords(content);
@@ -218,7 +218,11 @@ async function syncIntelligence() {
               if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
               newGraph.concepts[k].push({ fileId, company: company.name });
             });
-            searchIndex.add(fileId, content);
+
+            // Flexsearch requires strings
+            const searchContent =
+              typeof parsedContent === 'string' ? parsedContent : JSON.stringify(parsedContent);
+            searchIndex.add(fileId, searchContent);
           })
         );
       }
@@ -226,36 +230,31 @@ async function syncIntelligence() {
 
     await Promise.all(syncTasks);
 
+    // 🛡️ STAFF BASIC: Reconciliation Logic (Deletions)
     const cloudDossiers = db
       .prepare('SELECT id, company, label, content, metadata FROM dossiers')
       .all();
-    cloudDossiers.forEach((d) => {
+
+    for (const d of cloudDossiers) {
       if (!activeFileIds.has(d.id)) {
-        const keywords = extractKeywords(d.content);
-        const metadata = JSON.parse(d.metadata || '{}');
+        logger.info({ fileId: d.id }, '🗑️ [Sync] Purging stale dossier from database');
 
-        let parsedContent = d.content;
-        if (metadata.type === 'playbook') {
-          parsedContent = parsePlaybook(d.content);
-        } else if (metadata.type === 'checklist') {
-          parsedContent = parseChecklist(d.content);
+        if (isPostgres) {
+          await db.query('DELETE FROM chunks_metadata WHERE file_id = $1', [d.id]);
+          await db.query('DELETE FROM dossiers WHERE id = $1', [d.id]);
+        } else {
+          db.transaction(() => {
+            const chunks = db.prepare('SELECT id FROM chunks_metadata WHERE file_id = ?').all(d.id);
+            const chunkIds = chunks.map((c) => Number(c.id));
+            if (chunkIds.length > 0) {
+              db.prepare(`DELETE FROM vec_chunks WHERE id IN (${chunkIds.join(',')})`).run();
+              db.prepare('DELETE FROM chunks_metadata WHERE file_id = ?').run(d.id);
+            }
+            db.prepare('DELETE FROM dossiers WHERE id = ?').run(d.id);
+          })();
         }
-
-        newGraph.files[d.id] = {
-          label: d.label,
-          company: d.company,
-          type: metadata.type || 'markdown',
-          icon: metadata.icon,
-          keywords,
-          content: parsedContent,
-        };
-        keywords.forEach((k) => {
-          if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
-          newGraph.concepts[k].push({ fileId: d.id, company: d.company });
-        });
-        searchIndex.add(d.id, d.content);
       }
-    });
+    }
 
     knowledgeGraph = newGraph;
     logger.info(
@@ -263,10 +262,10 @@ async function syncIntelligence() {
         files: Object.keys(knowledgeGraph.files).length,
         concepts: Object.keys(knowledgeGraph.concepts).length,
       },
-      'Ã¢Å“â€¦ Intelligence Engine ACTIVE.'
+      '✅ Intelligence Engine ACTIVE.'
     );
   } catch (e) {
-    logger.error({ error: e.message }, 'Ã°Å¸Â§Âµ Sync Error');
+    logger.error({ error: e.message }, '🧵 Sync Error');
   }
 }
 

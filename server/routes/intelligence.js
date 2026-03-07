@@ -465,4 +465,44 @@ router.post(
   })
 );
 
+/**
+ * @openapi
+ * /intelligence/incident/evaluate:
+ *   post:
+ *     tags: [Intelligence Engine]
+ *     summary: AI-driven evaluation of an incident mitigation proposal
+ */
+router.post(
+  '/incident/evaluate',
+  aiRateLimiter,
+  validateBody(schemas.incidentEvaluateSchema),
+  asyncHandler(async (req, res) => {
+    const { incident, userAnswer } = req.body;
+    try {
+      const prompt = `Incident Post-Mortem Evaluation.\nIncident: ${incident.title}\nDescription: ${incident.description}\nIdeal Mitigation: ${incident.idealMitigation}\nCandidate Proposal: "${userAnswer}"`;
+      const text = await generateStructuredContent(prompt, EVAL_SCHEMA);
+      const json = JSON.parse(text);
+
+      if (json && json.score) {
+        const numericScore = parseInt(json.score.split('/')[0]);
+        if (!isNaN(numericScore)) {
+          if (isPostgres) {
+            await db.query(
+              "INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) VALUES ($1, 'incident', $2, $3, $4, $5, $6)",
+              [req.userId, 'war-room', incident.title, userAnswer, text, numericScore]
+            );
+          } else {
+            db.prepare(
+              `INSERT INTO interaction_history (user_id, type, module_id, question, user_answer, evaluation, score) VALUES (?, 'incident', ?, ?, ?, ?, ?)`
+            ).run(req.userId, 'war-room', incident.title, userAnswer, text, numericScore);
+          }
+        }
+      }
+      res.success(json);
+    } catch (error) {
+      throw new AppError(error.message, 500);
+    }
+  })
+);
+
 module.exports = router;

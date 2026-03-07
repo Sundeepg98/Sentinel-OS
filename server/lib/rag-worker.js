@@ -22,7 +22,12 @@ async function runInitialSync() {
 
     logger.info({ duration: `${duration}s` }, 'âœ… [RAG Worker] Initial Sync Complete');
 
-    // Send the first hydration to the main thread
+    // 🛡️ STAFF BASIC: Worker Heartbeat
+    setInterval(() => {
+      parentPort.postMessage({ status: 'heartbeat', timestamp: Date.now() });
+    }, 10000);
+
+    // Send initial hydration to main process
     parentPort.postMessage({
       status: 'complete',
       knowledgeGraph: getKnowledgeGraph(),

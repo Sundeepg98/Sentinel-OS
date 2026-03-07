@@ -102,29 +102,53 @@ export async function fetchWithAuth<T = unknown>(
 }
 
 export async function reportError(error: Error, componentStack?: string) {
+  const errorData = {
+    id: crypto.randomUUID(),
+    message: error.message,
+    stack: error.stack,
+    componentStack,
+    timestamp: new Date().toISOString(),
+    url: window.location.href,
+    metadata: {
+      userAgent: navigator.userAgent,
+      platform: (navigator as unknown as { platform: string }).platform,
+      language: navigator.language,
+      screen: `${window.screen.width}x${window.screen.height}`,
+    },
+  };
+
   try {
-    const correlationId = crypto.randomUUID(); // New ID for the reporting request itself
+    const correlationId = crypto.randomUUID();
     await fetch('/api/v1/admin/error-logs', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Correlation-ID': correlationId,
       },
-      body: JSON.stringify({
-        message: error.message,
-        stack: error.stack,
-        componentStack,
-        timestamp: new Date().toISOString(),
-        url: window.location.href,
-        metadata: {
-          userAgent: navigator.userAgent,
-          platform: (navigator as unknown as { platform: string }).platform,
-          language: navigator.language,
-          screen: `${window.screen.width}x${window.screen.height}`,
-        },
-      }),
+      body: JSON.stringify(errorData),
     });
+
+    // 🛡️ STAFF BASIC: On success, try to flush any queued offline errors
+    const queue = JSON.parse(window.localStorage.getItem('sentinel_error_queue') || '[]');
+    if (queue.length > 0) {
+      window.localStorage.removeItem('sentinel_error_queue');
+      queue.forEach((oldError: unknown) => {
+        const err = oldError as { message: string; componentStack?: string };
+        reportError(new Error(err.message), err.componentStack);
+      });
+    }
   } catch (e: unknown) {
-    console.error('Failed to report error:', e);
+    // 🛡️ STAFF BASIC: Persistence if offline
+    try {
+      const queue = JSON.parse(window.localStorage.getItem('sentinel_error_queue') || '[]');
+      if (queue.length < 50) {
+        // Bound queue size
+        queue.push(errorData);
+        window.localStorage.setItem('sentinel_error_queue', JSON.stringify(queue));
+      }
+    } catch {
+      /* Storage Full */
+    }
+    console.error('Failed to report error (queued for retry):', e);
   }
 }

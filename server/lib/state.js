@@ -11,6 +11,7 @@ const globalState = {
   isSyncing: false,
   activeWorker: null,
   lastSyncAt: null,
+  lastWorkerHeartbeat: null,
 };
 
 module.exports = { globalState };

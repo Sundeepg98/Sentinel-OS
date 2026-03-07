@@ -19,6 +19,11 @@ function spawnRAGWorker() {
   });
 
   globalState.activeWorker.on('message', (msg) => {
+    if (msg.status === 'heartbeat') {
+      globalState.lastWorkerHeartbeat = msg.timestamp;
+      return;
+    }
+
     if (msg.status === 'complete') {
       globalState.knowledgeGraph = msg.knowledgeGraph || { files: {}, concepts: {} };
 

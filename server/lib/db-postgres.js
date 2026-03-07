@@ -20,6 +20,11 @@ const pool = new Pool({
   connectionTimeoutMillis: config.DB.POSTGRES.CONN_TIMEOUT_MS,
 });
 
+// 🛡️ STAFF BASIC: Global pool error handler
+pool.on('error', (err) => {
+  logger.error(err, '🚨 Unexpected error on idle PostgreSQL client');
+});
+
 const db = {
   async query(text, params) {
     return pool.query(text, params);
@@ -108,13 +113,14 @@ async function initDB() {
         const client = await pool.connect();
         try {
           await client.query('BEGIN');
-          const check = await db
-            .prepare('SELECT 1 FROM schema_migrations WHERE version = ?')
-            .get(file);
-          if (!check) {
+          // 🛡️ STAFF BASIC: Use same client for transactional check and execution
+          const checkRes = await client.query(
+            'SELECT 1 FROM schema_migrations WHERE version = $1',
+            [file]
+          );
+          if (checkRes.rowCount === 0) {
             logger.info({ migration: file }, '🚀 Applying Cloud Migration');
             const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-            // Advanced translation from SQLite to Postgres syntax
             const pgSql = sql
               .replace(
                 /DATETIME DEFAULT CURRENT_TIMESTAMP/gi,
@@ -127,8 +133,11 @@ async function initDB() {
               .replace(/vector\(3072\)/gi, 'vector(3072)')
               .replace(/CASCADE/gi, 'CASCADE');
 
-            await db.exec(pgSql);
-            await db.prepare('INSERT INTO schema_migrations (version) VALUES (?)').run(file);
+            const statements = pgSql.split(';').filter((s) => s.trim());
+            for (const s of statements) {
+              await client.query(s);
+            }
+            await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', [file]);
           }
           await client.query('COMMIT');
         } catch (e) {

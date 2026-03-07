@@ -46,8 +46,9 @@
     "server/**/*.js": [
       "prettier --write",
       "eslint --fix",
-      "jest --findRelatedTests --passWithNoTests"
+      "cross-env NODE_OPTIONS='--experimental-vm-modules' jest --findRelatedTests --passWithNoTests"
     ]
+
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.61.3",
