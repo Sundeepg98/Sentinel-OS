@@ -4,7 +4,7 @@ const path = require('path');
 const { syncIntelligence, getKnowledgeGraph, INTELLIGENCE_DIR } = require('./harvester');
 const logger = require('./logger');
 
-logger.info('--- 🤖 RAG WORKER STARTING ---');
+logger.info('--- ðŸ¤– RAG WORKER STARTING ---');
 
 /**
  * RAG WORKER THREAD
@@ -15,12 +15,12 @@ logger.info('--- 🤖 RAG WORKER STARTING ---');
 async function runInitialSync() {
   try {
     const start = Date.now();
-    logger.info('🧵 [RAG Worker] Initial Intelligence Sync Started...');
+    logger.info('ðŸ§µ [RAG Worker] Initial Intelligence Sync Started...');
 
     await syncIntelligence();
     const duration = (Date.now() - start) / 1000;
 
-    logger.info({ duration: `${duration}s` }, '✅ [RAG Worker] Initial Sync Complete');
+    logger.info({ duration: `${duration}s` }, 'âœ… [RAG Worker] Initial Sync Complete');
 
     // Send the first hydration to the main thread
     parentPort.postMessage({
@@ -29,22 +29,22 @@ async function runInitialSync() {
       duration,
     });
 
-    // 👁️ START FILE WATCHER
-    logger.info({ dir: INTELLIGENCE_DIR }, '👁️ [RAG Worker] Watching for dossier changes');
+    // ðŸ‘ï¸ START FILE WATCHER
+    logger.info({ dir: INTELLIGENCE_DIR }, 'ðŸ‘ï¸ [RAG Worker] Watching for dossier changes');
 
     const watcher = chokidar.watch(INTELLIGENCE_DIR, {
       ignored: /(^|[/\\])\../, // ignore dotfiles
       persistent: true,
-      ignoreInitial: true, // 🚀 ENGINEERING BASIC: Prevent re-index storm on startup
+      ignoreInitial: true, // ðŸš€ ENGINEERING BASIC: Prevent re-index storm on startup
     });
 
     const triggerUpdate = async (filePath) => {
       if (!filePath.endsWith('.md')) return;
 
-      parentPort.postMessage({ status: 'syncing' }); // 🚀 Notify UI start
+      parentPort.postMessage({ status: 'syncing' }); // ðŸš€ Notify UI start
       logger.info(
         { file: path.basename(filePath) },
-        '🔄 [RAG Worker] Change detected. Re-syncing...'
+        'ðŸ”„ [RAG Worker] Change detected. Re-syncing...'
       );
       const updateStart = Date.now();
       await syncIntelligence();
@@ -62,9 +62,11 @@ async function runInitialSync() {
       .on('add', triggerUpdate)
       .on('change', triggerUpdate)
       .on('unlink', triggerUpdate)
-      .on('error', (err) => logger.error({ error: err.message }, '👁️ [RAG Worker] Watcher Error'));
+      .on('error', (err) =>
+        logger.error({ error: err.message }, 'ðŸ‘ï¸ [RAG Worker] Watcher Error')
+      );
   } catch (error) {
-    logger.error({ error: error.message }, '❌ [RAG Worker] Sync Error');
+    logger.error({ error: error.message }, 'âŒ [RAG Worker] Sync Error');
     parentPort.postMessage({ status: 'error', message: error.message, stack: error.stack });
   }
 }
