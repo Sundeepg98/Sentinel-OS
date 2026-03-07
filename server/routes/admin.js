@@ -9,10 +9,17 @@ const { AppError, asyncHandler } = require('../lib/errors');
 
 const router = express.Router();
 
+// 🛡️ STAFF BASIC: Admin Authorization Layer
+const adminOnly = (req, res, next) => {
+  const AUTH_ENABLED = process.env.AUTH_ENABLED === 'true';
+  if (!AUTH_ENABLED || req.isAdmin) return next();
+  res.error('Unauthorized: Elevated privileges required', 403);
+};
+
 const rateLimit = require('express-rate-limit');
 const adminRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50, // 50 actions per 15 minutes
+  max: 50,
   keyGenerator: (req) => req.userId || req.ip,
   message: { error: 'Administrative actions are rate-limited. Please slow down.' },
   standardHeaders: true,
@@ -56,16 +63,11 @@ const upload = multer({
  *   post:
  *     tags: [Admin Management]
  *     summary: Upload a new technical dossier (Markdown)
- *     parameters:
- *       - in: path
- *         name: companyId
- *         required: true
- *         schema:
- *           type: string
  */
 router.post(
   '/upload/:companyId',
   adminRateLimiter,
+  adminOnly,
   validateParams(schemas.pathParamsSchema),
   upload.single('file'),
   asyncHandler(async (req, res) => {
@@ -80,16 +82,11 @@ router.post(
  *   post:
  *     tags: [Admin Management]
  *     summary: Create a new company intelligence context
- *     parameters:
- *       - in: path
- *         name: companyId
- *         required: true
- *         schema:
- *           type: string
  */
 router.post(
   '/companies/:companyId',
   adminRateLimiter,
+  adminOnly,
   validateParams(schemas.pathParamsSchema),
   asyncHandler(async (req, res) => {
     const { companyId } = req.params;
@@ -110,21 +107,11 @@ router.post(
  *   delete:
  *     tags: [Admin Management]
  *     summary: Physically delete a dossier and purge its neural vectors
- *     parameters:
- *       - in: path
- *         name: companyId
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: filename
- *         required: true
- *         schema:
- *           type: string
  */
 router.delete(
   '/files/:companyId/:filename',
   adminRateLimiter,
+  adminOnly,
   validateParams(schemas.pathParamsSchema),
   asyncHandler(async (req, res) => {
     const { companyId, filename } = req.params;
@@ -145,18 +132,10 @@ router.delete(
  *   get:
  *     tags: [Audit & Telemetry]
  *     summary: Retrieve AI generation failure logs from the database with pagination
- *     parameters:
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *       - in: query
- *         name: offset
- *         schema:
- *           type: integer
  */
 router.get(
   '/ai-logs',
+  adminOnly,
   validateQuery(schemas.paginationSchema),
   asyncHandler(async (req, res) => {
     const limit = Math.min(req.query.limit || 100, 200);
@@ -190,18 +169,10 @@ router.get(
  *   get:
  *     tags: [Audit & Telemetry]
  *     summary: Retrieve recorded frontend crashes from the database with pagination
- *     parameters:
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *       - in: query
- *         name: offset
- *         schema:
- *           type: integer
  */
 router.get(
   '/ui-logs',
+  adminOnly,
   validateQuery(schemas.paginationSchema),
   asyncHandler(async (req, res) => {
     const limit = Math.min(req.query.limit || 100, 200);
@@ -239,6 +210,7 @@ router.get(
 router.get(
   '/export-db',
   adminRateLimiter,
+  adminOnly,
   asyncHandler(async (req, res) => {
     if (isPostgres) {
       throw new AppError(

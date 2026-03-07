@@ -261,48 +261,52 @@ function AppContent() {
         {/* CONTENT LAYOUT */}
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
-            {isArenaOpen ? (
-              <Suspense
-                fallback={
-                  <div className="flex-1 flex items-center justify-center h-full">
-                    <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-                  </div>
-                }
-              >
-                <ArchitectArena />
-              </Suspense>
-            ) : isWarRoomOpen ? (
-              <Suspense
-                fallback={
-                  <div className="flex-1 flex items-center justify-center h-full">
-                    <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-                  </div>
-                }
-              >
-                <WarRoom />
-              </Suspense>
-            ) : isDiagnosticsOpen ? (
-              <Suspense
-                fallback={
-                  <div className="flex-1 flex items-center justify-center h-full">
-                    <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-                  </div>
-                }
-              >
-                <Diagnostics />
-              </Suspense>
-            ) : (
-              renderActiveView()
-            )}
+            <ErrorBoundary>
+              {isArenaOpen ? (
+                <Suspense
+                  fallback={
+                    <div className="flex-1 flex items-center justify-center h-full">
+                      <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                    </div>
+                  }
+                >
+                  <ArchitectArena />
+                </Suspense>
+              ) : isWarRoomOpen ? (
+                <Suspense
+                  fallback={
+                    <div className="flex-1 flex items-center justify-center h-full">
+                      <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                    </div>
+                  }
+                >
+                  <WarRoom />
+                </Suspense>
+              ) : isDiagnosticsOpen ? (
+                <Suspense
+                  fallback={
+                    <div className="flex-1 flex items-center justify-center h-full">
+                      <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                    </div>
+                  }
+                >
+                  <Diagnostics />
+                </Suspense>
+              ) : (
+                renderActiveView()
+              )}
+            </ErrorBoundary>
           </div>
 
           {activeModule && !isArenaOpen && !isWarRoomOpen && !isDiagnosticsOpen && (
             <div className="hidden xl:block w-80 shrink-0 border-l border-white/[0.05] bg-[#080808]/50 overflow-y-auto">
-              <InsightPanel
-                key={activeModule.fullId || activeModule.id}
-                fullId={activeModule.fullId || ''}
-                brandColor={dossierData.dossier?.brandColor}
-              />
+              <ErrorBoundary>
+                <InsightPanel
+                  key={activeModule.fullId || activeModule.id}
+                  fullId={activeModule.fullId || ''}
+                  brandColor={dossierData.dossier?.brandColor}
+                />
+              </ErrorBoundary>
             </div>
           )}
         </div>
@@ -310,15 +314,17 @@ function AppContent() {
 
       <Suspense fallback={null}>
         {isGraphOpen && (
-          <KnowledgeGraph
-            isOpen={isGraphOpen}
-            onClose={() => setIsGraphOpen(false)}
-            onSelectModule={(id) => {
-              setActiveModuleId(id);
-              setIsGraphOpen(false);
-              resetViews();
-            }}
-          />
+          <ErrorBoundary>
+            <KnowledgeGraph
+              isOpen={isGraphOpen}
+              onClose={() => setIsGraphOpen(false)}
+              onSelectModule={(id) => {
+                setActiveModuleId(id);
+                setIsGraphOpen(false);
+                resetViews();
+              }}
+            />
+          </ErrorBoundary>
         )}
       </Suspense>
 

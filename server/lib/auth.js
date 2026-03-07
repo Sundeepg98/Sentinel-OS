@@ -10,7 +10,7 @@ const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY 
 const authGuard = async (req, res, next) => {
   const AUTH_ENABLED = process.env.AUTH_ENABLED === 'true';
   const BYPASS_TOKEN = process.env.DEV_BYPASS_TOKEN || 'sentinel_staff_2026';
-  
+
   // 🚀 STREAM BYPASS: EventSource doesn't support custom headers
   if (req.path === '/intelligence/stream') {
     req.userId = 'stream-guest';
@@ -32,20 +32,24 @@ const authGuard = async (req, res, next) => {
   try {
     const sessionToken = req.headers.authorization?.split(' ')[1];
     if (!sessionToken) {
-      return res.status(401).json({ error: "Missing Authorization Header" });
+      return res.status(401).json({ error: 'Missing Authorization Header' });
     }
 
     const requestState = await clerkClient.authenticateRequest(req);
-    
+
     if (requestState.isSignedIn) {
-      req.userId = requestState.toAuth().userId;
+      const auth = requestState.toAuth();
+      req.userId = auth.userId;
+      // 🛡️ STAFF BASIC: Extract roles from private metadata or sessions
+      req.isAdmin =
+        auth.sessionClaims?.metadata?.role === 'admin' || auth.userId === 'user_2pq9v0...'; // Or specific ID
       next();
     } else {
-      res.status(401).json({ error: "Unauthorized Session" });
+      res.status(401).json({ error: 'Unauthorized Session' });
     }
   } catch (error) {
     logger.error({ error: error.message }, '🔐 Auth Error');
-    res.status(401).json({ error: "Authentication Failed" });
+    res.status(401).json({ error: 'Authentication Failed' });
   }
 };
 
