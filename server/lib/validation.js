@@ -66,7 +66,7 @@ const validateBody = (schema) => (req, res, next) => {
     req.body = schema.parse(req.body);
     next();
   } catch (error) {
-    res.error("Invalid Request Payload", 400, error.errors);
+    res.error("Invalid Request Payload", 400, error.issues);
   }
 };
 
@@ -75,7 +75,7 @@ const validateQuery = (schema) => (req, res, next) => {
     req.query = schema.parse(req.query);
     next();
   } catch (error) {
-    res.error("Invalid Query Parameters", 400, error.errors);
+    res.error("Invalid Query Parameters", 400, error.issues);
   }
 };
 
@@ -84,7 +84,7 @@ const validateParams = (schema) => (req, res, next) => {
     req.params = schema.parse(req.params);
     next();
   } catch (error) {
-    res.error("Invalid Path Parameters", 400, error.errors);
+    res.error("Invalid Path Parameters", 400, error.issues);
   }
 };
 

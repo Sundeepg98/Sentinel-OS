@@ -174,6 +174,30 @@ app.use(responseEnvelope);
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+// 🛰️ PUBLIC TELEMETRY ENDPOINT
+// Allows reporting frontend crashes even before auth is established
+app.post('/api/v1/admin/error-logs', globalRateLimiter, validateBody(require('./lib/validation').schemas.errorLogSchema), async (req, res) => {
+  const { message, stack, componentStack, url } = req.body;
+  const { db, isPostgres } = require('./lib/db');
+  try {
+    const payload = componentStack ? `Component: ${componentStack}` : null;
+    if (isPostgres) {
+      await db.query(
+        "INSERT INTO system_logs (type, category, message, payload, stack, url) VALUES ($1, $2, $3, $4, $5, $6)",
+        ['UI', 'CRASH', message, payload, stack, url]
+      );
+    } else {
+      db.prepare(
+        "INSERT INTO system_logs (type, category, message, payload, stack, url) VALUES (?, ?, ?, ?, ?, ?)"
+      ).run('UI', 'CRASH', message, payload, stack, url);
+    }
+    res.success({ logged: true });
+  } catch (err) {
+    logger.error({ err }, "Failed to persist UI error log");
+    res.error("Failed to persist UI error log", 500);
+  }
+});
+
 // --- 🏥 HEALTH CHECK ---
 app.get('/health', async (req, res) => {
   const { getCircuitState } = require('./lib/intelligence');

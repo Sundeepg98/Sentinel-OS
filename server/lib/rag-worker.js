@@ -32,7 +32,8 @@ async function runInitialSync() {
     
     const watcher = chokidar.watch(INTELLIGENCE_DIR, {
       ignored: /(^|[/\\])\../, // ignore dotfiles
-      persistent: true
+      persistent: true,
+      ignoreInitial: true // 🚀 ENGINEERING BASIC: Prevent re-index storm on startup
     });
 
     const triggerUpdate = async (filePath) => {

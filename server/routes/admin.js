@@ -84,8 +84,10 @@ router.post('/companies/:companyId', adminRateLimiter, validateParams(schemas.pa
   const companyPath = path.join(INTELLIGENCE_DIR, companyId.toLowerCase());
   try {
     await fs.mkdir(companyPath, { recursive: true });
+    req.log.info({ companyId }, "🏢 [Admin] Company context created");
     res.success({ success: true });
   } catch (e) {
+    req.log.error({ companyId, error: e.message }, "❌ [Admin] Failed to create company context");
     res.error("Failed to create company context", 500, e.message);
   }
 });
@@ -113,8 +115,10 @@ router.delete('/files/:companyId/:filename', adminRateLimiter, validateParams(sc
   const filePath = path.join(INTELLIGENCE_DIR, companyId, filename);
   try {
     await fs.unlink(filePath);
+    req.log.info({ companyId, filename }, "🗑️ [Admin] File deleted");
     res.success({ success: true });
   } catch (e) {
+    req.log.error({ companyId, filename, error: e.message }, "❌ [Admin] Failed to delete technical dossier");
     res.error("Failed to delete technical dossier", 500, e.message);
   }
 });
@@ -153,33 +157,6 @@ router.get('/ai-logs', async (req, res) => {
     res.success(rows);
   } catch (_e) {
     res.success([]); 
-  }
-});
-
-/**
- * @openapi
- * /admin/error-logs:
- *   post:
- *     tags: [Audit & Telemetry]
- *     summary: Log frontend application crashes to the persistent database
- */
-router.post('/error-logs', validateBody(schemas.errorLogSchema), async (req, res) => {
-  const { message, stack, componentStack, url } = req.body;
-  try {
-    const payload = componentStack ? `Component: ${componentStack}` : null;
-    if (isPostgres) {
-      await db.query(
-        "INSERT INTO system_logs (type, category, message, payload, stack, url) VALUES ($1, $2, $3, $4, $5, $6)",
-        ['UI', 'CRASH', message, payload, stack, url]
-      );
-    } else {
-      db.prepare(
-        "INSERT INTO system_logs (type, category, message, payload, stack, url) VALUES (?, ?, ?, ?, ?, ?)"
-      ).run('UI', 'CRASH', message, payload, stack, url);
-    }
-    res.success({ logged: true });
-  } catch (e) {
-    res.error("Failed to persist UI error log", 500, e.message);
   }
 });
 
