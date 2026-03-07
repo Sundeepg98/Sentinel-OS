@@ -21,11 +21,6 @@ const dossierFrontmatterSchema = z.object({
   keywords: z.array(z.string()).optional(),
 });
 
-/**
- * 🛰️ INTELLIGENCE HARVESTER (Cloud-Native Edition)
- * Orchestrates technical dossier parsing and RAG vectorization.
- */
-
 function extractKeywords(text) {
   if (!text) return [];
   const clean = text.toLowerCase().replace(/[^\w\s]/g, ' ');
@@ -65,10 +60,9 @@ function chunkMarkdown(text, size = 1000) {
 async function processFileVectors(fileId, content, metadata) {
   const pLimitMod = await import('p-limit');
   const pLimit = pLimitMod.default || pLimitMod.pLimit || pLimitMod;
-  const limit = pLimit(5); // 🚀 Parallelize chunking
+  const limit = pLimit(5);
   try {
     if (isPostgres) {
-      // 🐘 POSTGRES LOGIC (Atomic Transaction)
       const client = await db.pool.connect();
       try {
         await client.query('BEGIN');
@@ -92,7 +86,6 @@ async function processFileVectors(fileId, content, metadata) {
         client.release();
       }
     } else {
-      // 🗄️ SQLITE LOGIC (Atomic Transaction)
       const chunks = chunkMarkdown(content);
       const chunkVectors = [];
       const chunkTasks = chunks.map((chunk) =>
@@ -103,16 +96,13 @@ async function processFileVectors(fileId, content, metadata) {
       );
       await Promise.all(chunkTasks);
 
-      // --- 🛡️ ENGINEERING BASIC: ATOMIC SQLITE WRITE ---
       db.transaction(() => {
         const oldChunks = db
           .prepare('SELECT id FROM chunks_metadata WHERE file_id = ?')
           .all(fileId);
         if (oldChunks.length > 0) {
           const oldIds = oldChunks.map((c) => Number(c.id));
-          // Bulk delete using IN clause for speed
-          const idList = oldIds.join(',');
-          db.prepare(`DELETE FROM vec_chunks WHERE id IN (${idList})`).run();
+          db.prepare(`DELETE FROM vec_chunks WHERE id IN (${oldIds.join(',')})`).run();
           db.prepare(`DELETE FROM chunks_metadata WHERE file_id = ?`).run(fileId);
         }
 
@@ -120,10 +110,18 @@ async function processFileVectors(fileId, content, metadata) {
           const info = db
             .prepare(`INSERT INTO chunks_metadata (file_id, chunk_text, metadata) VALUES (?, ?, ?)`)
             .run(fileId, chunk, JSON.stringify(metadata));
-          db.prepare(`INSERT INTO vec_chunks (id, vector) VALUES (?, ?)`).run(
-            info.lastInsertRowid,
-            new Float32Array(vector)
-          );
+
+          const metaId = Number(info.lastInsertRowid);
+          console.log(`[Sync] Inserted chunk for ${fileId}, metaId: ${metaId}`);
+
+          // 🛡️ STAFF BASIC: Let sqlite-vec auto-assign ID and update metadata to link them
+          const vecInfo = db
+            .prepare(`INSERT INTO vec_chunks (vector) VALUES (?)`)
+            .run(new Float32Array(vector));
+          const vecId = Number(vecInfo.lastInsertRowid);
+          console.log(`[Sync] Inserted vector for ${fileId}, vecId: ${vecId}`);
+
+          db.prepare(`UPDATE chunks_metadata SET id = ? WHERE id = ?`).run(vecId, metaId);
         }
       })();
     }
@@ -136,26 +134,31 @@ async function syncIntelligence() {
   logger.info({ dir: INTELLIGENCE_DIR }, '🔄 Sentinel Intelligence Sync: Scanning...');
   const pLimitMod = await import('p-limit');
   const pLimit = pLimitMod.default || pLimitMod.pLimit || pLimitMod;
-  const limit = pLimit(5); // 🚀 Throttled Concurrency
+  const limit = pLimit(5);
   const newGraph = { concepts: {}, files: {} };
   searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
   const activeFileIds = new Set();
 
   try {
-    // 1. Process Local Files
     const companyFolders = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
+    console.log(`[Sync] Found ${companyFolders.length} items in intelligence dir`);
     const syncTasks = [];
 
     for (const company of companyFolders.filter((d) => d.isDirectory())) {
+      console.log(`[Sync] Scanning folder: ${company.name}`);
       const companyPath = path.join(INTELLIGENCE_DIR, company.name);
       const files = await fs.readdir(companyPath);
+      console.log(`[Sync] Found ${files.length} files in ${company.name}`);
 
       for (const fileName of files.filter((f) => f.endsWith('.md'))) {
+        console.log(`[Sync] Queueing file: ${fileName}`);
         syncTasks.push(
           limit(async () => {
+            console.log(`[Sync] Starting processing: ${fileName}`);
             const filePath = path.join(companyPath, fileName);
             const fileContent = await fs.readFile(filePath, 'utf-8');
             const { content, data } = matter(fileContent);
+            console.log(`[Sync] Read content for: ${fileName}`);
 
             const validation = dossierFrontmatterSchema.safeParse(data);
             const validatedData = validation.success
@@ -165,14 +168,19 @@ async function syncIntelligence() {
             activeFileIds.add(fileId);
             const currentHash = getFileHash(fileContent);
 
-            // --- CHANGE DETECTION LOGIC ---
             let shouldProcess = true;
-            const cached = await db
-              .prepare('SELECT content_hash FROM dossiers WHERE id = ?')
-              .get(fileId);
-            if (cached && cached.content_hash === currentHash) shouldProcess = false;
+
+            try {
+              const cached = db
+                .prepare('SELECT content_hash FROM dossiers WHERE id = ?')
+                .get(fileId);
+              if (cached && cached.content_hash === currentHash) shouldProcess = false;
+            } catch (e) {
+              console.log(`[Sync] Hash check error for ${fileId}: ${e.message}`);
+            }
 
             if (shouldProcess) {
+              console.log(`[Sync] Triggering vectorization for: ${fileId}`);
               const label = validatedData.label || fileName;
               const sql = `
               INSERT INTO dossiers (id, company, label, content, metadata, content_hash) 
@@ -183,13 +191,18 @@ async function syncIntelligence() {
                 label=excluded.label, 
                 content_hash=excluded.content_hash
             `;
-              await db
-                .prepare(sql)
-                .run(fileId, company.name, label, content, JSON.stringify(data), currentHash);
+              db.prepare(sql).run(
+                fileId,
+                company.name,
+                label,
+                content,
+                JSON.stringify(data),
+                currentHash
+              );
               await processFileVectors(fileId, content, data);
+              console.log(`[Sync] Vectorization complete for: ${fileId}`);
             }
 
-            // --- HYDRATE GRAPH ---
             const finalKeywords = extractKeywords(content);
             newGraph.files[fileId] = {
               label: validatedData.label || fileName,
@@ -209,8 +222,7 @@ async function syncIntelligence() {
 
     await Promise.all(syncTasks);
 
-    // 2. Load Cloud-only dossiers (learned assets)
-    const cloudDossiers = await db
+    const cloudDossiers = db
       .prepare('SELECT id, company, label, content, metadata FROM dossiers')
       .all();
     cloudDossiers.forEach((d) => {

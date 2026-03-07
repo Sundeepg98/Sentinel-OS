@@ -35,9 +35,6 @@ const aiRateLimiter = rateLimit({
  *   get:
  *     tags: [Intelligence Engine]
  *     summary: Real-time system event stream (SSE)
- *     responses:
- *       200:
- *         description: Event stream established
  */
 router.get('/stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
@@ -49,7 +46,6 @@ router.get('/stream', (req, res) => {
   globalState.clients.push({ id: clientId, res });
   res.write(':ok\n\n');
 
-  // 💓 ENGINEERING BASIC: SSE HEARTBEAT
   const heartbeat = setInterval(() => {
     res.write(':heartbeat\n\n');
   }, 30000);
@@ -86,7 +82,6 @@ router.get(
         historyCount = parseInt(historyRes.rows[0].count);
         learnedCount = parseInt(learnedRes.rows[0].count);
       } else {
-        // Check if tables exist first
         const tables = db
           .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='chunks_metadata'")
           .get();
@@ -201,12 +196,6 @@ router.get(
  *   get:
  *     tags: [Intelligence Engine]
  *     summary: Retrieve contextual keywords and related semantic links
- *     parameters:
- *       - in: query
- *         name: fileId
- *         required: true
- *         schema:
- *           type: string
  */
 router.get(
   '/insights',
@@ -233,7 +222,13 @@ router.get(
       } else {
         const semanticMatches = db
           .prepare(
-            `SELECT m.file_id, m.chunk_text, v.distance FROM vec_chunks v JOIN chunks_metadata m ON v.id = m.id WHERE v.vector MATCH ? AND k = 5 AND m.file_id != ? ORDER BY distance`
+            `SELECT m.file_id, m.chunk_text, v.distance 
+             FROM vec_chunks v 
+             JOIN chunks_metadata m ON v.id = m.id 
+             WHERE v.vector MATCH ? 
+             AND k = 5 
+             AND m.file_id != ? 
+             ORDER BY distance`
           )
           .all(new Float32Array(vector), fileId);
         related = semanticMatches.map((m) => ({
@@ -255,20 +250,6 @@ router.get(
  *   get:
  *     tags: [Intelligence Engine]
  *     summary: Perform a high-speed keyword search
- *     parameters:
- *       - in: query
- *         name: q
- *         required: true
- *         schema:
- *           type: string
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *       - in: query
- *         name: offset
- *         schema:
- *           type: integer
  */
 router.get(
   '/search',
@@ -293,17 +274,6 @@ router.get(
  *   post:
  *     tags: [Intelligence Engine]
  *     summary: Deep vector search
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               q:
- *                 type: string
- *               limit:
- *                 type: integer
  */
 router.post(
   '/semantic-search',
@@ -315,14 +285,19 @@ router.post(
       let results;
       if (isPostgres) {
         const dbRes = await db.query(
-          'SELECT m.file_id, m.chunk_text, (m.embedding <=> $1) as distance FROM chunks_metadata m WHERE m.file_id != $2 ORDER BY distance LIMIT $3',
-          [JSON.stringify(vector), 'none', limit]
+          'SELECT m.file_id, m.chunk_text, (m.embedding <=> $1) as distance FROM chunks_metadata m ORDER BY distance LIMIT $2',
+          [JSON.stringify(vector), limit]
         );
         results = dbRes.rows;
       } else {
         results = db
           .prepare(
-            `SELECT m.file_id, m.chunk_text, v.distance FROM vec_chunks v JOIN chunks_metadata m ON v.id = m.id WHERE v.vector MATCH ? AND k = ? ORDER BY distance`
+            `SELECT m.file_id, m.chunk_text, v.distance 
+             FROM vec_chunks v 
+             JOIN chunks_metadata m ON v.id = m.id 
+             WHERE v.vector MATCH ? 
+             AND k = ? 
+             ORDER BY distance`
           )
           .all(new Float32Array(vector), limit);
       }
@@ -339,15 +314,6 @@ router.post(
  *   post:
  *     tags: [Intelligence Engine]
  *     summary: Generate a high-stakes technical drill
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               fileId:
- *                 type: string
  */
 router.post(
   '/drill',
