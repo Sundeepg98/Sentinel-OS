@@ -17,7 +17,7 @@ const adminRateLimiter = rateLimit({
   message: { error: 'Administrative actions are rate-limited. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { xff: false }, // 🛡️ STAFF BASIC: Disable XFF validation for local development
+  validate: false,
 });
 
 // --- 🛠️ FILE UPLOAD CONFIGURATION ---

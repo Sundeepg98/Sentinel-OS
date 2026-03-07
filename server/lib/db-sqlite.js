@@ -42,13 +42,15 @@ async function initDB() {
     for (const file of migrationFiles) {
       const isApplied = db.prepare('SELECT 1 FROM schema_migrations WHERE version = ?').get(file);
       if (!isApplied) {
-        // Skip Postgres-only migrations
-        if (file === '007_vector_index.sql') {
+        // Skip Postgres-only or incompatible migrations
+        const skippedMigrations = ['006_change_detection.sql', '007_vector_index.sql'];
+        if (skippedMigrations.includes(file)) {
           db.prepare('INSERT INTO schema_migrations (version) VALUES (?)').run(file);
           continue;
         }
 
         logger.info({ migration: file }, '🚀 Applying SQLite Migration');
+
         const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
         try {
           db.exec(sql);

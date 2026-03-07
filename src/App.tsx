@@ -18,14 +18,22 @@ import type { DesignPattern } from '@/views/SystemDesign';
 import type { PlaybookItem } from '@/views/Internals';
 
 // --- ⚡ ENGINEERING BASIC: BUNDLE OPTIMIZATION (CODE SPLITTING) ---
-const Dashboard = lazy(() => import('@/views/Dashboard').then(m => ({ default: m.Dashboard })));
-const Internals = lazy(() => import('@/views/Internals').then(m => ({ default: m.Internals })));
-const ArchitectArena = lazy(() => import('@/views/ArchitectArena').then(m => ({ default: m.ArchitectArena })));
-const WarRoom = lazy(() => import('@/views/WarRoom').then(m => ({ default: m.WarRoom })));
-const Diagnostics = lazy(() => import('@/views/Diagnostics').then(m => ({ default: m.Diagnostics })));
-const Tracker = lazy(() => import('@/views/Tracker').then(m => ({ default: m.Tracker })));
-const MarkdownView = lazy(() => import('@/views/MarkdownView').then(m => ({ default: m.MarkdownView })));
-const SystemDesign = lazy(() => import('@/views/SystemDesign').then(m => ({ default: m.SystemDesign })));
+const Dashboard = lazy(() => import('@/views/Dashboard').then((m) => ({ default: m.Dashboard })));
+const Internals = lazy(() => import('@/views/Internals').then((m) => ({ default: m.Internals })));
+const ArchitectArena = lazy(() =>
+  import('@/views/ArchitectArena').then((m) => ({ default: m.ArchitectArena }))
+);
+const WarRoom = lazy(() => import('@/views/WarRoom').then((m) => ({ default: m.WarRoom })));
+const Diagnostics = lazy(() =>
+  import('@/views/Diagnostics').then((m) => ({ default: m.Diagnostics }))
+);
+const Tracker = lazy(() => import('@/views/Tracker').then((m) => ({ default: m.Tracker })));
+const MarkdownView = lazy(() =>
+  import('@/views/MarkdownView').then((m) => ({ default: m.MarkdownView }))
+);
+const SystemDesign = lazy(() =>
+  import('@/views/SystemDesign').then((m) => ({ default: m.SystemDesign }))
+);
 
 // Properly type the lazy loaded component to avoid TS errors
 const KnowledgeGraph = lazy(() =>
@@ -43,8 +51,10 @@ function AppContent() {
   const queryClient = useQueryClient(); // 🛡️ STAFF STATE: Cache management
 
   // Optimized derived state
-  const activeModule = useMemo(() => 
-    dossierData.dossier?.modules.find(m => m.id === activeModuleId) || dossierData.dossier?.modules[0],
+  const activeModule = useMemo(
+    () =>
+      dossierData.dossier?.modules.find((m) => m.id === activeModuleId) ||
+      dossierData.dossier?.modules[0],
     [dossierData.dossier, activeModuleId]
   );
 
@@ -60,15 +70,51 @@ function AppContent() {
   const renderActiveView = () => {
     if (!activeModule) return null;
     return (
-      <Suspense fallback={<div className="flex-1 flex items-center justify-center h-full"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin" /></div>}>
+      <Suspense
+        fallback={
+          <div className="flex-1 flex items-center justify-center h-full">
+            <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+          </div>
+        }
+      >
         {(() => {
           switch (activeModule.type) {
-            case 'grid': return <Dashboard data={activeModule.data as DashboardData} label={activeModule.label} />;
-            case 'markdown': return <MarkdownView data={activeModule.data as string} label={activeModule.label} />;
-            case 'checklist': return <Tracker data={activeModule.data as Task[]} label={activeModule.label} moduleId={activeModule.id} />;
-            case 'playbook': return <Internals data={activeModule.data as PlaybookItem[]} label={activeModule.label} />;
-            case 'map': return <SystemDesign data={activeModule.data as DesignPattern[]} label={activeModule.label} />;
-            default: return <MarkdownView data={typeof activeModule.data === 'string' ? activeModule.data : JSON.stringify(activeModule.data)} label={activeModule.label} />;
+            case 'grid':
+              return (
+                <Dashboard data={activeModule.data as DashboardData} label={activeModule.label} />
+              );
+            case 'markdown':
+              return <MarkdownView data={activeModule.data as string} label={activeModule.label} />;
+            case 'checklist':
+              return (
+                <Tracker
+                  data={activeModule.data as Task[]}
+                  label={activeModule.label}
+                  moduleId={activeModule.id}
+                />
+              );
+            case 'playbook':
+              return (
+                <Internals data={activeModule.data as PlaybookItem[]} label={activeModule.label} />
+              );
+            case 'map':
+              return (
+                <SystemDesign
+                  data={activeModule.data as DesignPattern[]}
+                  label={activeModule.label}
+                />
+              );
+            default:
+              return (
+                <MarkdownView
+                  data={
+                    typeof activeModule.data === 'string'
+                      ? activeModule.data
+                      : JSON.stringify(activeModule.data)
+                  }
+                  label={activeModule.label}
+                />
+              );
           }
         })()}
       </Suspense>
@@ -81,18 +127,36 @@ function AppContent() {
         isOpen={isSidebarOpen}
         onClose={() => setSidebarOpen(false)}
         activeModuleId={activeModuleId}
-        setActiveModuleId={(id) => { setActiveModuleId(id); resetViews(); }}
+        setActiveModuleId={(id) => {
+          setActiveModuleId(id);
+          resetViews();
+        }}
         diagnosticsActive={diagnosticsActive}
-        onDiagnosticsClick={() => { setDiagnosticsMode(true); setArenaMode(false); setWarRoomMode(false); }}
+        onDiagnosticsClick={() => {
+          setDiagnosticsMode(true);
+          setArenaMode(false);
+          setWarRoomMode(false);
+        }}
+        warRoomActive={isWarRoomOpen}
+        onWarRoomClick={() => {
+          setWarRoomMode(true);
+          setArenaMode(false);
+          setDiagnosticsMode(false);
+        }}
       />
 
       <main className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
         {/* MOBILE HEADER */}
         <header className="md:hidden flex items-center justify-between p-4 border-b border-white/[0.05] bg-[#0a0a0a]/80 backdrop-blur-lg z-30">
-          <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors"
+          >
             <Network size={20} />
           </button>
-          <div className="font-bold text-sm tracking-tight text-white">{dossierData.dossier?.name || 'SENTINEL'}_OS</div>
+          <div className="font-bold text-sm tracking-tight text-white">
+            {dossierData.dossier?.name || 'SENTINEL'}_OS
+          </div>
           <UserButton afterSignOutUrl="/" />
         </header>
 
@@ -124,18 +188,54 @@ function AppContent() {
             </button>
 
             <button
-              onClick={() => { setArenaMode(!isArenaOpen); setWarRoomMode(false); setDiagnosticsMode(false); }}
+              onClick={() => {
+                setArenaMode(!isArenaOpen);
+                setWarRoomMode(false);
+                setDiagnosticsMode(false);
+              }}
               className={cn(
-                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border",
-                isArenaOpen ? "bg-rose-500/10 border-rose-500/30 text-rose-400" : "bg-white/5 border-white/10 text-neutral-400 hover:text-white"
+                'flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border',
+                isArenaOpen
+                  ? 'bg-indigo-600 border-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]'
+                  : 'bg-white/5 border-white/10 text-neutral-400 hover:text-white'
               )}
             >
-              <Swords size={14} /> Arena
+              <Swords size={14} /> Arena{' '}
+              {isArenaOpen && dossierData.dossier && (
+                <span className="ml-1 opacity-70">
+                  (
+                  {import.meta.env.VITE_AUTH_ENABLED === 'true'
+                    ? JSON.parse(localStorage.getItem('architect_arena_selection') || '[]').length
+                    : 3}
+                  )
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                setWarRoomMode(!isWarRoomOpen);
+                setArenaMode(false);
+                setDiagnosticsMode(false);
+              }}
+              className={cn(
+                'flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border',
+                isWarRoomOpen
+                  ? 'bg-rose-600 border-rose-500 text-white shadow-[0_0_20px_rgba(225,29,72,0.3)]'
+                  : 'bg-white/5 border-white/10 text-neutral-400 hover:text-white'
+              )}
+            >
+              <Terminal size={14} /> War Room
             </button>
           </div>
 
           <div className="flex items-center gap-4 ml-auto">
-            <DeepSearch onSelect={(id) => { setActiveModuleId(id); resetViews(); }} />
+            <DeepSearch
+              onSelect={(id) => {
+                setActiveModuleId(id);
+                resetViews();
+              }}
+            />
             <div className="hidden md:block">
               <UserButton afterSignOutUrl="/" />
             </div>
@@ -146,15 +246,33 @@ function AppContent() {
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
             {isArenaOpen ? (
-              <Suspense fallback={<div className="flex-1 flex items-center justify-center h-full"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin" /></div>}>
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex items-center justify-center h-full">
+                    <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                  </div>
+                }
+              >
                 <ArchitectArena />
               </Suspense>
             ) : isWarRoomOpen ? (
-              <Suspense fallback={<div className="flex-1 flex items-center justify-center h-full"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin" /></div>}>
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex items-center justify-center h-full">
+                    <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                  </div>
+                }
+              >
                 <WarRoom />
               </Suspense>
             ) : isDiagnosticsOpen ? (
-              <Suspense fallback={<div className="flex-1 flex items-center justify-center h-full"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin" /></div>}>
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex items-center justify-center h-full">
+                    <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                  </div>
+                }
+              >
                 <Diagnostics />
               </Suspense>
             ) : (
@@ -176,10 +294,14 @@ function AppContent() {
 
       <Suspense fallback={null}>
         {isGraphOpen && (
-          <KnowledgeGraph 
-            isOpen={isGraphOpen} 
-            onClose={() => setIsGraphOpen(false)} 
-            onSelectModule={(id) => { setActiveModuleId(id); setIsGraphOpen(false); resetViews(); }}
+          <KnowledgeGraph
+            isOpen={isGraphOpen}
+            onClose={() => setIsGraphOpen(false)}
+            onSelectModule={(id) => {
+              setActiveModuleId(id);
+              setIsGraphOpen(false);
+              resetViews();
+            }}
           />
         )}
       </Suspense>
@@ -211,8 +333,12 @@ function App() {
                       <div className="inline-flex p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mb-2">
                         <Terminal size={32} />
                       </div>
-                      <h1 className="text-3xl font-black text-white tracking-tighter uppercase">Sentinel-OS Access</h1>
-                      <p className="text-neutral-500 text-sm font-medium uppercase tracking-widest">Authorized Personnel Only</p>
+                      <h1 className="text-3xl font-black text-white tracking-tighter uppercase">
+                        Sentinel-OS Access
+                      </h1>
+                      <p className="text-neutral-500 text-sm font-medium uppercase tracking-widest">
+                        Authorized Personnel Only
+                      </p>
                     </div>
                     <div className="bg-[#0a0a0a] border border-white/[0.05] p-8 rounded-3xl shadow-2xl space-y-6">
                       <SignIn routing="hash" />

@@ -157,8 +157,9 @@ const globalRateLimiter = rateLimit({
   message: { error: 'Too many requests. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { xff: false },
+  validate: false,
 });
+
 app.use(globalRateLimiter);
 
 app.use(
@@ -490,7 +491,7 @@ app.use('/api/v1', v1Router);
 
 app.use(express.static(FRONTEND_DIST));
 
-app.get('(.*)', (req, res) => {
+app.get(/.*/, (req, res) => {
   res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
 });
 
