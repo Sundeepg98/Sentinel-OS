@@ -23,6 +23,23 @@ jobs:
     - name: TypeScript Check
       run: npx tsc -b
 
+  build-and-bundle:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    - name: Install Dependencies
+      run: npm install
+    - name: Production Build
+      run: npm run build
+      env:
+        VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
   server-tests:
     runs-on: ubuntu-latest
     steps:

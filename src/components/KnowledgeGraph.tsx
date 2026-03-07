@@ -10,24 +10,21 @@ import {
   Network,
   X,
   Maximize2,
-  Zap,
+  Minimize2,
   Cpu,
-  AlertCircle,
-  Play,
+  Zap,
   ChevronRight,
+  Shield,
   Activity,
-  ShieldAlert,
-  FileText,
-  Loader2,
 } from 'lucide-react';
 import * as THREE from 'three';
 import SpriteText from 'three-spritetext';
 import {
   EffectComposer,
-  RenderPass,
-  BloomEffect,
   EffectPass,
+  RenderPass,
   SMAAEffect,
+  BloomEffect,
   VignetteEffect,
   EdgeDetectionMode,
 } from 'postprocessing';
@@ -50,9 +47,8 @@ interface IncidentAdvisory {
 }
 
 /**
- * ðŸ›°ï¸ ARCHITECTURAL NERVOUS SYSTEM (Knowledge Graph)
+ * 🛰️ ARCHITECTURAL NERVOUS SYSTEM (Knowledge Graph)
  * Cinematic 3D visualization featuring the Phase 4 Neural Impact Simulator.
- * Uses recursive BFS traversal and inverse particle physics to simulate cascading outages.
  */
 export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   isOpen,
@@ -69,131 +65,84 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [graphData, setGraphData] = useState<GraphData>({ nodes: [], links: [] });
-  const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
   const [highlightNodes, setHighlightNodes] = useState(new Set<GraphNode>());
   const [highlightLinks, setHighlightLinks] = useState(new Set<GraphLink>());
-
-  // --- SIMULATION STATE ---
   const [isSimActive, setIsSimActive] = useState(false);
   const [simNode, setSimNode] = useState<GraphNode | null>(null);
-  const [blastImpacts, setBlastImpacts] = useState<Map<string, 1 | 2 | 3>>(new Map());
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [aiAdvisory, setAiAdvisory] = useState<string | null>(null);
-
-  // --- AI ADVISORY HOOK (Gemini 2.5) ---
-  const generateImpactAdvisory = useMutation({
-    mutationFn: async (moduleIds: string[]) => {
-      const data = await fetchWithAuth<IncidentAdvisory>('/intelligence/incident', getToken, {
-        method: 'POST',
-        body: JSON.stringify({ moduleIds }),
-      });
-      return data;
-    },
-    onSuccess: (data) => {
-      setAiAdvisory(data.title + ': ' + data.description);
-    },
-    onError: () => {
-      showToast('Neural analysis offline. Simulating local advisory...', 'error');
-      setAiAdvisory(
-        'CRITICAL SYSTEMIC RISK: The selected module poses a high-entropy threat to downstream dependencies. Cascading failure predicted across the event loop.'
-      );
-    },
-  });
-
+  const [blastImpacts, setBlastImpacts] = useState<Map<string, number>>(new Map());
+  const [advisory, setAdvisory] = useState<IncidentAdvisory | null>(null);
   const hasInitialZoomed = useRef(false);
+
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // 1. Fetch Analysis & Build Graph
   useEffect(() => {
-    if (isOpen) {
-      fetchWithAuth<GraphData>('/intelligence/graph', getToken)
-        .then((data) => {
-          const nodesById = Object.fromEntries(
-            data.nodes.map((n: GraphNode) => [
-              n.id,
-              { ...n, neighbors: [] as GraphNode[], links: [] as GraphLink[] },
-            ])
-          );
-
-          data.links.forEach((link: GraphLink) => {
-            const a = nodesById[link.source as string];
-            const b = nodesById[link.target as string];
-            if (a && b) {
-              a.neighbors.push(b);
-              b.neighbors.push(a);
-              a.links.push(link);
-              b.links.push(link);
-            }
-          });
-          const weightedNodes = Object.values(nodesById).map((n) => {
-            const node = n as GraphNode;
-            return {
-              ...node,
-              weight:
-                node.group === 'module'
-                  ? 10
-                  : node.group === 'learned'
-                    ? 8
-                    : Math.min(Math.max(node.neighbors.length || 1, 2), 8),
-            };
-          }) as GraphNode[];
-          setGraphData({ nodes: weightedNodes, links: data.links });
-        })
-        .catch((err) => console.error('Graph Load Error:', err));
-    }
-  }, [isOpen, getToken]);
-
-  useEffect(() => {
-    if (isOpen && containerRef.current) {
-      setDimensions({
-        width: containerRef.current.clientWidth,
-        height: containerRef.current.clientHeight,
-      });
-    }
-  }, [isOpen, isFullscreen]);
-
-  // Master Post-Processing Pipeline (High-Justice Engine)
-  useEffect(() => {
-    if (isOpen && graphRef.current && !hasInitialZoomed.current) {
-      const scene = graphRef.current.scene() as THREE.Scene;
-      const camera = graphRef.current.camera() as THREE.PerspectiveCamera;
-      const renderer = graphRef.current.renderer() as THREE.WebGLRenderer;
-
-      // Filter lights safely
-      const lightsToRemove = scene.children.filter((c) => c instanceof THREE.Light);
-      lightsToRemove.forEach((l) => scene.remove(l));
-
-      scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-      const key = new THREE.DirectionalLight(0xffffff, 2.5);
-      key.position.set(100, 200, 100);
-      scene.add(key);
-      const rim = new THREE.DirectionalLight(0x818cf8, 1.2);
-      rim.position.set(-100, -50, -100);
-      scene.add(rim);
-
-      const composer = new EffectComposer(renderer);
-      composer.addPass(new RenderPass(scene, camera));
-
-      const smaaEffect = new SMAAEffect({ edgeDetectionMode: EdgeDetectionMode.COLOR });
-      const bloomEffect = new BloomEffect({
-        intensity: 1.5,
-        luminanceThreshold: 0.2,
-        luminanceSmoothing: 0.9,
-        mipmapBlur: true,
-      });
-      const vignetteEffect = new VignetteEffect({ offset: 0.3, darkness: 0.6 });
-
-      composer.addPass(new EffectPass(camera, smaaEffect, bloomEffect, vignetteEffect));
-
-      let animationFrameId: number;
-      const renderLoop = () => {
-        composer.render();
-        animationFrameId = requestAnimationFrame(renderLoop);
-      };
-
-      if (graphRef.current) {
-        renderLoop();
+    const fetchGraph = async () => {
+      try {
+        const data = await fetchWithAuth<GraphData>('intelligence/search?q=*', getToken);
+        if (data && data.nodes) {
+          setGraphData(data);
+        }
+      } catch (_err: unknown) {
+        showToast('Failed to sync knowledge graph', 'error');
+        console.error('Knowledge Graph Sync Error:', _err);
       }
+    };
+    if (isOpen) fetchGraph();
+  }, [isOpen, getToken, showToast]);
 
+  // 2. Responsive Resizing
+  useEffect(() => {
+    if (!isOpen || !containerRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setDimensions({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
+      }
+    });
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [isOpen]);
+
+  // 3. Post-Processing Effects (Cinematic Layer)
+  useEffect(() => {
+    if (!graphRef.current) return;
+
+    const graph = graphRef.current;
+    const scene = graph.scene();
+    const camera = graph.camera();
+    const renderer = graph.renderer();
+
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+
+    // SMAA Antialiasing
+    const smaaEffect = new SMAAEffect();
+    (
+      smaaEffect.edgeDetectionMaterial as unknown as { edgeDetectionMode: unknown }
+    ).edgeDetectionMode = EdgeDetectionMode.COLOR;
+
+    // Bloom for Neon Glow
+    const bloomEffect = new BloomEffect({
+      intensity: 1.5,
+      luminanceThreshold: 0.1,
+      luminanceSmoothing: 0.9,
+    });
+
+    // Vignette for Focus
+    const vignetteEffect = new VignetteEffect({
+      offset: 0.3,
+      darkness: 0.5,
+    });
+
+    composer.addPass(new EffectPass(camera, smaaEffect, bloomEffect, vignetteEffect));
+
+    // Initial Zoom
+    if (!hasInitialZoomed.current) {
       setTimeout(() => {
         if (graphRef.current) {
           graphRef.current.cameraPosition({ z: 180 }, undefined, 800);
@@ -212,76 +161,44 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
           hasInitialZoomed.current = true;
         }
       }, 400);
-
-      return () => {
-        cancelAnimationFrame(animationFrameId);
-
-        // --- ðŸ›¡ï¸ RESOURCE DISPOSAL ---
-        composer.dispose();
-        smaaEffect.dispose();
-        bloomEffect.dispose();
-        vignetteEffect.dispose();
-
-        // Dispose geometries and materials
-        scene.traverse((object) => {
-          const mesh = object as THREE.Mesh;
-          if (mesh.geometry) mesh.geometry.dispose();
-          if (mesh.material) {
-            if (Array.isArray(mesh.material)) {
-              mesh.material.forEach((m) => m.dispose());
-            } else {
-              mesh.material.dispose();
-            }
-          }
-        });
-      };
     }
-  }, [isOpen, graphData]);
+  }, [isOpen]);
 
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  // 4. Neural Impact Simulator
+  const generateImpactAdvisory = useMutation({
+    mutationFn: async (moduleIds: string[]) => {
+      const data = await fetchWithAuth<IncidentAdvisory>('intelligence/incident', getToken, {
+        method: 'POST',
+        body: JSON.stringify({ moduleIds }),
+      });
+      return data;
+    },
+    onSuccess: (data) => setAdvisory(data),
+  });
 
-  const handleNodeHover = useCallback((node: GraphNode | null) => {
-    const newHighlightNodes = new Set<GraphNode>();
-    const newHighlightLinks = new Set<GraphLink>();
-    if (node && graphRef.current) {
-      newHighlightNodes.add(node);
-      node.neighbors.forEach((neighbor) => newHighlightNodes.add(neighbor));
-      node.links.forEach((link) => newHighlightLinks.add(link));
-      const coords = graphRef.current.graph2ScreenCoords(node.x || 0, node.y || 0, node.z || 0);
-      setTooltipPos({ x: coords.x, y: coords.y });
-      setHoveredNode(node);
-    } else {
-      setHoveredNode(null);
-    }
-    setHighlightNodes(newHighlightNodes);
-    setHighlightLinks(newHighlightLinks);
-  }, []);
-
-  // --- RECURSIVE FAILURE PROPAGATION (BFS) ---
   const triggerBlastRadius = useCallback(
     (node: GraphNode) => {
-      const impacts = new Map<string, 1 | 2 | 3>();
-      const queue = [{ n: node, depth: 0 }];
-      impacts.set(node.id, 1);
-
-      while (queue.length > 0) {
-        const { n, depth } = queue.shift()!;
-        if (depth < 2) {
-          n.neighbors.forEach((nb) => {
-            if (!impacts.has(nb.id)) {
-              const nextDepth = depth + 1;
-              impacts.set(nb.id, (nextDepth + 1) as 1 | 2 | 3);
-              queue.push({ n: nb, depth: nextDepth });
-            }
-          });
-        }
-      }
       setSimNode(node);
-      setBlastImpacts(impacts);
-      setIsAnalyzing(true);
+      const impacts = new Map<string, number>();
+      impacts.set(node.id, 1); // Origin
 
-      // AI Advisory Trigger
-      const moduleIds = Array.from(impacts.keys());
+      const directLinks = graphData.links.filter(
+        (l) =>
+          (typeof l.source === 'string' ? l.source : l.source.id) === node.id ||
+          (typeof l.target === 'string' ? l.target : l.target.id) === node.id
+      );
+
+      const moduleIds: string[] = [node.id];
+
+      directLinks.forEach((l) => {
+        const targetId = (typeof l.target === 'string' ? l.target : l.target.id) as string;
+        const sourceId = (typeof l.source === 'string' ? l.source : l.source.id) as string;
+        const linkedId = targetId === node.id ? sourceId : targetId;
+        impacts.set(linkedId, 2); // Tier 2 Impact
+        moduleIds.push(linkedId);
+      });
+
+      setBlastImpacts(impacts);
       generateImpactAdvisory.mutate(moduleIds);
 
       if (graphRef.current) {
@@ -292,12 +209,12 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         );
       }
     },
-    [generateImpactAdvisory]
+    [graphData.links, generateImpactAdvisory]
   );
 
   const nodeThreeObject = useCallback(
     (node: GraphNode) => {
-      // ðŸ›¡ï¸ STAFF BASIC: Object Reuse & Memoization
+      // 🛡️ STAFF BASIC: Object Reuse & Memoization
       // We check if the node already has an assigned object to avoid expensive recreation
       const cachedObj = (node as unknown as Record<string, THREE.Group>).__threeObj;
       if (cachedObj && !isSimActive && highlightNodes.size === 0) {
@@ -402,230 +319,245 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   );
 
   const impactedModules = useMemo(() => {
-    return Array.from(blastImpacts.entries())
-      .map(([id, level]) => ({ node: graphData.nodes.find((n) => n.id === id), level }))
-      .filter(
-        (i): i is { node: GraphNode; level: 1 | 2 | 3 } => !!i.node && i.node.group === 'module'
-      )
-      .sort((a, b) => a.level - b.level);
-  }, [blastImpacts, graphData]);
+    if (!simNode) return [];
+    return graphData.nodes.filter((n) => blastImpacts.has(n.id));
+  }, [simNode, graphData.nodes, blastImpacts]);
 
   if (!isOpen) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 font-sans overflow-hidden"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="graph-title"
+      className={cn(
+        'fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 font-sans overflow-hidden',
+        isFullscreen ? 'p-0' : ''
+      )}
     >
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-[#050505]/95 backdrop-blur-2xl"
         onClick={onClose}
-        className="absolute inset-0 bg-black/95 backdrop-blur-3xl"
       />
 
-      <div className="relative w-full max-w-7xl h-full flex gap-6 pointer-events-none">
-        {/* MAIN GRAPH CONTAINER */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className={cn(
-            'relative bg-[#050505] border border-white/[0.1] shadow-3xl flex flex-col transition-all duration-300 pointer-events-auto',
-            isFullscreen ? 'fixed inset-4 rounded-xl' : 'flex-1 h-[85vh] rounded-2xl self-center'
-          )}
-        >
-          <div className="flex items-center justify-between p-5 border-b border-white/[0.05] bg-white/[0.02] z-10">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
-                <Network className="w-5 h-5 text-indigo-400" />
-              </div>
-              <div>
-                <h2
-                  id="graph-title"
-                  className="text-lg font-semibold text-white tracking-wide uppercase"
-                >
-                  Architectural Nervous System
-                </h2>
-                <div className="text-[10px] text-neutral-500 uppercase tracking-widest mt-0.5 font-mono flex items-center gap-2">
-                  <div
-                    className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"
-                    aria-hidden="true"
-                  ></div>{' '}
-                  Post-Processing Engine: High-Justice
-                </div>
-              </div>
+      <div
+        ref={containerRef}
+        className={cn(
+          'relative w-full h-full max-w-7xl bg-[#080808] border border-white/[0.05] rounded-3xl shadow-3xl flex flex-col overflow-hidden transition-all duration-500',
+          isFullscreen ? 'max-w-none rounded-none border-none' : ''
+        )}
+      >
+        {/* GRAPH HEADER */}
+        <div className="p-6 border-b border-white/[0.05] bg-white/[0.02] flex items-center justify-between shrink-0 z-10">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20 shadow-lg shadow-indigo-500/5">
+              <Network className="w-6 h-6 text-indigo-400" />
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  setIsSimActive(!isSimActive);
-                  if (isSimActive) {
-                    setSimNode(null);
-                    setBlastImpacts(new Map());
-                    setIsAnalyzing(false);
-                  }
-                }}
-                className={cn(
-                  'flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border',
-                  isSimActive
-                    ? 'bg-rose-600 border-rose-500 text-white shadow-[0_0_15px_rgba(225,29,72,0.4)]'
-                    : 'bg-white/5 border-white/10 text-neutral-400 hover:text-white'
-                )}
-              >
-                <AlertCircle size={14} />{' '}
-                {isSimActive ? 'Deactivate Simulator' : 'Blast Radius Simulation'}
-              </button>
-              <button
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                className="p-2 hover:bg-white/[0.05] rounded-lg text-neutral-500 ml-2"
-              >
-                <Maximize2 size={18} />
-              </button>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-rose-500/10 rounded-lg text-neutral-500"
-              >
-                <X size={18} />
-              </button>
+            <div>
+              <h3 id="graph-title" className="text-lg font-bold text-white tracking-tight">
+                Architectural Nervous System
+              </h3>
+              <p className="text-neutral-500 text-[10px] uppercase tracking-[0.2em] mt-1 font-mono">
+                Visualizing neural intersections & systemic dependencies
+              </p>
             </div>
           </div>
 
-          <div className="flex-1 relative overflow-hidden rounded-b-2xl" ref={containerRef}>
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.05)_0%,transparent_70%)] pointer-events-none" />
-
-            <ForceGraph3D
-              ref={graphRef}
-              width={dimensions.width}
-              height={dimensions.height}
-              graphData={graphData}
-              nodeThreeObject={nodeThreeObject}
-              linkCurvature={0.2}
-              linkColor={(link: GraphLink) => {
-                const src = link.source as GraphNode;
-                const tgt = link.target as GraphNode;
-                const impactA = blastImpacts.get(src.id);
-                const impactB = blastImpacts.get(tgt.id);
-                if (impactA === 1 || impactB === 1) return '#f43f5e';
-                if (impactA === 2 || impactB === 2) return '#fb923c';
-                return highlightLinks.has(link)
-                  ? 'rgba(255,255,255,0.6)'
-                  : 'rgba(255,255,255,0.05)';
-              }}
-              linkWidth={(link: GraphLink) => {
-                const src = link.source as GraphNode;
-                const tgt = link.target as GraphNode;
-                const impactA = blastImpacts.get(src.id);
-                const impactB = blastImpacts.get(tgt.id);
-                return impactA || impactB ? 3 : 0.5;
-              }}
-              linkDirectionalParticles={(link: GraphLink) => {
-                const src = link.source as GraphNode;
-                const tgt = link.target as GraphNode;
-                const impactA = blastImpacts.get(src.id);
-                const impactB = blastImpacts.get(tgt.id);
-                if (impactA || impactB) return 10; // High intensity during failure
-                return highlightLinks.has(link) || highlightLinks.size === 0 ? 2 : 0;
-              }}
-              linkDirectionalParticleWidth={(link: GraphLink) => {
-                const src = link.source as GraphNode;
-                const tgt = link.target as GraphNode;
-                const impactA = blastImpacts.get(src.id);
-                const impactB = blastImpacts.get(tgt.id);
-                return impactA || impactB ? 4 : 2;
-              }}
-              linkDirectionalParticleSpeed={(link: GraphLink) => {
-                const src = link.source as GraphNode;
-                const tgt = link.target as GraphNode;
-
-                const impactSrc = blastImpacts.get(src.id);
-                const impactTgt = blastImpacts.get(tgt.id);
-
-                if (impactSrc || impactTgt) {
-                  // If target is closer to origin than source, flow backwards (Tgt -> Src)
-                  // Levels: 1 (Origin), 2 (Direct), 3 (Secondary)
-                  const srcLevel = impactSrc || 99;
-                  const tgtLevel = impactTgt || 99;
-
-                  const baseSpeed = 0.03;
-                  return tgtLevel < srcLevel ? -baseSpeed : baseSpeed;
-                }
-
-                return 0.005;
-              }}
-              backgroundColor="rgba(0,0,0,0)"
-              enableNodeDrag={false}
-              onNodeClick={handleNodeClick}
-              warmupTicks={100}
-              cooldownTicks={0}
-              onNodeHover={handleNodeHover}
-            />
-
-            {isSimActive && !simNode && (
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none text-center">
-                <Play className="w-12 h-12 text-rose-500/20 mx-auto mb-4 animate-ping" />
-                <p className="text-rose-400 font-mono text-xs uppercase tracking-[0.3em] font-bold">
-                  Select Origin Node to Simulate Failure
-                </p>
-              </div>
-            )}
-
-            <AnimatePresence>
-              {hoveredNode && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="absolute z-[100] pointer-events-none"
-                  style={{ left: tooltipPos.x + 15, top: tooltipPos.y + 15 }}
-                >
-                  <div className="bg-black/80 backdrop-blur-xl border border-white/10 p-4 rounded-xl shadow-2xl min-w-[250px]">
-                    <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">
-                      {hoveredNode.group === 'module'
-                        ? 'Domain'
-                        : hoveredNode.group === 'learned'
-                          ? 'User Asset'
-                          : 'Concept'}
-                    </div>
-                    <div className="text-white font-semibold text-sm mb-3">{hoveredNode.label}</div>
-                    {isSimActive && hoveredNode.group === 'module' && (
-                      <div className="text-[10px] text-rose-400 font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
-                        <Zap size={10} /> Predicted Blast Radius: {hoveredNode.blastRadius || 5}{' '}
-                        Nodes
-                      </div>
-                    )}
-                    {hoveredNode.neighbors && (
-                      <div className="flex flex-wrap gap-1.5 pt-2 border-t border-white/10">
-                        {hoveredNode.neighbors.map((n, i) => (
-                          <div
-                            key={i}
-                            className="text-[10px] px-2 py-1 rounded bg-white/5 text-neutral-300"
-                          >
-                            {n.label}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsSimActive(!isSimActive)}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border',
+                isSimActive
+                  ? 'bg-rose-600 border-rose-500 text-white shadow-[0_0_20px_rgba(225,29,72,0.3)]'
+                  : 'bg-white/5 border-white/10 text-neutral-400 hover:text-white'
               )}
-            </AnimatePresence>
+            >
+              <Zap size={14} className={isSimActive ? 'animate-pulse' : ''} />
+              {isSimActive ? 'Impact Mode ACTIVE' : 'Blast Radius Simulator'}
+            </button>
 
-            <div className="absolute bottom-6 left-6 pointer-events-none bg-black/40 border border-white/10 backdrop-blur-xl p-5 rounded-xl space-y-4 shadow-2xl">
+            <div className="h-8 w-px bg-white/10 mx-2" />
+
+            <button
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="p-2.5 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] rounded-xl text-neutral-400 hover:text-white transition-all"
+            >
+              {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2.5 bg-white/[0.03] hover:bg-rose-500/20 border border-white/[0.08] hover:border-rose-500/30 rounded-xl text-neutral-400 hover:text-rose-400 transition-all"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* 3D RENDER SURFACE */}
+        <div className="flex-1 bg-black relative group/graph">
+          <ForceGraph3D
+            ref={graphRef}
+            graphData={graphData}
+            width={dimensions.width}
+            height={dimensions.height}
+            backgroundColor="#000000"
+            showNavInfo={false}
+            nodeLabel="label"
+            nodeRelSize={6}
+            nodeThreeObject={nodeThreeObject}
+            linkWidth={(link: GraphLink) => (highlightLinks.has(link) ? 2 : 0.5)}
+            linkColor={() => '#ffffff'}
+            linkDirectionalParticles={(link: GraphLink) => (highlightLinks.has(link) ? 4 : 0)}
+            linkDirectionalParticleWidth={2}
+            linkDirectionalParticleSpeed={0.005}
+            linkDirectionalParticleColor={() => '#6366f1'}
+            onNodeClick={handleNodeClick}
+            onNodeHover={(node: GraphNode | null) => {
+              const nodes = new Set<GraphNode>();
+              const links = new Set<GraphLink>();
+              if (node) {
+                nodes.add(node);
+                graphData.links.forEach((l) => {
+                  const sourceId = (
+                    typeof l.source === 'string' ? l.source : l.source.id
+                  ) as string;
+                  const targetId = (
+                    typeof l.target === 'string' ? l.target : l.target.id
+                  ) as string;
+                  if (sourceId === node.id || targetId === node.id) {
+                    links.add(l);
+                    nodes.add(typeof l.source === 'string' ? node : (l.source as GraphNode));
+                    nodes.add(typeof l.target === 'string' ? node : (l.target as GraphNode));
+                  }
+                });
+              }
+              setHighlightNodes(nodes);
+              setHighlightLinks(links);
+            }}
+          />
+
+          {/* SIMULATION OVERLAY */}
+          {isSimActive && (
+            <div className="absolute top-6 left-6 z-20 animate-in fade-in slide-in-from-left-4 duration-500">
+              <div className="bg-[#050505]/80 backdrop-blur-xl border border-rose-500/30 p-6 rounded-2xl max-w-sm shadow-2xl">
+                <div className="flex items-center gap-3 text-rose-500 font-bold uppercase text-[10px] tracking-[0.2em] mb-4">
+                  <Activity size={14} className="animate-pulse" /> Neural Impact Analysis
+                </div>
+
+                {!simNode ? (
+                  <p className="text-neutral-400 text-[13px] leading-relaxed italic">
+                    Select any architectural node to simulate a component failure and analyze the
+                    systemic blast radius.
+                  </p>
+                ) : (
+                  <div className="space-y-6">
+                    <div>
+                      <div className="text-xs text-neutral-500 mb-1 uppercase tracking-widest font-mono">
+                        Failure Origin
+                      </div>
+                      <div className="text-lg font-bold text-white">{simNode.label}</div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                        <div className="text-[9px] text-neutral-500 uppercase tracking-widest mb-1 font-mono">
+                          Impacted
+                        </div>
+                        <div className="text-xl font-black text-rose-500">
+                          {impactedModules.length}
+                        </div>
+                      </div>
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                        <div className="text-[9px] text-neutral-500 uppercase tracking-widest mb-1 font-mono">
+                          Severity
+                        </div>
+                        <div className="text-xl font-black text-amber-500">
+                          {impactedModules.length > 5 ? 'CRITICAL' : 'HIGH'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {advisory && (
+                      <div className="p-4 bg-rose-500/5 border border-rose-500/20 rounded-xl space-y-2">
+                        <div className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">
+                          SRE Advisory
+                        </div>
+                        <p className="text-[12px] text-neutral-300 leading-relaxed font-mono">
+                          {advisory.description}
+                        </p>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        setSimNode(null);
+                        setBlastImpacts(new Map());
+                        setAdvisory(null);
+                      }}
+                      className="w-full py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all"
+                    >
+                      Reset Simulation
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* LEGEND & STATUS */}
+          <div className="absolute bottom-6 left-6 z-20 flex flex-col gap-4">
+            <div className="bg-[#050505]/60 backdrop-blur-md border border-white/5 p-4 rounded-2xl flex flex-col gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-[#f43f5e] shadow-[0_0_12px_#f43f5e]"></div>
-                <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">
-                  Failure Origin
+                <div className="w-2 h-2 rounded-full bg-[#10b981]" />
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
+                  High Readiness
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-[#fb923c] shadow-[0_0_12px_#fb923c]"></div>
-                <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">
-                  Critical Impact
+                <div className="w-2 h-2 rounded-full bg-[#f59e0b]" />
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
+                  Needs Review
                 </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-[#f43f5e]" />
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
+                  Critical Debt
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-[#6366f1]" />
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
+                  System Concept
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* SEARCH & DISCOVERY OVERLAY */}
+          <div className="absolute bottom-6 right-6 z-20">
+            <div className="bg-[#050505]/80 backdrop-blur-xl border border-white/10 p-5 rounded-2xl w-80 shadow-2xl space-y-4">
+              <div className="flex items-center gap-2 text-indigo-400 font-bold uppercase text-[10px] tracking-widest">
+                <Activity size={14} /> Engine Status
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono">
+                    Neural Density
+                  </span>
+                  <span className="text-[10px] font-bold text-white font-mono">
+                    {graphData.nodes.length} Nodes
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono">
+                    Synaptic Links
+                  </span>
+                  <span className="text-[10px] font-bold text-white font-mono">
+                    {graphData.links.length} Edges
+                  </span>
+                </div>
               </div>
               <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
                 <div className="flex items-center gap-2 text-[9px] font-bold text-neutral-500 uppercase tracking-widest">
@@ -637,105 +569,40 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        {/* SIDE IMPACT PANEL */}
+        {/* REPAIR ADVISORY POPUP */}
         <AnimatePresence>
-          {isAnalyzing && (
+          {advisory && (
             <motion.div
-              initial={{ x: 400, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: 400, opacity: 0 }}
-              className="w-96 bg-[#080808]/80 backdrop-blur-3xl border-l border-white/10 h-[85vh] self-center rounded-2xl flex flex-col pointer-events-auto shadow-4xl overflow-hidden"
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-xl"
             >
-              <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
-                <div className="flex items-center gap-3">
-                  <ShieldAlert className="w-5 h-5 text-rose-500" />
-                  <h3 className="text-sm font-bold text-white uppercase tracking-tighter">
-                    Impact Assessment
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setIsAnalyzing(false)}
-                  className="p-1.5 hover:bg-white/5 rounded-lg text-neutral-500"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-                {/* ORIGIN CARD */}
-                <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-4">
-                  <div className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                    <Activity size={12} /> Failure Origin
+              <div className="bg-indigo-600 border border-indigo-400 p-6 rounded-2xl shadow-[0_0_50px_rgba(79,70,229,0.4)] flex items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-white/10 rounded-xl backdrop-blur-md">
+                    <Shield className="w-6 h-6 text-white" />
                   </div>
-                  <div className="text-lg font-bold text-white">{simNode?.label}</div>
-                  <div className="text-xs text-neutral-400 mt-1 uppercase tracking-widest">
-                    {simNode?.company} Infrastructure
-                  </div>
-                </div>
-
-                {/* BLAST RADIUS LIST */}
-                <div className="space-y-3">
-                  <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-4">
-                    Affected Technical Domains
-                  </div>
-                  {impactedModules.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-4 p-3 bg-white/[0.02] border border-white/[0.05] rounded-xl hover:border-white/10 transition-all group"
-                    >
-                      <div
-                        className={cn(
-                          'w-1 h-8 rounded-full',
-                          item.level === 1
-                            ? 'bg-rose-500 shadow-[0_0_10px_#f43f5e]'
-                            : item.level === 2
-                              ? 'bg-orange-500 shadow-[0_0_8px_#fb923c]'
-                              : 'bg-amber-500'
-                        )}
-                      />
-                      <div className="flex-1">
-                        <div className="text-xs font-bold text-white group-hover:text-indigo-400 transition-colors">
-                          {item.node?.label}
-                        </div>
-                        <div className="text-[9px] text-neutral-500 uppercase tracking-widest mt-0.5">
-                          Impact Level: {item.level === 1 ? 'Total Outage' : 'Degraded State'}
-                        </div>
-                      </div>
-                      <FileText size={14} className="text-neutral-600" />
-                    </div>
-                  ))}
-                </div>
-
-                {/* ARCHITECT ADVISORY */}
-                <div className="pt-4 border-t border-white/5">
-                  <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-3">
-                    Staff Architect Advisory
-                  </div>
-                  {generateImpactAdvisory.isPending ? (
-                    <div className="flex items-center gap-3 py-4 animate-pulse">
-                      <Loader2 className="w-4 h-4 text-neutral-600 animate-spin" />
-                      <span className="text-[10px] text-neutral-600 uppercase font-bold tracking-widest">
-                        Synthesizing Neural Impact...
-                      </span>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-neutral-300 leading-relaxed italic border-l-2 border-indigo-500/30 pl-4 py-1">
-                      "{aiAdvisory}"
+                  <div>
+                    <h4 className="text-white font-bold tracking-tight">{advisory.title}</h4>
+                    <p className="text-indigo-100 text-xs mt-1 font-medium opacity-90">
+                      Systemic remediation strategy generated for impacted modules.
                     </p>
-                  )}
+                  </div>
                 </div>
-              </div>
-
-              <div className="p-6 border-t border-white/5 bg-black/40">
                 <button
                   onClick={() => {
-                    setCompany(simNode?.company || 'mailin');
-                    onSelectModule(simNode?.id.split('/').pop()?.replace('.md', '') || '');
-                    onClose();
+                    if (simNode) {
+                      const [companyId, fileName] = simNode.id.split('/');
+                      const moduleId = fileName.replace('.md', '');
+                      setCompany(companyId);
+                      onSelectModule(moduleId);
+                      onClose();
+                    }
                   }}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2"
+                  className="px-5 py-2.5 bg-white text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-50 transition-all flex items-center gap-2 whitespace-nowrap shadow-xl"
                 >
                   Repair in Architect Arena <ChevronRight size={14} />
                 </button>

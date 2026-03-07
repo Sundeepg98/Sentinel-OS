@@ -38,10 +38,13 @@ async function verify() {
       if (response.ok) {
         const result = await response.json();
         const data = result.data || {};
-        const resources = data.resources || {};
+        const system = data.system || {};
         
+        const memMB = system.memory ? `${(system.memory / 1024 / 1024).toFixed(1)}MB` : 'N/A';
+        const uptime = system.uptime ? `${Math.floor(system.uptime / 60)}m` : 'N/A';
+
         console.log(
-          `| ${env.name.padEnd(10)} | ✅ LIVE  | ${(data.db || '???').padEnd(8)} | ${(data.version || '???').padEnd(8)} | ${String(latency).padStart(5)}ms | ${(resources.memory?.rss || 'N/A').padEnd(9)} | ${(resources.uptime || 'N/A').padEnd(8)} | ${(data.auth || 'ENABLED').padEnd(8)} |`
+          `| ${env.name.padEnd(10)} | ✅ LIVE  | ${(data.db || '???').padEnd(8)} | ${(data.version || '???').padEnd(8)} | ${String(latency).padStart(5)}ms | ${memMB.padEnd(9)} | ${uptime.padEnd(8)} | ${(data.status === 'healthy' ? 'PASS' : 'FAIL').padEnd(8)} |`
         );
       } else {
         console.log(`| ${env.name.padEnd(10)} | ❌ ERROR | ${'N/A'.padEnd(8)} | ${'N/A'.padEnd(8)} | ${String(latency).padStart(5)}ms | ${'N/A'.padEnd(9)} | ${'N/A'.padEnd(8)} | ${'N/A'.padEnd(8)} |`);

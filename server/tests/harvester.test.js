@@ -12,6 +12,12 @@ describe('Intelligence Harvester', () => {
     await initDB();
   });
 
+  afterAll(async () => {
+    if (db && typeof db.close === 'function') {
+      await db.close();
+    }
+  });
+
   test('should return an empty knowledge graph initially', () => {
     const graph = getKnowledgeGraph();
     expect(graph).toHaveProperty('files');

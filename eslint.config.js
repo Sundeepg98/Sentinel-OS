@@ -6,17 +6,20 @@ import tseslint from 'typescript-eslint';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
 export default defineConfig([
-  globalIgnores(['dist', 'node_modules', 'playwright-report', 'test-results', 'bundle-analysis.html']),
-  
+  globalIgnores([
+    'dist',
+    'node_modules',
+    'playwright-report',
+    'test-results',
+    'bundle-analysis.html',
+  ]),
+
   // 🎨 FRONTEND CONFIG (TS/TSX)
   {
     files: ['src/**/*.{ts,tsx}'],
-    extends: [
-      js.configs.recommended,
-      ...tseslint.configs.recommended,
-      reactHooks.configs.flat.recommended,
-    ],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
     plugins: {
+      'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
     },
     languageOptions: {
@@ -24,6 +27,7 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
+      ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/no-explicit-any': 'error', // 🛡️ STAFF BASIC: No 'any' allowed in development
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
@@ -51,5 +55,5 @@ export default defineConfig([
       'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       'no-console': 'off', // backend logging is intentional
     },
-  }
+  },
 ]);
