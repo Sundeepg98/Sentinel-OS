@@ -49,7 +49,7 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
+const SidebarComponent: React.FC<SidebarProps> = ({
   activeModuleId,
   setActiveModuleId,
   onDiagnosticsClick,
@@ -99,7 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Overlay */}
+      {/* MOBILE OVERLAY */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-300"
@@ -107,49 +107,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
+      {/* SIDEBAR PANEL */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 w-[280px] bg-[#0a0a0a]/95 backdrop-blur-xl border-r border-white/[0.05] flex flex-col justify-between transition-transform duration-300 md:relative md:translate-x-0',
+          'fixed inset-y-0 left-0 w-72 bg-[#080808] border-r border-white/[0.05] z-50 transform transition-transform duration-300 ease-out md:relative md:translate-x-0 flex flex-col',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="overflow-y-auto custom-scrollbar flex-1">
-          <div className="p-8 pb-6 flex items-center justify-between">
-            <h1 className="font-semibold text-lg text-white tracking-tight flex items-center gap-3">
-              <div
-                className={cn(
-                  'p-1.5 rounded-md border border-white/10 shadow-sm',
-                  dossier.brandColor === 'cyan'
-                    ? 'bg-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
-                    : 'bg-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)]'
-                )}
-              >
-                <Server
-                  className={cn(
-                    'w-5 h-5',
-                    dossier.brandColor === 'cyan' ? 'text-cyan-400' : 'text-indigo-400'
-                  )}
-                />
-              </div>
+        <div className="p-6 flex items-center justify-between border-b border-white/[0.05]">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20 shadow-lg shadow-indigo-500/10">
+              <Server className="w-5 h-5 text-indigo-400" />
+            </div>
+            <h1 className="text-sm font-black text-white tracking-tighter uppercase">
               {dossier.name}
-              <span className="text-neutral-300 font-light">_OS</span>
+              <span className="text-neutral-400 font-light">_OS</span>
             </h1>
+          </div>
+          {onClose && (
             <button
               onClick={onClose}
-              className="md:hidden p-2 text-neutral-300 hover:text-white transition-colors"
+              className="md:hidden p-2 text-neutral-400 hover:text-white transition-colors"
             >
               <X size={20} />
             </button>
-          </div>
-          <div className="px-8 mb-4">
-            <div className="flex items-center gap-2 inline-flex bg-white/[0.03] border border-white/[0.05] rounded-full px-3 py-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
-              <span className="text-[11px] font-medium text-neutral-300 tracking-wide">
-                Target: {dossier.targetRole}
-              </span>
-            </div>
-          </div>
+          )}
+        </div>
 
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
           <nav className="px-4 mt-4">
             <div className="px-4 pb-2 text-[10px] font-semibold text-neutral-400 uppercase tracking-widest flex justify-between items-center">
               <span>Modules</span>
@@ -159,55 +144,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </span>
               )}
             </div>
-
-            <ul className="space-y-1" role="list">
+            <ul className="space-y-1">
               {dossier.modules.map((mod) => {
-                const IconComponent = IconMap[mod.icon] || HelpCircle;
-                const fullId = mod.fullId || `${dossier.id}/${mod.id}.md`;
+                const isActive = mod.id === activeModuleId;
+                const fullId = `${dossier.id}/${mod.id}.md`.toLowerCase();
                 const isPinned = arenaIds.includes(fullId);
+                const Icon = IconMap[mod.icon || 'FileText'] || FileText;
 
                 return (
-                  <li key={mod.id}>
+                  <li key={mod.id} className="group flex items-center gap-1 pr-2">
                     <button
                       onClick={() => handleModuleClick(mod.id)}
-                      aria-current={
-                        activeModuleId === mod.id && !diagnosticsActive ? 'page' : undefined
-                      }
                       className={cn(
-                        'w-full flex items-center group gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 border text-left',
-                        activeModuleId === mod.id && !diagnosticsActive
-                          ? 'bg-white/[0.06] text-white border-white/[0.08] shadow-sm'
-                          : 'bg-transparent text-neutral-300 border-transparent hover:bg-white/[0.02] hover:text-neutral-200'
+                        'flex-1 flex items-center group gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 border text-left',
+                        isActive
+                          ? 'bg-indigo-500/10 border-indigo-500/30 text-white shadow-lg shadow-indigo-500/5'
+                          : 'bg-transparent text-neutral-400 border-transparent hover:bg-white/[0.02] hover:text-neutral-200'
                       )}
                     >
-                      <div
-                        className={cn(
-                          'transition-colors',
-                          activeModuleId === mod.id && !diagnosticsActive
-                            ? dossier.brandColor === 'cyan'
-                              ? 'text-cyan-400'
-                              : 'text-indigo-400'
-                            : 'text-neutral-300'
-                        )}
-                      >
-                        <IconComponent size={18} strokeWidth={1.5} />
-                      </div>
-                      <span className="flex-1 truncate">{mod.label}</span>
+                      {isActive ? (
+                        <Zap size={16} className="text-indigo-400 animate-pulse" />
+                      ) : (
+                        <Icon
+                          size={16}
+                          className="opacity-40 group-hover:opacity-100 transition-opacity"
+                        />
+                      )}
+                      <span className="truncate">{mod.label}</span>
+                    </button>
 
-                      <div
-                        onClick={(e) => togglePin(e, fullId)}
-                        role="button"
-                        aria-label={isPinned ? 'Unpin from Arena' : 'Pin to Architect Arena'}
-                        className={cn(
-                          'p-1.5 rounded-md transition-all opacity-0 group-hover:opacity-100',
-                          isPinned
-                            ? 'text-indigo-400 opacity-100 bg-indigo-500/10'
-                            : 'text-neutral-600 hover:text-neutral-300 hover:bg-white/5'
-                        )}
-                        title={isPinned ? 'Remove from Arena' : 'Add to Architect Arena'}
-                      >
-                        <Pin size={14} className={isPinned ? 'fill-current' : ''} />
-                      </div>
+                    <button
+                      onClick={(e) => togglePin(e, fullId)}
+                      aria-label={isPinned ? 'Unpin from Arena' : 'Pin to Architect Arena'}
+                      title={isPinned ? 'Remove from Arena' : 'Add to Architect Arena'}
+                      className={cn(
+                        'p-1.5 rounded-md transition-all',
+                        isPinned
+                          ? 'text-indigo-400 opacity-100 bg-indigo-500/10'
+                          : 'opacity-0 group-hover:opacity-100 text-neutral-600 hover:text-neutral-400 hover:bg-white/5'
+                      )}
+                    >
+                      <Pin size={12} className={isPinned ? 'fill-current' : ''} />
                     </button>
                   </li>
                 );
@@ -258,3 +235,5 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </>
   );
 };
+
+export const Sidebar = React.memo(SidebarComponent);

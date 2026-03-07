@@ -146,8 +146,9 @@ export const ArchitectArena: React.FC = () => {
   });
 
   useEffect(() => {
-    const win = window as unknown as Record<string, typeof SpeechRecognition>;
-    const WindowSpeechRecognition = win['SpeechRecognition'] || win['webkitSpeechRecognition'];
+    const WindowSpeechRecognition =
+      (window as unknown as Record<string, typeof SpeechRecognition>)['SpeechRecognition'] ||
+      (window as unknown as Record<string, typeof SpeechRecognition>)['webkitSpeechRecognition'];
 
     if (WindowSpeechRecognition) {
       recognitionRef.current = new WindowSpeechRecognition();

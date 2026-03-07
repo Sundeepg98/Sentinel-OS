@@ -1,10 +1,11 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const LRUCache = require('lru-cache');
 const logger = require('./logger');
+const config = require('./config');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const DEFAULT_MODEL = 'gemini-2.5-flash';
-const EMBEDDING_MODEL = 'gemini-embedding-001';
+const DEFAULT_MODEL = config.AI.DEFAULT_MODEL;
+const EMBEDDING_MODEL = config.AI.EMBEDDING_MODEL;
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || '');
 
@@ -18,8 +19,8 @@ const aiCache = new LRUCache({
 const AI_CIRCUIT = {
   state: 'CLOSED',
   failures: 0,
-  threshold: 5,
-  cooldown: 30000,
+  threshold: config.AI.CIRCUIT_BREAKER.THRESHOLD,
+  cooldown: config.AI.CIRCUIT_BREAKER.COOLDOWN_MS,
   lastFailureTime: null,
 };
 
@@ -56,7 +57,7 @@ function recordAiFailure() {
 }
 
 // --- 🛡️ ENGINEERING BASIC: CONTEXT BUDGETING ---
-function truncateToBudget(text, limit = 15000) {
+function truncateToBudget(text, limit = config.AI.CONTEXT_BUDGET) {
   if (!text || text.length <= limit) return text;
   return text.substring(0, limit) + '... [Truncated for Token Budget]';
 }
@@ -154,7 +155,7 @@ async function generateStructuredContent(prompt, schema) {
   });
 
   let lastError;
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= config.AI.RETRY_ATTEMPTS; attempt++) {
     try {
       const result = await model.generateContent(budgetedPrompt);
       const text = (await result.response).text();
@@ -164,7 +165,9 @@ async function generateStructuredContent(prompt, schema) {
     } catch (error) {
       lastError = error;
       logger.warn({ attempt, error: error.message }, '⚠️ AI Generation Attempt Failed');
-      if (attempt < 3) await new Promise((res) => setTimeout(res, 1000 * attempt));
+      if (attempt < config.AI.RETRY_ATTEMPTS) {
+        await new Promise((res) => setTimeout(res, config.AI.RETRY_DELAY_MS * attempt));
+      }
     }
   }
 

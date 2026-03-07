@@ -24,7 +24,7 @@ interface SemanticSearchResult {
   chunk_text: string;
 }
 
-export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
+const DeepSearchComponent: React.FC<DeepSearchProps> = ({ onSelect }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 300); // 🚀 ENGINEERING BASIC: DEBOUNCE
@@ -69,7 +69,6 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
     error,
   } = useQuery<SearchResult[]>({
     queryKey: ['search', debouncedQuery, searchMode],
-    // ... (queryFn remains same)
     queryFn: async ({ signal }) => {
       if (debouncedQuery.length < 2) return [];
 
@@ -272,3 +271,5 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
     </>
   );
 };
+
+export const DeepSearch = React.memo(DeepSearchComponent);

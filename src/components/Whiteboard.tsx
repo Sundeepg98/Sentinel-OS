@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   MousePointer2,
   Square,
@@ -29,7 +29,7 @@ interface Element {
  * Features real-time state persistence and cinematic 2D drawing primitives.
  * Utilizes usePersistentState for industrial-grade data integrity and cloud sync.
  */
-export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) => {
+export const Whiteboard = React.memo(({ sessionId = 'default' }: { sessionId?: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tool, setTool] = useState<Element['type']>('pencil');
   const [isDrawing, setIsDrawing] = useState(false);
@@ -293,4 +293,4 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
       </div>
     </div>
   );
-};
+});

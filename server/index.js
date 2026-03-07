@@ -119,11 +119,13 @@ app.use(
   })
 );
 
+const config = require('./lib/config');
+
 app.use(hpp());
 
 const globalRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 1000,
+  windowMs: config.API.RATE_LIMIT.GLOBAL_WINDOW_MS,
+  max: config.API.RATE_LIMIT.GLOBAL_MAX,
   message: { error: 'Too many requests. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -253,7 +255,7 @@ v1Router.use((req, res, next) => {
 
 app.use((req, res, next) => {
   if (req.path.includes('/stream')) return next();
-  res.setTimeout(15000, () => {
+  res.setTimeout(config.API.TIMEOUT_MS, () => {
     if (!res.headersSent) res.status(408).error('Request Timeout', 408);
   });
   next();

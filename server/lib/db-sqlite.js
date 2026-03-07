@@ -3,6 +3,7 @@ const sqliteVec = require('sqlite-vec');
 const path = require('path');
 const fs = require('fs');
 const logger = require('./logger');
+const config = require('./config');
 
 /**
  * 🗄️ SQLITE ENGINE (Local Development)
@@ -12,9 +13,9 @@ const isTest = process.env.NODE_ENV === 'test';
 const dbFile = isTest ? ':memory:' : path.join(__dirname, '..', 'sentinel.db');
 
 const db = new Database(dbFile);
-db.pragma('journal_mode = WAL'); // 🚀 PERFORMANCE BASIC: Non-blocking writes
-db.pragma('synchronous = NORMAL'); // 🚀 PERFORMANCE: Reduced disk sync frequency
-db.pragma('cache_size = 2000'); // 🚀 PERFORMANCE: 2MB Cache
+db.pragma(`journal_mode = WAL`); // 🚀 PERFORMANCE BASIC: Non-blocking writes
+db.pragma(`synchronous = ${config.DB.SQLITE.SYNC_MODE}`); // 🚀 PERFORMANCE: Reduced disk sync frequency
+db.pragma(`cache_size = ${config.DB.SQLITE.CACHE_SIZE}`); // 🚀 PERFORMANCE: Configurable Cache
 db.pragma('foreign_keys = ON'); // 🛡️ INTEGRITY BASIC
 sqliteVec.load(db);
 

@@ -2,6 +2,7 @@ const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
+const config = require('./config');
 
 /**
  * 🐘 POSTGRESQL ENGINE (Cloud-Native Persistence)
@@ -14,9 +15,9 @@ const pool = new Pool({
     rejectUnauthorized: false,
   },
   // 🛡️ ENGINEERING BASIC: Strict Connection Pooling
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  max: config.DB.POSTGRES.POOL_MAX,
+  idleTimeoutMillis: config.DB.POSTGRES.IDLE_TIMEOUT_MS,
+  connectionTimeoutMillis: config.DB.POSTGRES.CONN_TIMEOUT_MS,
 });
 
 const db = {
@@ -57,6 +58,32 @@ const db = {
 
 async function initDB() {
   logger.info('🛠️ Initializing Cloud Database Engine (Postgres)');
+
+  let attempt = 1;
+  const maxAttempts = config.DB.RETRY.MAX_ATTEMPTS;
+  let delay = config.DB.RETRY.INITIAL_DELAY_MS;
+
+  while (attempt <= maxAttempts) {
+    try {
+      await pool.query('SELECT 1');
+      break;
+    } catch (err) {
+      if (attempt === maxAttempts) {
+        logger.error(
+          { error: err.message },
+          '❌ Cloud Database Connection Failed after max attempts'
+        );
+        throw err;
+      }
+      logger.warn(
+        { attempt, error: err.message, nextRetryIn: `${delay}ms` },
+        '⚠️ Cloud Database connection failed. Retrying...'
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      attempt++;
+      delay *= 2;
+    }
+  }
 
   try {
     // 1. Install pgvector extension
