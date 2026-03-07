@@ -1,18 +1,11 @@
 {
   "name": "sentinel-os-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Industrial Intelligence Engine for Sentinel-OS",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "axios": "^1.13.6",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
@@ -20,7 +13,6 @@
     "gray-matter": "^4.0.3",
     "natural": "^8.1.1",
     "pg": "^8.20.0",
-    "pgvector": "^0.2.1",
-    "sqlite3": "^5.1.7"
+    "pgvector": "^0.2.1"
   }
 }

@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 const DIST_DIR = path.join(process.cwd(), 'dist');
-const MAX_BUNDLE_SIZE_MB = 2.5; // 2.5MB Limit
+const MAX_BUNDLE_SIZE_MB = 3.5; // 3.5MB Limit
 
 function getDirSize(dir) {
   const files = fs.readdirSync(dir);

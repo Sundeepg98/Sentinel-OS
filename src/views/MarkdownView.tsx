@@ -75,8 +75,8 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({ data, label }) => {
               ),
             // Custom table wrapper for glassmorphism
             table: ({ node: _node, ...props }) => (
-              <div className="my-8 overflow-hidden rounded-xl border border-white/5 bg-white/[0.01]">
-                <table {...props} className="w-full text-left border-collapse" />
+              <div className="my-8 overflow-x-auto rounded-xl border border-white/5 bg-white/[0.01] custom-scrollbar">
+                <table {...props} className="w-full text-left border-collapse min-w-[600px]" />
               </div>
             )
           }}

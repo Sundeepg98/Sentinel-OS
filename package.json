@@ -19,7 +19,7 @@
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:windows": "powershell -Command \"Get-NetTCPConnection -LocalPort 5173,3002 -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -gt 4 } | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }\" ; npm run dev",
     "clean": "rimraf --glob dist playwright-report test-results bundle-analysis.html \"server/logs/*.json\"",
-    "build": "npm run clean && tsc -b && vite build",
+    "build": "npm run clean && tsc -b && vite build && npm run bundle-guard",
     "lint": "eslint .",
     "format": "prettier --write .",
     "preview": "vite preview",
@@ -33,7 +33,7 @@
     "test": "npm run test:server && npm run test:frontend && npm run test:e2e",
     "verify": "node scripts/verify-environments.js",
     "backup": "node scripts/backup-db.js",
-    "bundle-guard": "node scripts/bundle-guard.js",
+    "bundle-guard": "node scripts/bundle-guard.cjs",
     "prepare": "husky"
   },
   "lint-staged": {
