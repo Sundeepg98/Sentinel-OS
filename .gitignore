@@ -39,3 +39,4 @@ dist-ssr
 /.gemini
 
 coverage/
+bundle-analysis.html

@@ -26,6 +26,16 @@ const swaggerOptions = {
       description: 'Technical Intelligence & RAG Engine API',
     },
     servers: [{ url: '/api/v1' }],
+    components: {
+      securitySchemes: {
+        BearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+    },
+    security: [{ BearerAuth: [] }],
   },
   apis: ['./server/index.js', './server/routes/*.js'], 
 };
@@ -37,6 +47,8 @@ const logger = require('./lib/logger');
 // --- 🛠️ ENGINEERING BASIC: ENV VALIDATION ---
 const envSchema = z.object({
   GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
+  CLERK_SECRET_KEY: z.string().optional(),
+  DEV_BYPASS_TOKEN: z.string().optional().default("sentinel_staff_2026"),
   PORT: z.string().default("3002"),
   NODE_ENV: z.enum(["development", "staging", "production"]).default("development"),
   AUTH_ENABLED: z.string().optional().transform(v => v === 'true'),
@@ -47,6 +59,12 @@ const envSchema = z.object({
 }, {
   message: "DATABASE_URL is required in staging/production environments",
   path: ["DATABASE_URL"]
+}).refine(data => {
+  if (data.AUTH_ENABLED && !data.CLERK_SECRET_KEY) return false;
+  return true;
+}, {
+  message: "CLERK_SECRET_KEY is required when AUTH_ENABLED is true",
+  path: ["CLERK_SECRET_KEY"]
 });
 
 const env = envSchema.parse(process.env);

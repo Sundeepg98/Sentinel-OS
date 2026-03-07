@@ -85,9 +85,13 @@ export async function fetchWithAuth(url: string, getToken: () => Promise<string 
 
 export async function reportError(error: Error, componentStack?: string) {
   try {
+    const correlationId = crypto.randomUUID(); // New ID for the reporting request itself
     await fetch('/api/v1/admin/error-logs', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Correlation-ID': correlationId
+      },
       body: JSON.stringify({
         message: error.message,
         stack: error.stack,

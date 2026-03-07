@@ -204,6 +204,9 @@ router.get('/ui-logs', validateQuery(schemas.paginationSchema), asyncHandler(asy
  *     summary: Export the physical SQLite database (Local only)
  */
 router.get('/export-db', adminRateLimiter, asyncHandler(async (req, res) => {
+  if (isPostgres) {
+    throw new AppError("Database export is only available for local SQLite instances. Please use cloud-native backup tools for Managed Postgres.", 400);
+  }
   const dbPath = path.join(__dirname, '..', 'sentinel.db');
   res.download(dbPath, `sentinel-backup-${new Date().toISOString().split('T')[0]}.db`);
 }));

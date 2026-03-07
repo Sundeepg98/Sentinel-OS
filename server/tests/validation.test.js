@@ -1,4 +1,5 @@
 const { validateBody } = require('../lib/validation');
+const { ValidationError } = require('../lib/errors');
 const { z } = require('zod');
 
 describe('Validation Middleware', () => {
@@ -20,20 +21,16 @@ describe('Validation Middleware', () => {
     const middleware = validateBody(schema);
     middleware(req, res, next);
 
-    expect(next).toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith();
     expect(res.error).not.toHaveBeenCalled();
   });
 
-  test('should return 400 if body is invalid', () => {
+  test('should call next(ValidationError) if body is invalid', () => {
     req.body = { foo: 'sh' }; // Too short
     const middleware = validateBody(schema);
     middleware(req, res, next);
 
-    expect(res.error).toHaveBeenCalledWith(
-      "Invalid Request Payload",
-      400,
-      expect.anything()
-    );
-    expect(next).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(expect.any(ValidationError));
+    expect(res.error).not.toHaveBeenCalled();
   });
 });

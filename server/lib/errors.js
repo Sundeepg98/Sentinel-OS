@@ -12,7 +12,7 @@ class AppError extends Error {
 
 class ValidationError extends AppError {
   constructor(details) {
-    super('Validation failed', 400, details);
+    super('Request validation failed. Please check your payload.', 400, details);
   }
 }
 
