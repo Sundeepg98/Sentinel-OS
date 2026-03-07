@@ -24,7 +24,10 @@ function spawnRAGWorker() {
 
       const newIndex = new Index({ preset: 'score', tokenize: 'forward' });
       Object.entries(globalState.knowledgeGraph.files).forEach(([id, file]) => {
-        newIndex.add(id, file.content);
+        // 🛡️ STAFF BASIC: Flexsearch requires strings. Safely handle structured data.
+        const searchContent =
+          typeof file.content === 'string' ? file.content : JSON.stringify(file.content);
+        newIndex.add(id, searchContent);
       });
       globalState.searchIndex = newIndex;
       globalState.isSyncing = false;

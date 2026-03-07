@@ -26,7 +26,10 @@ window.addEventListener('error', (event) => {
 });
 
 window.addEventListener('unhandledrejection', (event) => {
-  reportError(new Error(`Unhandled Promise Rejection: ${event.reason}`));
+  reportError(
+    event.reason instanceof Error ? event.reason : new Error(String(event.reason)),
+    'UNHANDLED_PROMISE_REJECTION'
+  );
 });
 
 const queryClient = new QueryClient({

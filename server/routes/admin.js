@@ -7,6 +7,7 @@ const { INTELLIGENCE_DIR } = require('../lib/harvester');
 const { validateParams, validateQuery, schemas } = require('../lib/validation');
 const { AppError, asyncHandler } = require('../lib/errors');
 
+const config = require('../lib/config');
 const router = express.Router();
 
 // 🛡️ STAFF BASIC: Admin Authorization Layer
@@ -19,7 +20,7 @@ const adminOnly = (req, res, next) => {
 const rateLimit = require('express-rate-limit');
 const adminRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50,
+  max: config.API.RATE_LIMIT.ADMIN_MAX,
   keyGenerator: (req) => req.userId || req.ip,
   message: { error: 'Administrative actions are rate-limited. Please slow down.' },
   standardHeaders: true,

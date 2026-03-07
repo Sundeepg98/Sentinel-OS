@@ -4,7 +4,12 @@ describe('API Response Standards', () => {
   let req, res, next;
 
   beforeEach(() => {
-    req = { id: 'test-id' };
+    req = {
+      id: 'test-id',
+      headers: {},
+      query: {},
+      log: { info: jest.fn() },
+    };
     res = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis(),

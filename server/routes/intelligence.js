@@ -14,12 +14,13 @@ const {
   GEMINI_API_KEY,
 } = require('../lib/intelligence');
 
+const config = require('../lib/config');
 const router = express.Router();
 
 const rateLimit = require('express-rate-limit');
 const aiRateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 15,
+  max: config.API.RATE_LIMIT.AI_MAX,
   keyGenerator: (req) => req.userId || req.ip,
   message: {
     error: 'AI Intelligence Engine is cooling down for your account. Please wait 60 seconds.',

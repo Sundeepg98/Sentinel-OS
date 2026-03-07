@@ -55,6 +55,8 @@ const envSchema = z
       .optional()
       .transform((v) => v === 'true'),
     DATABASE_URL: z.string().optional(),
+    LOG_LEVEL: z.string().default('info'),
+    ALLOWED_ORIGINS: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -261,7 +263,16 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORE ROUTES
+/**
+ * @openapi
+ * /companies:
+ *   get:
+ *     tags: [Intelligence Engine]
+ *     summary: Retrieve list of all available companies
+ *     responses:
+ *       200:
+ *         description: Success
+ */
 v1Router.get(
   '/companies',
   asyncHandler(async (req, res) => {
@@ -283,6 +294,24 @@ v1Router.get(
   })
 );
 
+/**
+ * @openapi
+ * /dossier/{id}:
+ *   get:
+ *     tags: [Intelligence Engine]
+ *     summary: Retrieve complete dossier for a specific company
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ *       404:
+ *         description: Dossier Not Found
+ */
 v1Router.get(
   '/dossier/:id',
   validateParams(schemas.pathParamsSchema),

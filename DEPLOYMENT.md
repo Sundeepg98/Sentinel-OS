@@ -19,7 +19,7 @@ Render is the most reliable free tier for full-stack Node.js applications that r
 
 5.  **Environment Variables:**
     *   Click the **"Advanced"** tab.
-    *   Add `GEMINI_API_KEY`: `AIzaSyD-RPb_Ym57U_tQpO1GkEMpm1QACOrI_4s`
+    *   Add `GEMINI_API_KEY`: `(Your API Key from Google AI Studio)`
     *   Add `PORT`: `10000` (Render's default).
 
 6.  Click **"Create Web Service"**.
