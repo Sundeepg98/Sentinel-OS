@@ -7,15 +7,17 @@ import type { CompanyListItem } from '@/lib/context';
 
 export function useDossier() {
   const { getToken } = useAuth();
-  
+
   // 1. Get active company from URL directly (Single Source of Truth)
-  const [searchParams, setSearchParams] = useState(() => new URLSearchParams(window.location.search));
+  const [searchParams, setSearchParams] = useState(
+    () => new URLSearchParams(window.location.search)
+  );
 
   // Listen for browser navigation (back/forward)
   useEffect(() => {
     const handlePopState = () => setSearchParams(new URLSearchParams(window.location.search));
     window.addEventListener('popstate', handlePopState);
-    
+
     // Initial sync if missing (Update URL for consistency without triggering redundant render)
     if (!window.location.search.includes('company=')) {
       const url = new URL(window.location.href);
@@ -31,14 +33,14 @@ export function useDossier() {
   // 3. Discover available companies
   const { data: allCompanies = [] } = useQuery<CompanyListItem[]>({
     queryKey: ['companies'],
-    queryFn: () => fetchWithAuth<CompanyListItem[]>('/api/v1/companies', getToken),
+    queryFn: () => fetchWithAuth<CompanyListItem[]>('/companies', getToken),
     staleTime: 1000 * 60 * 15, // 15 min stale time for company list
   });
 
   // 4. Fetch active dossier
   const { data: dossier = null, isLoading } = useQuery<CompanyDossier | null>({
     queryKey: ['dossier', companyId],
-    queryFn: () => fetchWithAuth<CompanyDossier>(`/api/v1/dossier/${companyId}`, getToken),
+    queryFn: () => fetchWithAuth<CompanyDossier>(`/dossier/${companyId}`, getToken),
     enabled: !!companyId,
     placeholderData: (previousData) => previousData,
     staleTime: 1000 * 60 * 5, // 5 min stale time for static technical dossiers
@@ -58,6 +60,6 @@ export function useDossier() {
     dossier,
     setCompany,
     loading: isLoading,
-    allCompanies
+    allCompanies,
   };
 }

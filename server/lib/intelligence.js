@@ -182,20 +182,29 @@ async function getEmbedding(text) {
   const cacheKey = `emb:${text}`;
   if (aiCache.has(cacheKey)) return aiCache.get(cacheKey);
 
-  try {
-    const budgetedText = truncateToBudget(text, 5000);
-    const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
-    const result = await model.embedContent({
-      content: { parts: [{ text: budgetedText }] },
-      taskType: 'RETRIEVAL_DOCUMENT',
-    });
-    const vector = result.embedding.values;
-    aiCache.set(cacheKey, vector);
-    return vector;
-  } catch (e) {
-    logger.error({ error: e.message }, '🧵 Embedding Error');
-    return new Array(3072).fill(0);
+  let lastError;
+  for (let attempt = 1; attempt <= config.AI.RETRY_ATTEMPTS; attempt++) {
+    try {
+      const budgetedText = truncateToBudget(text, 5000);
+      const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
+      const result = await model.embedContent({
+        content: { parts: [{ text: budgetedText }] },
+        taskType: 'RETRIEVAL_DOCUMENT',
+      });
+      const vector = result.embedding.values;
+      aiCache.set(cacheKey, vector);
+      return vector;
+    } catch (e) {
+      lastError = e;
+      logger.warn({ attempt, error: e.message }, '⚠️ Embedding Generation Attempt Failed');
+      if (attempt < config.AI.RETRY_ATTEMPTS) {
+        await new Promise((res) => setTimeout(res, config.AI.RETRY_DELAY_MS * attempt));
+      }
+    }
   }
+
+  logger.error({ error: lastError.message }, '🧵 Final Embedding Error');
+  return new Array(3072).fill(0);
 }
 
 module.exports = {

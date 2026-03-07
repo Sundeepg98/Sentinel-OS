@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fetchWithAuth } from './api';
+import { API_BASE } from './env';
 
 describe('fetchWithAuth utility', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
     vi.stubGlobal('crypto', {
-      randomUUID: () => 'test-uuid'
+      randomUUID: () => 'test-uuid',
     });
   });
 
@@ -13,14 +14,16 @@ describe('fetchWithAuth utility', () => {
     const mockFetch = vi.mocked(fetch);
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ status: 'success', data: { ok: true } })
+      json: async () => ({ status: 'success', data: { ok: true } }),
     } as Response);
 
-    await fetchWithAuth('/test', async () => 'token');
+    await fetchWithAuth('test', async () => 'token');
 
     const lastCall = mockFetch.mock.calls[0];
+    const url = lastCall[0] as string;
     const headers = lastCall[1]?.headers as Headers;
-    
+
+    expect(url).toBe(`${API_BASE}/test`);
     expect(headers.get('X-Correlation-ID')).toBe('test-uuid');
     expect(headers.get('x-sentinel-bypass')).toBe('sentinel_staff_2026');
   });
@@ -29,10 +32,10 @@ describe('fetchWithAuth utility', () => {
     const mockFetch = vi.mocked(fetch);
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ status: 'success', data: { result: 'val' } })
+      json: async () => ({ status: 'success', data: { result: 'val' } }),
     } as Response);
 
-    const result = await fetchWithAuth('/test', async () => 'token');
+    const result = await fetchWithAuth('test', async () => 'token');
     expect(result).toEqual({ result: 'val' });
   });
 
@@ -41,10 +44,9 @@ describe('fetchWithAuth utility', () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 400,
-      json: async () => ({ status: 'fail', error: { message: 'Invalid ID' } })
+      json: async () => ({ status: 'fail', error: { message: 'Invalid ID' } }),
     } as Response);
 
-    await expect(fetchWithAuth('/test', async () => 'token'))
-      .rejects.toThrow('Invalid ID');
+    await expect(fetchWithAuth('test', async () => 'token')).rejects.toThrow('Invalid ID');
   });
 });

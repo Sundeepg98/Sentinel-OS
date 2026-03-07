@@ -38,7 +38,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
     queryKey: ['insights', fullId],
     queryFn: () =>
       fetchWithAuth<InsightData>(
-        `/api/v1/intelligence/insights?fileId=${encodeURIComponent(fullId)}`,
+        `/intelligence/insights?fileId=${encodeURIComponent(fullId)}`,
         getToken
       ),
     enabled: !!fullId,
@@ -47,7 +47,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
 
   const generateDrill = useMutation({
     mutationFn: () =>
-      fetchWithAuth<Drill>('/api/v1/intelligence/drill', getToken, {
+      fetchWithAuth<Drill>('/intelligence/drill', getToken, {
         method: 'POST',
         body: JSON.stringify({ fileId: fullId }),
       }),
@@ -59,7 +59,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   const evaluateDrill = useMutation({
     mutationFn: () => {
       if (!drill) throw new Error('No drill active');
-      return fetchWithAuth<EvaluationData>('/api/v1/intelligence/evaluate', getToken, {
+      return fetchWithAuth<EvaluationData>('/intelligence/evaluate', getToken, {
         method: 'POST',
         body: JSON.stringify({
           fileId: fullId,
@@ -77,7 +77,7 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
     onError: () => showToast('Evaluation failed', 'error'),
   });
 
-  // 🚀 INTERACTIVE KEYWORDS: Trigger global search on click
+  // ðŸš€ INTERACTIVE KEYWORDS: Trigger global search on click
   const handleKeywordClick = (keyword: string) => {
     window.dispatchEvent(
       new CustomEvent('trigger-search', {

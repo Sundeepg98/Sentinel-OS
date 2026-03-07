@@ -17,13 +17,13 @@ export function usePersistentState<T>(key: string, initialValue: T) {
     }
   });
 
-  // ☁️ CLOUD SYNC: Load from backend on mount
+  // â˜ï¸ CLOUD SYNC: Load from backend on mount
   useEffect(() => {
     const syncFromCloud = async () => {
       try {
-        const data = await fetchWithAuth<{ value: T }>(`/api/v1/state/${key}`, getToken);
+        const data = await fetchWithAuth<{ value: T }>(`/state/${key}`, getToken);
         if (data && data.value !== null && data.value !== undefined) {
-          skipNextSave.current = true; // 🛡️ STAFF BASIC: Avoid echoing the sync back to the cloud
+          skipNextSave.current = true; // ðŸ›¡ï¸ STAFF BASIC: Avoid echoing the sync back to the cloud
           setStoredValue(data.value);
           window.localStorage.setItem(key, JSON.stringify(data.value));
         }
@@ -35,7 +35,7 @@ export function usePersistentState<T>(key: string, initialValue: T) {
     syncFromCloud();
   }, [key, getToken]);
 
-  // 💾 PERSISTENCE: Save to local and cloud on change
+  // ðŸ’¾ PERSISTENCE: Save to local and cloud on change
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -52,7 +52,7 @@ export function usePersistentState<T>(key: string, initialValue: T) {
 
       const timeoutId = setTimeout(async () => {
         try {
-          await fetchWithAuth(`/api/v1/state/${key}`, getToken, {
+          await fetchWithAuth(`/state/${key}`, getToken, {
             method: 'POST',
             body: JSON.stringify({ value: storedValue }),
           });

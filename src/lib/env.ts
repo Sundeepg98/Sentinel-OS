@@ -18,7 +18,15 @@ const frontendEnvSchema = z.object({
   VITE_DEV_BYPASS_TOKEN: z.string().optional().default('sentinel_staff_2026'),
 });
 
-export const validateFrontendEnv = () => {
+interface FrontendEnv {
+  VITE_CLERK_PUBLISHABLE_KEY: string;
+  VITE_AUTH_ENABLED: boolean;
+  VITE_API_URL: string;
+  VITE_DEV_BYPASS_TOKEN: string;
+  error?: string;
+}
+
+export const validateFrontendEnv = (): FrontendEnv => {
   try {
     return frontendEnvSchema.parse(import.meta.env);
   } catch (err) {
@@ -43,5 +51,7 @@ export const validateFrontendEnv = () => {
   }
 };
 
-export const APP_VERSION = '2.8.0';
 export const env = validateFrontendEnv();
+export const APP_VERSION = '2.8.0';
+export const API_VERSION = 'v1';
+export const API_BASE = `${env.VITE_API_URL}/api/${API_VERSION}`;

@@ -51,6 +51,22 @@ function AppContent() {
   const dossierData = useDossierContext(); // 🛡️ STAFF BASIC: Consume from Context instead of re-calling hook
   const queryClient = useQueryClient();
 
+  // 🛡️ STAFF BASIC: Centralized View Navigation
+  const navigateToView = useCallback(
+    (view: 'arena' | 'warroom' | 'diagnostics' | 'dossier', moduleId?: string) => {
+      setArenaMode(view === 'arena');
+      setWarRoomMode(view === 'warroom');
+      setDiagnosticsMode(view === 'diagnostics');
+      if (moduleId) {
+        setActiveModuleId(moduleId);
+      }
+      if (window.innerWidth < 768) {
+        setSidebarOpen(false);
+      }
+    },
+    [setArenaMode]
+  );
+
   // Optimized derived state
   const activeModule = useMemo(
     () =>
@@ -60,13 +76,6 @@ function AppContent() {
   );
 
   const diagnosticsActive = isDiagnosticsOpen || !activeModule;
-
-  // Handle cross-context navigation
-  const resetViews = useCallback(() => {
-    setArenaMode(false);
-    setWarRoomMode(false);
-    setDiagnosticsMode(false);
-  }, [setArenaMode]);
 
   const renderActiveView = () => {
     if (!activeModule) return null;
@@ -131,22 +140,11 @@ function AppContent() {
         isOpen={isSidebarOpen}
         onClose={() => setSidebarOpen(false)}
         activeModuleId={activeModuleId}
-        setActiveModuleId={(id) => {
-          setActiveModuleId(id);
-          resetViews();
-        }}
+        setActiveModuleId={(id) => navigateToView('dossier', id)}
         diagnosticsActive={diagnosticsActive}
-        onDiagnosticsClick={() => {
-          setDiagnosticsMode(true);
-          setArenaMode(false);
-          setWarRoomMode(false);
-        }}
+        onDiagnosticsClick={() => navigateToView('diagnostics')}
         warRoomActive={isWarRoomOpen}
-        onWarRoomClick={() => {
-          setWarRoomMode(true);
-          setArenaMode(false);
-          setDiagnosticsMode(false);
-        }}
+        onWarRoomClick={() => navigateToView('warroom')}
       />
 
       <main className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
@@ -177,7 +175,7 @@ function AppContent() {
               value={dossierData.companyId}
               onChange={(e) => {
                 dossierData.setCompany(e.target.value);
-                resetViews();
+                navigateToView('dossier');
               }}
               aria-label="Select technical context profile"
               className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-medium text-neutral-300 outline-none focus:border-white/20 transition-all uppercase tracking-widest cursor-pointer max-w-[120px] md:max-w-none"
@@ -204,11 +202,7 @@ function AppContent() {
             </button>
 
             <button
-              onClick={() => {
-                setArenaMode(!isArenaOpen);
-                setWarRoomMode(false);
-                setDiagnosticsMode(false);
-              }}
+              onClick={() => navigateToView(isArenaOpen ? 'dossier' : 'arena')}
               data-testid="arena-toggle"
               className={cn(
                 'flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border',
@@ -230,11 +224,7 @@ function AppContent() {
             </button>
 
             <button
-              onClick={() => {
-                setWarRoomMode(!isWarRoomOpen);
-                setArenaMode(false);
-                setDiagnosticsMode(false);
-              }}
+              onClick={() => navigateToView(isWarRoomOpen ? 'dossier' : 'warroom')}
               className={cn(
                 'flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border',
                 isWarRoomOpen
@@ -247,12 +237,7 @@ function AppContent() {
           </div>
 
           <div className="flex items-center gap-4 ml-auto">
-            <DeepSearch
-              onSelect={(id) => {
-                setActiveModuleId(id);
-                resetViews();
-              }}
-            />
+            <DeepSearch onSelect={(id) => navigateToView('dossier', id)} />
             <div className="hidden md:block">
               <UserButton afterSignOutUrl="/" />
             </div>
@@ -322,7 +307,7 @@ function AppContent() {
               onSelectModule={(id) => {
                 setActiveModuleId(id);
                 setIsGraphOpen(false);
-                resetViews();
+                navigateToView('dossier', id);
               }}
             />
           </ErrorBoundary>

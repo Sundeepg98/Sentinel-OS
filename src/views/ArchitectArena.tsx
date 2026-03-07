@@ -78,7 +78,7 @@ export const ArchitectArena: React.FC = () => {
   // 1. Fetch All Modules for filtering
   const { data: allModules = [] } = useQuery<ArenaModule[]>({
     queryKey: ['arena-discovery'],
-    queryFn: () => fetchWithAuth<ArenaModule[]>('/api/v1/intelligence/search?q=*', getToken),
+    queryFn: () => fetchWithAuth<ArenaModule[]>('intelligence/search?q=*', getToken),
     enabled: arenaIds.length > 0,
   });
 
@@ -93,7 +93,7 @@ export const ArchitectArena: React.FC = () => {
     mutationFn: async () => {
       // 1. SEMANTIC CROSS-POLLINATION
       const semanticContext = await fetchWithAuth<SemanticResult[]>(
-        '/api/v1/intelligence/semantic-search',
+        'intelligence/semantic-search',
         getToken,
         {
           method: 'POST',
@@ -106,7 +106,7 @@ export const ArchitectArena: React.FC = () => {
       const crossDossierContext = semanticContext.map((c) => c.chunk_text).join('\n\n---\n\n');
 
       // 2. GENERATE DRILL
-      return fetchWithAuth<Drill>('/api/v1/intelligence/drill', getToken, {
+      return fetchWithAuth<Drill>('intelligence/drill', getToken, {
         method: 'POST',
         body: JSON.stringify({
           fileId: arenaIds[0],
@@ -127,7 +127,7 @@ export const ArchitectArena: React.FC = () => {
   const evalMutation = useMutation({
     mutationFn: () => {
       if (!drill) throw new Error('No drill active');
-      return fetchWithAuth<EvaluationData>('/api/v1/intelligence/evaluate', getToken, {
+      return fetchWithAuth<EvaluationData>('intelligence/evaluate', getToken, {
         method: 'POST',
         body: JSON.stringify({
           fileId: arenaIds[0],

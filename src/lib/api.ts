@@ -3,7 +3,7 @@
  * Handles JWT injection, correlation IDs, error normalization, and resilience.
  */
 
-import { env, APP_VERSION } from './env';
+import { env, APP_VERSION, API_BASE } from './env';
 
 export async function fetchWithAuth<T = unknown>(
   url: string,
@@ -12,6 +12,11 @@ export async function fetchWithAuth<T = unknown>(
 ): Promise<T> {
   const AUTH_ENABLED = env.VITE_AUTH_ENABLED;
   const correlationId = crypto.randomUUID();
+
+  // 🛡️ STAFF BASIC: Normalize URL by prepending API_BASE if needed
+  const fullUrl = url.startsWith('http')
+    ? url
+    : `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
 
   const headers = new Headers(options.headers);
   headers.set('X-Correlation-ID', correlationId);
@@ -40,7 +45,7 @@ export async function fetchWithAuth<T = unknown>(
 
   const performFetch = async (attempt = 1): Promise<T> => {
     try {
-      const response = await fetch(url, {
+      const response = await fetch(fullUrl, {
         ...options,
         headers,
         signal: controller.signal,
@@ -119,7 +124,7 @@ export async function reportError(error: Error, componentStack?: string) {
 
   try {
     const correlationId = crypto.randomUUID();
-    await fetch('/api/v1/admin/error-logs', {
+    await fetch(`${API_BASE}/admin/error-logs`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

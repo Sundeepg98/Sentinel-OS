@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { WifiOff, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE } from '@/lib/env';
 
 interface StatusBannerProps {
   online?: boolean;
@@ -40,7 +41,7 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({ online, syncing, onS
     let backoffDelay = 1000; // Start with 1s
 
     const connect = () => {
-      const eventSource = new EventSource('/api/v1/intelligence/stream');
+      const eventSource = new EventSource(`${API_BASE}/intelligence/stream`);
 
       eventSource.onopen = () => {
         setInternalOnline(true);

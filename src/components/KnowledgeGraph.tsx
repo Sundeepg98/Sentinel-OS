@@ -50,7 +50,7 @@ interface IncidentAdvisory {
 }
 
 /**
- * 🛰️ ARCHITECTURAL NERVOUS SYSTEM (Knowledge Graph)
+ * ðŸ›°ï¸ ARCHITECTURAL NERVOUS SYSTEM (Knowledge Graph)
  * Cinematic 3D visualization featuring the Phase 4 Neural Impact Simulator.
  * Uses recursive BFS traversal and inverse particle physics to simulate cascading outages.
  */
@@ -83,14 +83,10 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   // --- AI ADVISORY HOOK (Gemini 2.5) ---
   const generateImpactAdvisory = useMutation({
     mutationFn: async (moduleIds: string[]) => {
-      const data = await fetchWithAuth<IncidentAdvisory>(
-        '/api/v1/intelligence/incident',
-        getToken,
-        {
-          method: 'POST',
-          body: JSON.stringify({ moduleIds }),
-        }
-      );
+      const data = await fetchWithAuth<IncidentAdvisory>('/intelligence/incident', getToken, {
+        method: 'POST',
+        body: JSON.stringify({ moduleIds }),
+      });
       return data;
     },
     onSuccess: (data) => {
@@ -109,7 +105,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      fetchWithAuth<GraphData>('/api/v1/intelligence/graph', getToken)
+      fetchWithAuth<GraphData>('/intelligence/graph', getToken)
         .then((data) => {
           const nodesById = Object.fromEntries(
             data.nodes.map((n: GraphNode) => [
@@ -220,7 +216,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       return () => {
         cancelAnimationFrame(animationFrameId);
 
-        // --- 🛡️ RESOURCE DISPOSAL ---
+        // --- ðŸ›¡ï¸ RESOURCE DISPOSAL ---
         composer.dispose();
         smaaEffect.dispose();
         bloomEffect.dispose();
@@ -301,7 +297,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
 
   const nodeThreeObject = useCallback(
     (node: GraphNode) => {
-      // 🛡️ STAFF BASIC: Object Reuse & Memoization
+      // ðŸ›¡ï¸ STAFF BASIC: Object Reuse & Memoization
       // We check if the node already has an assigned object to avoid expensive recreation
       const cachedObj = (node as unknown as Record<string, THREE.Group>).__threeObj;
       if (cachedObj && !isSimActive && highlightNodes.size === 0) {

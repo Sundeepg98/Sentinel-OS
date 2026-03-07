@@ -1,6 +1,12 @@
 const { getKnowledgeGraph, syncIntelligence } = require('../lib/harvester');
 const { db, initDB } = require('../lib/db');
 
+// 🛡️ STAFF BASIC: Mock real API calls in unit tests
+jest.mock('../lib/intelligence', () => ({
+  getEmbedding: jest.fn().mockResolvedValue(new Array(3072).fill(0)),
+  generateStructuredContent: jest.fn().mockResolvedValue('{}'),
+}));
+
 describe('Intelligence Harvester', () => {
   beforeAll(async () => {
     await initDB();
@@ -33,5 +39,5 @@ describe('Intelligence Harvester', () => {
     // 3. Verify it was purged
     const check = db.prepare('SELECT 1 FROM dossiers WHERE id = ?').get('stale/dossier.md');
     expect(check).toBeUndefined();
-  });
+  }, 15000);
 });

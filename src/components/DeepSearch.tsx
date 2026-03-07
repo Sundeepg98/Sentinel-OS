@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Search, X, Command, SearchCode, Brain } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
@@ -74,31 +74,31 @@ const DeepSearchComponent: React.FC<DeepSearchProps> = ({ onSelect }) => {
 
       if (searchMode === 'keyword') {
         return fetchWithAuth<SearchResult[]>(
-          `/api/v1/intelligence/search?q=${encodeURIComponent(debouncedQuery)}`,
+          `intelligence/search?q=${encodeURIComponent(debouncedQuery)}`,
           getToken,
           { signal }
         );
       } else {
-        const rawData = await fetchWithAuth<SemanticSearchResult[]>(
-          '/api/v1/intelligence/semantic-search',
-          getToken,
-          {
-            method: 'POST',
-            body: JSON.stringify({ q: debouncedQuery, limit: 10 }),
-            signal,
-          }
-        );
-        return rawData.map((item: SemanticSearchResult) => ({
-          id: item.file_id,
-          label: item.file_id.split('/').pop()?.replace('.md', '') || 'Module',
-          company: item.file_id.split('/')[0],
-          snippet: item.chunk_text,
-        }));
+        return fetchWithAuth<SearchResult[]>('intelligence/semantic-search', getToken, {
+          method: 'POST',
+          body: JSON.stringify({ q: debouncedQuery, limit: 10 }),
+          signal,
+        });
       }
     },
     enabled: debouncedQuery.length >= 2,
     placeholderData: (previousData) => previousData,
   });
+
+  const mappedResults = useMemo(() => {
+    if (searchMode === 'keyword') return results;
+    return (results as unknown as SemanticSearchResult[]).map((item) => ({
+      id: item.file_id,
+      label: item.file_id.split('/').pop()?.replace('.md', '') || 'Module',
+      company: item.file_id.split('/')[0],
+      snippet: item.chunk_text,
+    }));
+  }, [results, searchMode]);
 
   const handleSelect = (res: SearchResult) => {
     const [companyId, fileName] = res.id.split('/');
@@ -210,9 +210,9 @@ const DeepSearchComponent: React.FC<DeepSearchProps> = ({ onSelect }) => {
                         'An unexpected error occurred while communicating with the intelligence backend.'}
                     </p>
                   </div>
-                ) : results.length > 0 ? (
+                ) : mappedResults.length > 0 ? (
                   <div className="space-y-1">
-                    {results.map((res, i) => (
+                    {mappedResults.map((res: SearchResult, i: number) => (
                       <button
                         key={i}
                         onClick={() => handleSelect(res)}

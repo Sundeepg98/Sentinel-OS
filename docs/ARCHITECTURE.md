@@ -28,7 +28,11 @@ Sentinel-OS is a high-stakes technical intelligence command center designed for 
 - **Hardening**:
   - **Network**: Strict CORS, CSP, HPP, and 1MB Payload limiting.
   - **API**: Full Zod schema validation for Body, Query, and Path parameters.
-  - **Resilience**: AI Engine Circuit Breaker + Layer 2 LRU Cache for response memoization.
+  - **Resilience**: 
+    - **AI Engine**: Circuit Breaker + Layer 2 LRU Cache for response memoization.
+    - **Self-Healing**: Automated RAG worker recovery with heartbeat monitoring.
+    - **Idempotency**: Correlation ID-based request caching for mutating operations.
+- **Tuning**: Centralized `server/lib/config.js` manages all architectural constants (timeouts, retry policies, cache sizes).
 
 ## 🛰️ Network Topology
 - **Handshake**: Full-stack traceability via `X-Correlation-ID` handshake.
