@@ -12,16 +12,28 @@ interface StatusBannerProps {
  * Notifies the user of backend connectivity status in real-time.
  */
 export const StatusBanner: React.FC<StatusBannerProps> = ({ online, syncing }) => {
-  const [internalOnline, setInternalOnline] = useState(true);
+  const [internalOnline, setInternalOnline] = useState(navigator.onLine);
   const [internalSyncing, setInternalSyncing] = useState(false);
 
-  // Use props if provided, otherwise fallback to internal SSE state
+  // Use props if provided, otherwise fallback to internal state
   const isOnline = online !== undefined ? online : internalOnline;
   const isSyncing = syncing !== undefined ? syncing : internalSyncing;
 
   useEffect(() => {
+    // 🌐 BROWSER CONNECTIVITY DETECTION
+    const handleOnline = () => setInternalOnline(true);
+    const handleOffline = () => setInternalOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
     // Only connect to SSE if props are NOT provided (Standard runtime mode)
-    if (online !== undefined || syncing !== undefined) return;
+    if (online !== undefined || syncing !== undefined) {
+      return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      };
+    }
 
     const eventSource = new EventSource('/api/v1/intelligence/stream');
     

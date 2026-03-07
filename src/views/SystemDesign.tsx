@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useDossierContext } from '../lib/context';
 import { cn } from '../lib/utils';
 
-interface DesignPattern {
+export interface DesignPattern {
   id: string;
   title: string;
   tech: string;

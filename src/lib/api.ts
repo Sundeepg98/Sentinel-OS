@@ -28,31 +28,52 @@ export async function fetchWithAuth(url: string, getToken: () => Promise<string 
     headers.set('Content-Type', 'application/json');
   }
 
-  // --- 🛡️ ENGINEERING BASIC: REQUEST TIMEOUT ---
+  // --- 🛡️ ENGINEERING BASIC: REQUEST TIMEOUT & SIGNAL COMPOSITION ---
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s Timeout
 
+  // If the caller provided a signal, link it to our controller
+  if (options.signal) {
+    options.signal.addEventListener('abort', () => controller.abort());
+  }
+
+  const performFetch = async (attempt = 1): Promise<any> => {
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData?.error?.message || errorData.error || `HTTP Error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      // Unwrap the standardized API envelope if present
+      if (result && result.status === 'success' && 'data' in result) {
+        return result.data;
+      }
+      
+      return result;
+    } catch (err: any) {
+      // 🔄 ENGINEERING BASIC: RETRY LOGIC (GET only, max 2 retries)
+      if (options.method === 'GET' || !options.method) {
+        if (attempt < 3 && (err.name === 'TypeError' || err.message.includes('Failed to fetch'))) {
+          await new Promise(res => setTimeout(res, 1000 * attempt));
+          return performFetch(attempt + 1);
+        }
+      }
+      throw err;
+    }
+  };
+
   try {
-    const response = await fetch(url, {
-      ...options,
-      headers,
-      signal: controller.signal
-    });
+    const data = await performFetch();
     clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData?.error?.message || errorData.error || `HTTP Error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    
-    // Unwrap the standardized API envelope if present
-    if (result && result.status === 'success' && 'data' in result) {
-      return result.data;
-    }
-    
-    return result;
+    return data;
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {

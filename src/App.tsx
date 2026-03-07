@@ -1,18 +1,19 @@
-import { useState, useEffect, Suspense, lazy, useCallback, useMemo } from 'react';
-import { useQueryClient, useQuery } from '@tanstack/react-query';
-import { SignedIn, SignedOut, SignIn, UserButton, useAuth } from '@clerk/clerk-react';
+import { useState, Suspense, lazy, useCallback, useMemo } from 'react';
+import { SignedIn, SignedOut, SignIn, UserButton } from '@clerk/clerk-react';
 import { Sidebar } from '@/components/Sidebar';
 import { InsightPanel } from '@/components/InsightPanel';
 import { DeepSearch } from '@/components/DeepSearch';
 import { useDossier } from '@/hooks/useDossier';
-import { Loader2, AlertCircle, Network, Swords, Terminal } from 'lucide-react';
+import { Loader2, Network, Swords, Terminal } from 'lucide-react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { ToastProvider } from '@/hooks/useToast';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { StatusBanner } from '@/components/ui/StatusBanner';
 import { cn } from '@/lib/utils';
-import { AnimatePresence } from 'framer-motion';
-import { DossierContext, useDossierContext } from '@/lib/context';
+import { DossierContext } from '@/lib/context';
+import { env } from '@/lib/env';
+import type { DashboardData, Task } from '@/types';
+import type { DesignPattern } from '@/views/SystemDesign';
+import type { PlaybookItem } from '@/views/Internals';
 
 // --- ⚡ ENGINEERING BASIC: BUNDLE OPTIMIZATION (CODE SPLITTING) ---
 const Dashboard = lazy(() => import('@/views/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -29,57 +30,24 @@ const KnowledgeGraph = lazy(() =>
   import('@/components/KnowledgeGraph').then((module) => ({ default: module.KnowledgeGraph }))
 ) as React.FC<{ isOpen: boolean; onClose: () => void; onSelectModule: (id: string) => void }>;
 
-interface Stats {
-  isSyncing: boolean;
-  totalChunks: number;
-  interactions: number;
-}
-
-const MainView = () => {
-  const dossierData = useDossierContext();
-  const [activeModuleId, setActiveModuleId] = useState<string>('');
+function AppContent() {
+  const [activeModuleId, setActiveModuleId] = useState('00_master_analysis');
   const [isGraphOpen, setIsGraphOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [arenaMode, setArenaMode] = useLocalStorage('arena_mode_active', false);
-  const [warRoomMode, setWarRoomMode] = useState(false);
-  const [diagnosticsMode, setDiagnosticsMode] = useState(false);
-  const [pinnedIds] = useLocalStorage<string[]>('architect_arena_selection', []);
+  const [isArenaOpen, setArenaMode] = useLocalStorage('architect_arena_mode', false);
+  const [isWarRoomOpen, setWarRoomMode] = useState(false);
+  const [isDiagnosticsOpen, setDiagnosticsMode] = useState(false);
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const dossierData = useDossier();
 
-  const { data: stats } = useQuery<Stats>({
-    queryKey: ['sync-status'],
-    queryFn: async () => {
-      const res = await fetch('/api/v1/intelligence/stats');
-      return res.json();
-    },
-    refetchInterval: 10000,
-  });
+  // Optimized derived state
+  const activeModule = useMemo(() => 
+    dossierData.dossier?.modules.find(m => m.id === activeModuleId) || dossierData.dossier?.modules[0],
+    [dossierData.dossier, activeModuleId]
+  );
 
-  const queryClient = useQueryClient();
+  const diagnosticsActive = isDiagnosticsOpen || !activeModule;
 
-  useEffect(() => {
-    const eventSource = new EventSource('/api/v1/intelligence/stream');
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'SYNC_COMPLETE') {
-          queryClient.invalidateQueries({ queryKey: ['companies'] });
-          queryClient.invalidateQueries({ queryKey: ['dossier'] });
-          queryClient.invalidateQueries({ queryKey: ['insights'] });
-          queryClient.invalidateQueries({ queryKey: ['graph'] });
-          queryClient.invalidateQueries({ queryKey: ['sync-status'] });
-        }
-      } catch {
-        // SSE Parse Error ignored
-      }
-    };
-    return () => eventSource.close();
-  }, [queryClient]);
-
-  const activeModule = useMemo(() => {
-    if (!dossierData.dossier?.modules) return null;
-    return dossierData.dossier.modules.find((m) => m.id === activeModuleId) || dossierData.dossier.modules[0];
-  }, [dossierData.dossier, activeModuleId]);
-
+  // Handle cross-context navigation
   const resetViews = useCallback(() => {
     setArenaMode(false);
     setWarRoomMode(false);
@@ -92,11 +60,11 @@ const MainView = () => {
       <Suspense fallback={<div className="flex-1 flex items-center justify-center h-full"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin" /></div>}>
         {(() => {
           switch (activeModule.type) {
-            case 'grid': return <Dashboard data={activeModule.data} label={activeModule.label} />;
-            case 'markdown': return <MarkdownView data={activeModule.data} label={activeModule.label} />;
-            case 'checklist': return <Tracker data={activeModule.data} label={activeModule.label} moduleId={activeModule.id} />;
-            case 'playbook': return <Internals data={activeModule.data} label={activeModule.label} />;
-            case 'map': return <SystemDesign data={activeModule.data} label={activeModule.label} />;
+            case 'grid': return <Dashboard data={activeModule.data as DashboardData} label={activeModule.label} />;
+            case 'markdown': return <MarkdownView data={activeModule.data as string} label={activeModule.label} />;
+            case 'checklist': return <Tracker data={activeModule.data as Task[]} label={activeModule.label} moduleId={activeModule.id} />;
+            case 'playbook': return <Internals data={activeModule.data as PlaybookItem[]} label={activeModule.label} />;
+            case 'map': return <SystemDesign data={activeModule.data as DesignPattern[]} label={activeModule.label} />;
             default: return <MarkdownView data={typeof activeModule.data === 'string' ? activeModule.data : JSON.stringify(activeModule.data)} label={activeModule.label} />;
           }
         })()}
@@ -108,31 +76,26 @@ const MainView = () => {
     <div className="flex h-screen font-sans text-neutral-200 overflow-hidden bg-[#050505] selection:bg-cyan-500/30">
       <Sidebar
         isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        activeModuleId={activeModule?.id || ''}
-        setActiveModuleId={(id: string) => {
-          setActiveModuleId(id);
-          resetViews();
-        }}
-        onDiagnosticsClick={() => {
-          setDiagnosticsMode(true);
-          setArenaMode(false);
-          setWarRoomMode(false);
-        }}
-        diagnosticsActive={diagnosticsMode}
+        onClose={() => setSidebarOpen(false)}
+        activeModuleId={activeModuleId}
+        setActiveModuleId={(id) => { setActiveModuleId(id); resetViews(); }}
+        diagnosticsActive={diagnosticsActive}
+        onDiagnosticsClick={() => { setDiagnosticsMode(true); setArenaMode(false); setWarRoomMode(false); }}
       />
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-16 shrink-0 px-4 md:px-8 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/[0.05] z-30">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setIsSidebarOpen(true)}
-              className="md:hidden p-2 text-neutral-400 hover:text-white transition-colors bg-white/5 rounded-lg border border-white/5"
-              aria-label="Toggle Navigation Menu"
-            >
-              <Terminal size={18} />
-            </button>
+      <main className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
+        {/* MOBILE HEADER */}
+        <header className="md:hidden flex items-center justify-between p-4 border-b border-white/[0.05] bg-[#0a0a0a]/80 backdrop-blur-lg z-30">
+          <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
+            <Network size={20} />
+          </button>
+          <div className="font-bold text-sm tracking-tight text-white">{dossierData.dossier?.name || 'SENTINEL'}_OS</div>
+          <UserButton afterSignOutUrl="/" />
+        </header>
 
+        {/* TOP NAVIGATION & SEARCH */}
+        <div className="p-4 md:p-6 border-b border-white/[0.05] bg-[#080808]/50 flex flex-wrap items-center justify-between gap-4 z-20">
+          <div className="flex items-center gap-3">
             <select
               value={dossierData.companyId}
               onChange={(e) => {
@@ -151,145 +114,105 @@ const MainView = () => {
 
             <button
               onClick={() => setIsGraphOpen(true)}
-              aria-label="Open 3D Knowledge Graph"
-              className="p-2 bg-white/[0.03] border border-white/[0.08] rounded-lg text-neutral-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all shadow-sm hidden sm:block"
-              title="Open Knowledge Graph"
+              className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-lg text-[10px] font-bold text-indigo-400 uppercase tracking-widest transition-all group"
             >
-              <Network size={16} />
+              <Network size={14} className="group-hover:rotate-12 transition-transform" />
+              <span className="hidden sm:inline">Open 3D Knowledge Graph</span>
             </button>
-
-            <div className="h-4 w-px bg-white/10 mx-1 hidden sm:block" />
-
-            {stats?.isSyncing && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-lg animate-pulse">
-                <Loader2 size={12} className="text-cyan-400 animate-spin" />
-                <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
-                  Sync Active
-                </span>
-              </div>
-            )}
 
             <button
-              onClick={() => {
-                setArenaMode(!arenaMode);
-                setWarRoomMode(false);
-                setDiagnosticsMode(false);
-              }}
+              onClick={() => { setArenaMode(!isArenaOpen); setWarRoomMode(false); setDiagnosticsMode(false); }}
               className={cn(
-                'flex items-center gap-2 px-2 md:px-3 py-1.5 rounded-lg text-[9px] md:text-[10px] font-bold uppercase tracking-widest transition-all border shadow-sm',
-                arenaMode
-                  ? 'bg-indigo-500 border-indigo-400 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]'
-                  : 'bg-white/[0.03] border-white/[0.08] text-neutral-400 hover:text-white'
+                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border",
+                isArenaOpen ? "bg-rose-500/10 border-rose-500/30 text-rose-400" : "bg-white/5 border-white/10 text-neutral-400 hover:text-white"
               )}
             >
-              <Swords size={14} className="hidden xs:block" /> {arenaMode ? 'Exit Arena' : 'Arena'} {pinnedIds.length > 0 && `(${pinnedIds.length})`}
+              <Swords size={14} /> Arena
             </button>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-4">
-            <div className="hidden lg:block">
-              <DeepSearch
-                onSelect={(id: string) => {
-                  setActiveModuleId(id);
-                  resetViews();
-                }}
+          <div className="flex items-center gap-4 ml-auto">
+            <DeepSearch onSelect={(id) => { setActiveModuleId(id); resetViews(); }} />
+            <div className="hidden md:block">
+              <UserButton afterSignOutUrl="/" />
+            </div>
+          </div>
+        </div>
+
+        {/* CONTENT LAYOUT */}
+        <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+            {isArenaOpen ? (
+              <Suspense fallback={<div className="flex-1 flex items-center justify-center h-full"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin" /></div>}>
+                <ArchitectArena />
+              </Suspense>
+            ) : isWarRoomOpen ? (
+              <Suspense fallback={<div className="flex-1 flex items-center justify-center h-full"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin" /></div>}>
+                <WarRoom />
+              </Suspense>
+            ) : isDiagnosticsOpen ? (
+              <Suspense fallback={<div className="flex-1 flex items-center justify-center h-full"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin" /></div>}>
+                <Diagnostics />
+              </Suspense>
+            ) : (
+              renderActiveView()
+            )}
+          </div>
+
+          {activeModule && !isArenaOpen && !isWarRoomOpen && !isDiagnosticsOpen && (
+            <div className="hidden xl:block w-80 shrink-0 border-l border-white/[0.05] bg-[#080808]/50 overflow-y-auto">
+              <InsightPanel
+                key={activeModule.fullId || activeModule.id}
+                fullId={activeModule.fullId || ''}
+                brandColor={dossierData.dossier?.brandColor}
               />
             </div>
-            {import.meta.env.VITE_AUTH_ENABLED === 'true' && <UserButton afterSignOutUrl="/" />}
-          </div>
-        </header>
-
-        <div className="flex-1 relative overflow-hidden flex flex-col">
-          <ErrorBoundary>
-            {dossierData.loading && !dossierData.dossier ? (
-              <div className="flex-1 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-              </div>
-            ) : diagnosticsMode ? (
-              <div className="flex-1 overflow-y-auto">
-                <Diagnostics />
-              </div>
-            ) : arenaMode ? (
-              <div className="flex-1 overflow-y-auto p-4 md:p-8 h-full"><ArchitectArena /></div>
-            ) : warRoomMode ? (
-              <div className="flex-1 overflow-hidden p-4 md:p-8 h-full"><WarRoom /></div>
-            ) : !activeModule ? (
-              <div className="flex-1 flex flex-col items-center justify-center opacity-50 p-10 md:p-20 text-center h-full">
-                <AlertCircle className="w-12 md:w-16 h-12 md:h-16 mb-4 text-neutral-600" />
-                <h2 className="text-lg md:text-xl font-bold text-white mb-2">Dossier is Empty</h2>
-                <p className="text-neutral-400 max-w-md text-sm">No technical modules found.</p>
-                <button
-                  onClick={() => setDiagnosticsMode(true)}
-                  className="mt-6 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-bold uppercase tracking-widest transition-colors"
-                >
-                  Open System Control
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-1 overflow-hidden h-full">
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
-                  {renderActiveView()}
-                </div>
-                <div className="hidden xl:block w-80 shrink-0 border-l border-white/[0.05] bg-[#080808]/50 overflow-y-auto">
-                  <InsightPanel
-                    key={activeModule.fullId || activeModule.id}
-                    fullId={activeModule.fullId || ''}
-                    brandColor={dossierData.dossier?.brandColor}
-                  />
-                </div>
-              </div>
-            )}
-          </ErrorBoundary>
+          )}
         </div>
       </main>
-      <AnimatePresence>
+
+      <Suspense fallback={null}>
         {isGraphOpen && (
-          <Suspense fallback={null}>
-            <KnowledgeGraph
-              isOpen={isGraphOpen}
-              onClose={() => setIsGraphOpen(false)}
-              onSelectModule={(id: string) => {
-                setActiveModuleId(id);
-                setIsGraphOpen(false);
-              }}
-            />
-          </Suspense>
+          <KnowledgeGraph 
+            isOpen={isGraphOpen} 
+            onClose={() => setIsGraphOpen(false)} 
+            onSelectModule={(id) => { setActiveModuleId(id); setIsGraphOpen(false); resetViews(); }}
+          />
         )}
-      </AnimatePresence>
+      </Suspense>
+
+      <StatusBanner />
     </div>
   );
-};
+}
 
 function App() {
   const dossierData = useDossier();
-  const { isLoaded } = useAuth();
-
-  const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true';
-  const BYPASS_TOKEN = 'sentinel_staff_2026';
-
-  if (!isLoaded && AUTH_ENABLED) {
-    return (
-      <div className="h-screen w-screen bg-[#050505] flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
-      </div>
-    );
-  }
 
   return (
     <ToastProvider>
-      <StatusBanner />
-      <DossierContext.Provider value={{ ...dossierData }}>
-        {!AUTH_ENABLED || BYPASS_TOKEN ? (
-          <MainView />
+      <DossierContext.Provider value={dossierData}>
+        {!env.VITE_AUTH_ENABLED ? (
+          <AppContent />
         ) : (
           <>
             <SignedIn>
-              <MainView />
+              <AppContent />
             </SignedIn>
             <SignedOut>
-              <div className="h-screen w-screen bg-[#050505] flex items-center justify-center p-4">
-                <div className="bg-[#0d0d0d] border border-white/5 p-1 rounded-2xl shadow-2xl w-full max-w-md">
-                  <SignIn routing="hash" />
+              <div className="h-screen w-full flex items-center justify-center bg-[#050505] p-6 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.05)_0%,transparent_100%)] pointer-events-none" />
+                <div className="z-10 w-full max-w-md space-y-8 text-center">
+                  <div className="space-y-4">
+                    <div className="inline-flex p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mb-2">
+                      <Terminal size={32} />
+                    </div>
+                    <h1 className="text-3xl font-black text-white tracking-tighter uppercase">Sentinel-OS Access</h1>
+                    <p className="text-neutral-500 text-sm font-medium uppercase tracking-widest">Authorized Personnel Only</p>
+                  </div>
+                  <div className="bg-[#0a0a0a] border border-white/[0.05] p-8 rounded-3xl shadow-2xl space-y-6">
+                    <SignIn routing="hash" />
+                  </div>
                 </div>
               </div>
             </SignedOut>

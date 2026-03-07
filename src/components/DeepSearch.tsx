@@ -49,10 +49,10 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('trigger-search' as any, handleExternalTrigger as any);
+    window.addEventListener('trigger-search' as keyof WindowEventMap, handleExternalTrigger as EventListener);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('trigger-search' as any, handleExternalTrigger as any);
+      window.removeEventListener('trigger-search' as keyof WindowEventMap, handleExternalTrigger as EventListener);
     };
   }, []);
 

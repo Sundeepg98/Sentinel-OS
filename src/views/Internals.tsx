@@ -3,7 +3,7 @@ import { Shield, AlertCircle, CheckCircle2, BrainCircuit, Eye, EyeOff } from 'lu
 import { useDossierContext } from '@/lib/context';
 import { cn } from '@/lib/utils';
 
-interface PlaybookItem {
+export interface PlaybookItem {
   q: string;
   trap: string;
   trapWhy: string;

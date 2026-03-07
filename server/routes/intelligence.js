@@ -58,6 +58,7 @@ router.get('/stream', (req, res) => {
  *     summary: Retrieve system-wide intelligence telemetry
  */
 router.get('/stats', asyncHandler(async (req, res) => {
+  req.log.info("📊 [Intelligence] Fetching system telemetry");
   let chunksCount, historyCount, learnedCount;
   
   if (isPostgres) {
@@ -98,6 +99,7 @@ router.get('/stats', asyncHandler(async (req, res) => {
  *     summary: Generate the 3D Architectural Nervous System data
  */
 router.get('/graph', asyncHandler(async (req, res) => {
+  req.log.info("🕸️ [Intelligence] Generating 3D knowledge map");
   const nodes = []; const links = [];
   let userRows;
   

@@ -55,6 +55,10 @@ const app = express();
 const PORT = env.PORT;
 const FRONTEND_DIST = path.join(__dirname, '..', 'dist');
 
+// 🛡️ ENGINEERING BASIC: TRUST PROXY
+// Essential for correct IP-based rate limiting on managed cloud platforms.
+app.set('trust proxy', 1);
+
 // Initialize Core Systems
 initDB();
 

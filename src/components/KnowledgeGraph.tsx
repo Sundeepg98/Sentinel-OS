@@ -36,7 +36,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   const { setCompany } = useDossierContext();
   const { getToken } = useAuth();
   const { toast: showToast } = useToast();
-  const graphRef = useRef<any>(null);
+  const graphRef = useRef<any>(null); // Keep any for now due to complex lib types, but we'll cast usage
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [graphData, setGraphData] = useState<GraphData>({ nodes: [], links: [] });
@@ -89,7 +89,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
             }
           });
           const weightedNodes = Object.values(nodesById).map((n) => {
-            const node = n as GraphNode & { neighbors: any[] };
+            const node = n as GraphNode;
             return {
               ...node,
               weight: node.group === 'module' ? 10 : node.group === 'learned' ? 8 : Math.min(Math.max(node.neighbors.length || 1, 2), 8)
@@ -379,34 +379,42 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
               ref={graphRef} width={dimensions.width} height={dimensions.height} graphData={graphData}
               nodeThreeObject={nodeThreeObject} linkCurvature={0.2}
               linkColor={(link: GraphLink) => {
-                const impactA = blastImpacts.get((link.source as any).id || (link.source as string));
-                const impactB = blastImpacts.get((link.target as any).id || (link.target as string));
+                const src = link.source as GraphNode;
+                const tgt = link.target as GraphNode;
+                const impactA = blastImpacts.get(src.id);
+                const impactB = blastImpacts.get(tgt.id);
                 if (impactA === 1 || impactB === 1) return '#f43f5e';
                 if (impactA === 2 || impactB === 2) return '#fb923c';
                 return highlightLinks.has(link) ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.05)';
               }}
               linkWidth={(link: GraphLink) => {
-                const impactA = blastImpacts.get((link.source as any).id || (link.source as string));
-                const impactB = blastImpacts.get((link.target as any).id || (link.target as string));
+                const src = link.source as GraphNode;
+                const tgt = link.target as GraphNode;
+                const impactA = blastImpacts.get(src.id);
+                const impactB = blastImpacts.get(tgt.id);
                 return (impactA || impactB) ? 3 : 0.5;
               }}
               linkDirectionalParticles={(link: GraphLink) => {
-                const impactA = blastImpacts.get((link.source as any).id || (link.source as string));
-                const impactB = blastImpacts.get((link.target as any).id || (link.target as string));
+                const src = link.source as GraphNode;
+                const tgt = link.target as GraphNode;
+                const impactA = blastImpacts.get(src.id);
+                const impactB = blastImpacts.get(tgt.id);
                 if (impactA || impactB) return 10; // High intensity during failure
                 return (highlightLinks.has(link) || highlightLinks.size === 0) ? 2 : 0;
               }}
               linkDirectionalParticleWidth={(link: GraphLink) => {
-                const impactA = blastImpacts.get((link.source as any).id || (link.source as string));
-                const impactB = blastImpacts.get((link.target as any).id || (link.target as string));
+                const src = link.source as GraphNode;
+                const tgt = link.target as GraphNode;
+                const impactA = blastImpacts.get(src.id);
+                const impactB = blastImpacts.get(tgt.id);
                 return (impactA || impactB) ? 4 : 2;
               }}
               linkDirectionalParticleSpeed={(link: GraphLink) => {
-                const srcId = (link.source as any).id || (link.source as string);
-                const tgtId = (link.target as any).id || (link.target as string);
+                const src = link.source as GraphNode;
+                const tgt = link.target as GraphNode;
                 
-                const impactSrc = blastImpacts.get(srcId);
-                const impactTgt = blastImpacts.get(tgtId);
+                const impactSrc = blastImpacts.get(src.id);
+                const impactTgt = blastImpacts.get(tgt.id);
 
                 if (impactSrc || impactTgt) {
                   // If target is closer to origin than source, flow backwards (Tgt -> Src)

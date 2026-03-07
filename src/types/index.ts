@@ -6,7 +6,7 @@ export interface Module {
   label: string;
   type: ModuleType;
   icon: string; // Lucide icon name
-  data: any; // Context-specific payload
+  data: unknown; // Context-specific payload (Markdown string, JSON object, etc.)
 }
 
 export interface KPI {
