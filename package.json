@@ -40,7 +40,7 @@
     "src/**/*.{ts,tsx}": [
       "prettier --write",
       "eslint --fix",
-      "vitest run --related --passWithNoTests",
+      "vitest related --passWithNoTests --run",
       "tsc-files --noEmit"
     ],
     "server/**/*.js": [

@@ -14,9 +14,10 @@ const adminRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50, // 50 actions per 15 minutes
   keyGenerator: (req) => req.userId || req.ip,
-  message: { error: "Administrative actions are rate-limited. Please slow down." },
+  message: { error: 'Administrative actions are rate-limited. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xff: false }, // 🛡️ STAFF BASIC: Disable XFF validation for local development
 });
 
 // --- 🛠️ FILE UPLOAD CONFIGURATION ---
@@ -28,25 +29,25 @@ const storage = multer.diskStorage({
       await fs.mkdir(uploadPath, { recursive: true });
       cb(null, uploadPath);
     } catch (e) {
-      cb(e, null);
+      cb(new Error(`Failed to create directory: ${e.message}`), null);
     }
   },
   filename: (req, file, cb) => {
     const cleanName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
     cb(null, cleanName.endsWith('.md') ? cleanName : `${cleanName}.md`);
-  }
+  },
 });
 
-const upload = multer({ 
+const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, 
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (path.extname(file.originalname).toLowerCase() === '.md') {
       cb(null, true);
     } else {
       cb(new Error('Only Markdown (.md) files are allowed'));
     }
-  }
+  },
 });
 
 /**
@@ -62,10 +63,16 @@ const upload = multer({
  *         schema:
  *           type: string
  */
-router.post('/upload/:companyId', adminRateLimiter, validateParams(schemas.pathParamsSchema), upload.single('file'), asyncHandler(async (req, res) => {
-  if (!req.file) return res.error("No file uploaded", 400);
-  res.success({ success: true, filename: req.file.filename });
-}));
+router.post(
+  '/upload/:companyId',
+  adminRateLimiter,
+  validateParams(schemas.pathParamsSchema),
+  upload.single('file'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) return res.error('No file uploaded', 400);
+    res.success({ success: true, filename: req.file.filename });
+  })
+);
 
 /**
  * @openapi
@@ -80,17 +87,22 @@ router.post('/upload/:companyId', adminRateLimiter, validateParams(schemas.pathP
  *         schema:
  *           type: string
  */
-router.post('/companies/:companyId', adminRateLimiter, validateParams(schemas.pathParamsSchema), asyncHandler(async (req, res) => {
-  const { companyId } = req.params;
-  const companyPath = path.join(INTELLIGENCE_DIR, companyId.toLowerCase());
-  try {
-    await fs.mkdir(companyPath, { recursive: true });
-    req.log.info({ companyId }, "🏢 [Admin] Company context created");
-    res.success({ success: true });
-  } catch (e) {
-    throw new AppError("Failed to create company context", 500, e.message);
-  }
-}));
+router.post(
+  '/companies/:companyId',
+  adminRateLimiter,
+  validateParams(schemas.pathParamsSchema),
+  asyncHandler(async (req, res) => {
+    const { companyId } = req.params;
+    const companyPath = path.join(INTELLIGENCE_DIR, companyId.toLowerCase());
+    try {
+      await fs.mkdir(companyPath, { recursive: true });
+      req.log.info({ companyId }, '🏢 [Admin] Company context created');
+      res.success({ success: true });
+    } catch (e) {
+      throw new AppError('Failed to create company context', 500, e.message);
+    }
+  })
+);
 
 /**
  * @openapi
@@ -110,17 +122,22 @@ router.post('/companies/:companyId', adminRateLimiter, validateParams(schemas.pa
  *         schema:
  *           type: string
  */
-router.delete('/files/:companyId/:filename', adminRateLimiter, validateParams(schemas.pathParamsSchema), asyncHandler(async (req, res) => {
-  const { companyId, filename } = req.params;
-  const filePath = path.join(INTELLIGENCE_DIR, companyId, filename);
-  try {
-    await fs.unlink(filePath);
-    req.log.info({ companyId, filename }, "🗑️ [Admin] File deleted");
-    res.success({ success: true });
-  } catch (e) {
-    throw new AppError("Failed to delete technical dossier", 500, e.message);
-  }
-}));
+router.delete(
+  '/files/:companyId/:filename',
+  adminRateLimiter,
+  validateParams(schemas.pathParamsSchema),
+  asyncHandler(async (req, res) => {
+    const { companyId, filename } = req.params;
+    const filePath = path.join(INTELLIGENCE_DIR, companyId, filename);
+    try {
+      await fs.unlink(filePath);
+      req.log.info({ companyId, filename }, '🗑️ [Admin] File deleted');
+      res.success({ success: true });
+    } catch (e) {
+      throw new AppError('Failed to delete technical dossier', 500, e.message);
+    }
+  })
+);
 
 /**
  * @openapi
@@ -138,26 +155,34 @@ router.delete('/files/:companyId/:filename', adminRateLimiter, validateParams(sc
  *         schema:
  *           type: integer
  */
-router.get('/ai-logs', validateQuery(schemas.paginationSchema), asyncHandler(async (req, res) => {
-  const limit = Math.min(req.query.limit || 100, 200);
-  const offset = Math.max(req.query.offset || 0, 0);
+router.get(
+  '/ai-logs',
+  validateQuery(schemas.paginationSchema),
+  asyncHandler(async (req, res) => {
+    const limit = Math.min(req.query.limit || 100, 200);
+    const offset = Math.max(req.query.offset || 0, 0);
 
-  try {
-    let rows;
-    if (isPostgres) {
-      const dbRes = await db.query(
-        "SELECT * FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT $1 OFFSET $2",
-        [limit, offset]
-      );
-      rows = dbRes.rows;
-    } else {
-      rows = db.prepare("SELECT * FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT ? OFFSET ?").all(limit, offset);
+    try {
+      let rows;
+      if (isPostgres) {
+        const dbRes = await db.query(
+          "SELECT * FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT $1 OFFSET $2",
+          [limit, offset]
+        );
+        rows = dbRes.rows;
+      } else {
+        rows = db
+          .prepare(
+            "SELECT * FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+          )
+          .all(limit, offset);
+      }
+      res.success(rows);
+    } catch {
+      res.success([]);
     }
-    res.success(rows);
-  } catch {
-    res.success([]); 
-  }
-}));
+  })
+);
 
 /**
  * @openapi
@@ -175,26 +200,34 @@ router.get('/ai-logs', validateQuery(schemas.paginationSchema), asyncHandler(asy
  *         schema:
  *           type: integer
  */
-router.get('/ui-logs', validateQuery(schemas.paginationSchema), asyncHandler(async (req, res) => {
-  const limit = Math.min(req.query.limit || 100, 200);
-  const offset = Math.max(req.query.offset || 0, 0);
+router.get(
+  '/ui-logs',
+  validateQuery(schemas.paginationSchema),
+  asyncHandler(async (req, res) => {
+    const limit = Math.min(req.query.limit || 100, 200);
+    const offset = Math.max(req.query.offset || 0, 0);
 
-  try {
-    let rows;
-    if (isPostgres) {
-      const dbRes = await db.query(
-        "SELECT * FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT $1 OFFSET $2",
-        [limit, offset]
-      );
-      rows = dbRes.rows;
-    } else {
-      rows = db.prepare("SELECT * FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT ? OFFSET ?").all(limit, offset);
+    try {
+      let rows;
+      if (isPostgres) {
+        const dbRes = await db.query(
+          "SELECT * FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT $1 OFFSET $2",
+          [limit, offset]
+        );
+        rows = dbRes.rows;
+      } else {
+        rows = db
+          .prepare(
+            "SELECT * FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+          )
+          .all(limit, offset);
+      }
+      res.success(rows);
+    } catch {
+      res.success([]);
     }
-    res.success(rows);
-  } catch {
-    res.success([]); 
-  }
-}));
+  })
+);
 
 /**
  * @openapi
@@ -203,12 +236,19 @@ router.get('/ui-logs', validateQuery(schemas.paginationSchema), asyncHandler(asy
  *     tags: [Admin Management]
  *     summary: Export the physical SQLite database (Local only)
  */
-router.get('/export-db', adminRateLimiter, asyncHandler(async (req, res) => {
-  if (isPostgres) {
-    throw new AppError("Database export is only available for local SQLite instances. Please use cloud-native backup tools for Managed Postgres.", 400);
-  }
-  const dbPath = path.join(__dirname, '..', 'sentinel.db');
-  res.download(dbPath, `sentinel-backup-${new Date().toISOString().split('T')[0]}.db`);
-}));
+router.get(
+  '/export-db',
+  adminRateLimiter,
+  asyncHandler(async (req, res) => {
+    if (isPostgres) {
+      throw new AppError(
+        'Database export is only available for local SQLite instances. Please use cloud-native backup tools for Managed Postgres.',
+        400
+      );
+    }
+    const dbPath = path.join(__dirname, '..', 'sentinel.db');
+    res.download(dbPath, `sentinel-backup-${new Date().toISOString().split('T')[0]}.db`);
+  })
+);
 
 module.exports = router;

@@ -36,38 +36,62 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({ online, syncing, onS
       };
     }
 
-    const eventSource = new EventSource('/api/v1/intelligence/stream');
-    
-    eventSource.onopen = () => {
-      setInternalOnline(true);
-    };
+    let reconnectTimer: number | null = null;
+    let backoffDelay = 1000; // Start with 1s
 
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'SYNC_START') {
-          setInternalSyncing(true);
+    const connect = () => {
+      const eventSource = new EventSource('/api/v1/intelligence/stream');
+
+      eventSource.onopen = () => {
+        setInternalOnline(true);
+        backoffDelay = 1000; // Reset on success
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'SYNC_START') {
+            setInternalSyncing(true);
+          }
+          if (data.type === 'SYNC_COMPLETE') {
+            setInternalSyncing(false);
+            if (onSyncComplete) onSyncComplete();
+          }
+        } catch {
+          // SSE Parse Error ignored
         }
-        if (data.type === 'SYNC_COMPLETE') {
-          setInternalSyncing(false);
-          if (onSyncComplete) onSyncComplete();
-        }
-      } catch {
-        // SSE Parse Error ignored
-      }
+      };
+
+      eventSource.onerror = () => {
+        setInternalOnline(false);
+        eventSource.close();
+
+        // 🛡️ STAFF BASIC: Exponential Backoff Jitter
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        reconnectTimer = window.setTimeout(() => {
+          console.warn(`[SSE] Reconnecting in ${backoffDelay}ms...`);
+          connect();
+          backoffDelay = Math.min(backoffDelay * 2, 30000); // Cap at 30s
+        }, backoffDelay);
+      };
+
+      return eventSource;
     };
 
-    eventSource.onerror = () => {
-      setInternalOnline(false);
-    };
+    const es = connect();
 
-    return () => eventSource.close();
+    return () => {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      es.close();
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [online, syncing, onSyncComplete]);
 
   return (
     <AnimatePresence>
       {!isOnline && (
-        <motion.div 
+        <motion.div
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -50, opacity: 0 }}
@@ -76,12 +100,14 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({ online, syncing, onS
           className="fixed top-0 left-0 right-0 z-[200] bg-rose-600 text-white py-1.5 px-4 flex items-center justify-center gap-3 shadow-xl"
         >
           <WifiOff size={14} className="animate-pulse" aria-hidden="true" />
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Connection Lost: Searching for Backend Nervous System...</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em]">
+            Connection Lost: Searching for Backend Nervous System...
+          </span>
         </motion.div>
       )}
-      
+
       {isSyncing && isOnline && (
-        <motion.div 
+        <motion.div
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -50, opacity: 0 }}
@@ -90,7 +116,9 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({ online, syncing, onS
           className="fixed top-0 left-0 right-0 z-[200] bg-cyan-600 text-white py-1 px-4 flex items-center justify-center gap-3 shadow-xl"
         >
           <Loader2 size={12} className="animate-spin" aria-hidden="true" />
-          <span className="text-[9px] font-bold uppercase tracking-[0.2em]">Neural Re-Indexing in Progress...</span>
+          <span className="text-[9px] font-bold uppercase tracking-[0.2em]">
+            Neural Re-Indexing in Progress...
+          </span>
         </motion.div>
       )}
     </AnimatePresence>

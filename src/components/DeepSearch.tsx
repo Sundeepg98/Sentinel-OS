@@ -36,7 +36,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setIsOpen(prev => !prev);
+        setIsOpen((prev) => !prev);
       }
       if (e.key === 'Escape') setIsOpen(false);
     };
@@ -49,10 +49,16 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('trigger-search' as keyof WindowEventMap, handleExternalTrigger as EventListener);
+    window.addEventListener(
+      'trigger-search' as keyof WindowEventMap,
+      handleExternalTrigger as EventListener
+    );
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('trigger-search' as keyof WindowEventMap, handleExternalTrigger as EventListener);
+      window.removeEventListener(
+        'trigger-search' as keyof WindowEventMap,
+        handleExternalTrigger as EventListener
+      );
     };
   }, []);
 
@@ -60,19 +66,26 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
     queryKey: ['search', debouncedQuery, searchMode],
     queryFn: async () => {
       if (debouncedQuery.length < 2) return [];
-      
+
       if (searchMode === 'keyword') {
-        return fetchWithAuth<SearchResult[]>(`/api/v1/intelligence/search?q=${encodeURIComponent(debouncedQuery)}`, getToken);
+        return fetchWithAuth<SearchResult[]>(
+          `/api/v1/intelligence/search?q=${encodeURIComponent(debouncedQuery)}`,
+          getToken
+        );
       } else {
-        const rawData = await fetchWithAuth<SemanticSearchResult[]>('/api/v1/intelligence/semantic-search', getToken, {
-          method: 'POST',
-          body: JSON.stringify({ q: debouncedQuery, limit: 10 })
-        });
+        const rawData = await fetchWithAuth<SemanticSearchResult[]>(
+          '/api/v1/intelligence/semantic-search',
+          getToken,
+          {
+            method: 'POST',
+            body: JSON.stringify({ q: debouncedQuery, limit: 10 }),
+          }
+        );
         return rawData.map((item: SemanticSearchResult) => ({
           id: item.file_id,
           label: item.file_id.split('/').pop()?.replace('.md', '') || 'Module',
           company: item.file_id.split('/')[0],
-          snippet: item.chunk_text
+          snippet: item.chunk_text,
         }));
       }
     },
@@ -92,7 +105,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
 
   return (
     <>
-      <button 
+      <button
         onClick={() => setIsOpen(true)}
         className="flex items-center gap-3 px-4 py-2 bg-[#0a0a0a] border border-white/[0.08] rounded-lg text-neutral-400 text-sm hover:border-white/[0.15] hover:text-neutral-300 transition-all w-full max-w-xs shadow-sm"
       >
@@ -106,16 +119,21 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
 
       <AnimatePresence>
         {isOpen && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4" role="dialog" aria-modal="true" aria-label="Global Search">
-            <motion.div 
+          <div
+            className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Global Search"
+          >
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
               className="absolute inset-0 bg-[#050505]/80 backdrop-blur-md"
             />
-            
-            <motion.div 
+
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: -20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -20 }}
@@ -123,41 +141,57 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
             >
               <div className="flex items-center gap-3 p-4 border-b border-white/[0.05] bg-white/[0.02]">
                 <Search className="text-neutral-400" size={20} />
-                <input 
+                <input
                   autoFocus
-                  placeholder={searchMode === 'keyword' ? "Search keywords (e.g., 'Redis', 'V8')..." : "Search by meaning (e.g., 'How to handle high traffic?')..."}
+                  placeholder={
+                    searchMode === 'keyword'
+                      ? "Search keywords (e.g., 'Redis', 'V8')..."
+                      : "Search by meaning (e.g., 'How to handle high traffic?')..."
+                  }
                   className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-neutral-700 text-[15px]"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
-                
+
                 <div className="flex items-center bg-white/[0.03] p-1 rounded-lg border border-white/5 gap-1">
-                  <button 
+                  <button
                     onClick={() => setSearchMode('keyword')}
                     className={cn(
-                      "px-2 py-1 rounded text-[10px] font-bold uppercase transition-all",
-                      searchMode === 'keyword' ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/20" : "text-neutral-600 hover:text-neutral-400"
+                      'px-2 py-1 rounded text-[10px] font-bold uppercase transition-all',
+                      searchMode === 'keyword'
+                        ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20'
+                        : 'text-neutral-600 hover:text-neutral-400'
                     )}
                   >
                     Keyword
                   </button>
-                  <button 
+                  <button
                     onClick={() => setSearchMode('semantic')}
                     className={cn(
-                      "px-2 py-1 rounded text-[10px] font-bold uppercase transition-all",
-                      searchMode === 'semantic' ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "text-neutral-600 hover:text-neutral-400"
+                      'px-2 py-1 rounded text-[10px] font-bold uppercase transition-all',
+                      searchMode === 'semantic'
+                        ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
+                        : 'text-neutral-600 hover:text-neutral-400'
                     )}
                   >
                     Semantic
                   </button>
                 </div>
 
-                <button onClick={() => setIsOpen(false)} className="ml-2 p-1 hover:bg-white/[0.05] rounded-md transition-colors" aria-label="Close search">
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="ml-2 p-1 hover:bg-white/[0.05] rounded-md transition-colors"
+                  aria-label="Close search"
+                >
                   <X className="text-neutral-500 hover:text-white" size={18} />
                 </button>
               </div>
 
-              <div className="max-h-[60vh] overflow-y-auto p-2 custom-scrollbar">
+              <div
+                className="max-h-[60vh] overflow-y-auto p-2 custom-scrollbar"
+                role="region"
+                aria-live="polite"
+              >
                 {results.length > 0 ? (
                   <div className="space-y-1">
                     {results.map((res, i) => (
@@ -167,11 +201,17 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
                         className="w-full text-left p-3 rounded-lg hover:bg-white/[0.03] group transition-colors flex items-start gap-4 border border-transparent hover:border-white/[0.05]"
                       >
                         <div className="mt-1 p-2 bg-[#0a0a0a] border border-white/[0.08] rounded-md text-neutral-500 group-hover:text-cyan-400 group-hover:border-cyan-500/30 transition-colors shadow-sm">
-                          {searchMode === 'keyword' ? <SearchCode size={16} /> : <Brain size={16} />}
+                          {searchMode === 'keyword' ? (
+                            <SearchCode size={16} />
+                          ) : (
+                            <Brain size={16} />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
-                            <h4 className="font-medium text-neutral-200 truncate text-[14px]">{res.label}</h4>
+                            <h4 className="font-medium text-neutral-200 truncate text-[14px]">
+                              {res.label}
+                            </h4>
                             <span className="text-[10px] uppercase tracking-widest font-mono text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
                               {res.company}
                             </span>
@@ -186,12 +226,22 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
                 ) : (
                   <div className="p-10 text-center flex flex-col items-center justify-center gap-3">
                     <div className="w-12 h-12 rounded-full bg-white/[0.02] flex items-center justify-center border border-white/[0.05]">
-                      <Search className={isSearching ? "w-5 h-5 text-cyan-500 animate-pulse" : "w-5 h-5 text-neutral-600"} />
+                      <Search
+                        className={
+                          isSearching
+                            ? 'w-5 h-5 text-cyan-500 animate-pulse'
+                            : 'w-5 h-5 text-neutral-600'
+                        }
+                      />
                     </div>
                     <p className="text-neutral-500 text-[14px]">
-                      {query.length < 2 ? (
-                        searchMode === 'keyword' ? 'Start typing to search across all dossiers...' : 'Type a technical question or concept...'
-                      ) : (isSearching ? 'Analyzing semantic vectors...' : 'No results found for this query.')}
+                      {query.length < 2
+                        ? searchMode === 'keyword'
+                          ? 'Start typing to search across all dossiers...'
+                          : 'Type a technical question or concept...'
+                        : isSearching
+                          ? 'Analyzing semantic vectors...'
+                          : 'No results found for this query.'}
                     </p>
                   </div>
                 )}

@@ -15,10 +15,10 @@ let searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
 
 // --- 🛡️ DATA INTEGRITY SCHEMA ---
 const dossierFrontmatterSchema = z.object({
-  label: z.string().min(1, "Missing label frontmatter"),
+  label: z.string().min(1, 'Missing label frontmatter'),
   type: z.enum(['markdown', 'playbook', 'checklist', 'grid', 'map']).default('markdown'),
   icon: z.string().optional(),
-  keywords: z.array(z.string()).optional()
+  keywords: z.array(z.string()).optional(),
 });
 
 /**
@@ -29,9 +29,18 @@ const dossierFrontmatterSchema = z.object({
 function extractKeywords(text) {
   if (!text) return [];
   const clean = text.toLowerCase().replace(/[^\w\s]/g, ' ');
-  const words = clean.split(/\s+/).filter(w => w.length > 4);
-  const stopWords = new Set(['about', 'above', 'after', 'again', 'against', 'could', 'should', 'would']);
-  return [...new Set(words.filter(w => !stopWords.has(w)))].slice(0, 10);
+  const words = clean.split(/\s+/).filter((w) => w.length > 4);
+  const stopWords = new Set([
+    'about',
+    'above',
+    'after',
+    'again',
+    'against',
+    'could',
+    'should',
+    'would',
+  ]);
+  return [...new Set(words.filter((w) => !stopWords.has(w)))].slice(0, 10);
 }
 
 function getFileHash(content) {
@@ -40,13 +49,13 @@ function getFileHash(content) {
 
 function chunkMarkdown(text, size = 1000) {
   const chunks = [];
-  let current = "";
-  text.split('\n').forEach(line => {
+  let current = '';
+  text.split('\n').forEach((line) => {
     if ((current + line).length > size) {
       chunks.push(current.trim());
-      current = line + "\n";
+      current = line + '\n';
     } else {
-      current += line + "\n";
+      current += line + '\n';
     }
   });
   if (current) chunks.push(current.trim());
@@ -63,15 +72,17 @@ async function processFileVectors(fileId, content, metadata) {
       const client = await db.pool.connect();
       try {
         await client.query('BEGIN');
-        await client.query("DELETE FROM chunks_metadata WHERE file_id = $1", [fileId]);
+        await client.query('DELETE FROM chunks_metadata WHERE file_id = $1', [fileId]);
         const chunks = chunkMarkdown(content);
-        const chunkTasks = chunks.map(chunk => limit(async () => {
-          const vector = await getEmbedding(chunk);
-          await client.query(
-            "INSERT INTO chunks_metadata (file_id, chunk_text, metadata, embedding) VALUES ($1, $2, $3, $4)",
-            [fileId, chunk, JSON.stringify(metadata), JSON.stringify(vector)]
-          );
-        }));
+        const chunkTasks = chunks.map((chunk) =>
+          limit(async () => {
+            const vector = await getEmbedding(chunk);
+            await client.query(
+              'INSERT INTO chunks_metadata (file_id, chunk_text, metadata, embedding) VALUES ($1, $2, $3, $4)',
+              [fileId, chunk, JSON.stringify(metadata), JSON.stringify(vector)]
+            );
+          })
+        );
         await Promise.all(chunkTasks);
         await client.query('COMMIT');
       } catch (e) {
@@ -84,27 +95,41 @@ async function processFileVectors(fileId, content, metadata) {
       // 🗄️ SQLITE LOGIC (Atomic Transaction)
       const chunks = chunkMarkdown(content);
       const chunkVectors = [];
-      const chunkTasks = chunks.map(chunk => limit(async () => {
-        const vector = await getEmbedding(chunk);
-        chunkVectors.push({ chunk, vector });
-      }));
+      const chunkTasks = chunks.map((chunk) =>
+        limit(async () => {
+          const vector = await getEmbedding(chunk);
+          chunkVectors.push({ chunk, vector });
+        })
+      );
       await Promise.all(chunkTasks);
 
+      // --- 🛡️ ENGINEERING BASIC: ATOMIC SQLITE WRITE ---
       db.transaction(() => {
-        const oldChunks = db.prepare("SELECT id FROM chunks_metadata WHERE file_id = ?").all(fileId);
+        const oldChunks = db
+          .prepare('SELECT id FROM chunks_metadata WHERE file_id = ?')
+          .all(fileId);
         if (oldChunks.length > 0) {
-          const oldIds = oldChunks.map(c => Number(c.id));
-          db.prepare(`DELETE FROM vec_chunks WHERE id IN (${oldIds.join(',')})`).run();
+          const oldIds = oldChunks.map((c) => Number(c.id));
+          // Bulk delete using IN clause for speed
+          const idList = oldIds.join(',');
+          db.prepare(`DELETE FROM vec_chunks WHERE id IN (${idList})`).run();
           db.prepare(`DELETE FROM chunks_metadata WHERE file_id = ?`).run(fileId);
         }
-        
+
         for (const { chunk, vector } of chunkVectors) {
-          db.prepare(`INSERT INTO chunks_metadata (file_id, chunk_text, metadata) VALUES (?, ?, ?)`).run(fileId, chunk, JSON.stringify(metadata));
-          db.prepare(`INSERT INTO vec_chunks (id, vector) SELECT last_insert_rowid(), ?`).run(new Float32Array(vector));
+          const info = db
+            .prepare(`INSERT INTO chunks_metadata (file_id, chunk_text, metadata) VALUES (?, ?, ?)`)
+            .run(fileId, chunk, JSON.stringify(metadata));
+          db.prepare(`INSERT INTO vec_chunks (id, vector) VALUES (?, ?)`).run(
+            info.lastInsertRowid,
+            new Float32Array(vector)
+          );
         }
       })();
     }
-  } catch (e) { logger.error({ fileId, error: e.message }, '🧵 Vectorization Error'); }
+  } catch (e) {
+    logger.error({ fileId, error: e.message }, '🧵 Vectorization Error');
+  }
 }
 
 async function syncIntelligence() {
@@ -121,30 +146,35 @@ async function syncIntelligence() {
     const companyFolders = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
     const syncTasks = [];
 
-    for (const company of companyFolders.filter(d => d.isDirectory())) {
+    for (const company of companyFolders.filter((d) => d.isDirectory())) {
       const companyPath = path.join(INTELLIGENCE_DIR, company.name);
       const files = await fs.readdir(companyPath);
-      
-      for (const fileName of files.filter(f => f.endsWith('.md'))) {
-        syncTasks.push(limit(async () => {
-          const filePath = path.join(companyPath, fileName);
-          const fileContent = await fs.readFile(filePath, 'utf-8');
-          const { content, data } = matter(fileContent);
-          
-          const validation = dossierFrontmatterSchema.safeParse(data);
-          const validatedData = validation.success ? validation.data : { label: fileName, type: 'markdown' };
-          const fileId = `${company.name}/${fileName}`.toLowerCase(); 
-          activeFileIds.add(fileId);
-          const currentHash = getFileHash(fileContent);
 
-          // --- CHANGE DETECTION LOGIC ---
-          let shouldProcess = true;
-          const cached = await db.prepare("SELECT content_hash FROM dossiers WHERE id = ?").get(fileId);
-          if (cached && cached.content_hash === currentHash) shouldProcess = false;
+      for (const fileName of files.filter((f) => f.endsWith('.md'))) {
+        syncTasks.push(
+          limit(async () => {
+            const filePath = path.join(companyPath, fileName);
+            const fileContent = await fs.readFile(filePath, 'utf-8');
+            const { content, data } = matter(fileContent);
 
-          if (shouldProcess) {
-            const label = validatedData.label || fileName;
-            const sql = `
+            const validation = dossierFrontmatterSchema.safeParse(data);
+            const validatedData = validation.success
+              ? validation.data
+              : { label: fileName, type: 'markdown' };
+            const fileId = `${company.name}/${fileName}`.toLowerCase();
+            activeFileIds.add(fileId);
+            const currentHash = getFileHash(fileContent);
+
+            // --- CHANGE DETECTION LOGIC ---
+            let shouldProcess = true;
+            const cached = await db
+              .prepare('SELECT content_hash FROM dossiers WHERE id = ?')
+              .get(fileId);
+            if (cached && cached.content_hash === currentHash) shouldProcess = false;
+
+            if (shouldProcess) {
+              const label = validatedData.label || fileName;
+              const sql = `
               INSERT INTO dossiers (id, company, label, content, metadata, content_hash) 
               VALUES (?, ?, ?, ?, ?, ?) 
               ON CONFLICT(id) DO UPDATE SET 
@@ -153,31 +183,41 @@ async function syncIntelligence() {
                 label=excluded.label, 
                 content_hash=excluded.content_hash
             `;
-            await db.prepare(sql).run(fileId, company.name, label, content, JSON.stringify(data), currentHash);
-            await processFileVectors(fileId, content, data);
-          }
+              await db
+                .prepare(sql)
+                .run(fileId, company.name, label, content, JSON.stringify(data), currentHash);
+              await processFileVectors(fileId, content, data);
+            }
 
-          // --- HYDRATE GRAPH ---
-          const finalKeywords = extractKeywords(content);
-          newGraph.files[fileId] = { label: validatedData.label || fileName, company: company.name, keywords: finalKeywords, content };
-          finalKeywords.forEach(k => {
-            if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
-            newGraph.concepts[k].push({ fileId, company: company.name });
-          });
-          searchIndex.add(fileId, content);
-        }));
+            // --- HYDRATE GRAPH ---
+            const finalKeywords = extractKeywords(content);
+            newGraph.files[fileId] = {
+              label: validatedData.label || fileName,
+              company: company.name,
+              keywords: finalKeywords,
+              content,
+            };
+            finalKeywords.forEach((k) => {
+              if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
+              newGraph.concepts[k].push({ fileId, company: company.name });
+            });
+            searchIndex.add(fileId, content);
+          })
+        );
       }
     }
 
     await Promise.all(syncTasks);
 
     // 2. Load Cloud-only dossiers (learned assets)
-    const cloudDossiers = await db.prepare("SELECT id, company, label, content, metadata FROM dossiers").all();
-    cloudDossiers.forEach(d => {
+    const cloudDossiers = await db
+      .prepare('SELECT id, company, label, content, metadata FROM dossiers')
+      .all();
+    cloudDossiers.forEach((d) => {
       if (!activeFileIds.has(d.id)) {
         const keywords = extractKeywords(d.content);
         newGraph.files[d.id] = { label: d.label, company: d.company, keywords, content: d.content };
-        keywords.forEach(k => {
+        keywords.forEach((k) => {
           if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
           newGraph.concepts[k].push({ fileId: d.id, company: d.company });
         });
@@ -186,11 +226,23 @@ async function syncIntelligence() {
     });
 
     knowledgeGraph = newGraph;
-    logger.info({ 
-      files: Object.keys(knowledgeGraph.files).length, 
-      concepts: Object.keys(knowledgeGraph.concepts).length 
-    }, '✅ Intelligence Engine ACTIVE.');
-  } catch (e) { logger.error({ error: e.message }, '🧵 Sync Error'); }
+    logger.info(
+      {
+        files: Object.keys(knowledgeGraph.files).length,
+        concepts: Object.keys(knowledgeGraph.concepts).length,
+      },
+      '✅ Intelligence Engine ACTIVE.'
+    );
+  } catch (e) {
+    logger.error({ error: e.message }, '🧵 Sync Error');
+  }
 }
 
-module.exports = { syncIntelligence, getKnowledgeGraph: () => knowledgeGraph, getSearchIndex: () => searchIndex, parsePlaybook, parseChecklist, INTELLIGENCE_DIR };
+module.exports = {
+  syncIntelligence,
+  getKnowledgeGraph: () => knowledgeGraph,
+  getSearchIndex: () => searchIndex,
+  parsePlaybook,
+  parseChecklist,
+  INTELLIGENCE_DIR,
+};

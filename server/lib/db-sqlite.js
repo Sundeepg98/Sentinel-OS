@@ -18,9 +18,11 @@ sqliteVec.load(db);
 
 async function initDB() {
   logger.info({ db: dbFile }, '🛠️ Initializing Local Database Engine (SQLite)');
-  
+
   // Initialize Vector Extension Table
-  db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(id INTEGER PRIMARY KEY, vector FLOAT[3072])`);
+  db.exec(
+    `CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(id INTEGER PRIMARY KEY, vector FLOAT[3072])`
+  );
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -32,25 +34,32 @@ async function initDB() {
   // Local migrations only for SQLite
   const migrationsDir = path.join(__dirname, '..', 'migrations');
   if (fs.existsSync(migrationsDir)) {
-    const migrationFiles = fs.readdirSync(migrationsDir)
-      .filter(f => f.endsWith('.sql'))
+    const migrationFiles = fs
+      .readdirSync(migrationsDir)
+      .filter((f) => f.endsWith('.sql'))
       .sort();
 
     for (const file of migrationFiles) {
-      const isApplied = db.prepare("SELECT 1 FROM schema_migrations WHERE version = ?").get(file);
+      const isApplied = db.prepare('SELECT 1 FROM schema_migrations WHERE version = ?').get(file);
       if (!isApplied) {
+        // Skip Postgres-only migrations
+        if (file === '007_vector_index.sql') {
+          db.prepare('INSERT INTO schema_migrations (version) VALUES (?)').run(file);
+          continue;
+        }
+
         logger.info({ migration: file }, '🚀 Applying SQLite Migration');
         const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
         try {
           db.exec(sql);
-          db.prepare("INSERT INTO schema_migrations (version) VALUES (?)").run(file);
+          db.prepare('INSERT INTO schema_migrations (version) VALUES (?)').run(file);
         } catch (e) {
           logger.error({ migration: file, error: e.message }, '❌ Migration Failed');
         }
       }
     }
   }
-  
+
   logger.info('✅ Local Database Synced & Stable.');
 }
 
