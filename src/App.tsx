@@ -10,7 +10,7 @@ import { usePersistentState } from '@/hooks/usePersistentState';
 import { ToastProvider } from '@/hooks/useToast';
 import { StatusBanner } from '@/components/ui/StatusBanner';
 import { cn } from '@/lib/utils';
-import { DossierContext } from '@/lib/context';
+import { DossierContext, useDossierContext } from '@/lib/context';
 import { env } from '@/lib/env';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import type { DashboardData, Task } from '@/types';
@@ -47,8 +47,9 @@ function AppContent() {
   const [isWarRoomOpen, setWarRoomMode] = useState(false);
   const [isDiagnosticsOpen, setDiagnosticsMode] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const dossierData = useDossier();
-  const queryClient = useQueryClient(); // 🛡️ STAFF STATE: Cache management
+
+  const dossierData = useDossierContext(); // 🛡️ STAFF BASIC: Consume from Context instead of re-calling hook
+  const queryClient = useQueryClient();
 
   // Optimized derived state
   const activeModule = useMemo(
@@ -340,15 +341,13 @@ function App() {
     <ErrorBoundary>
       <ToastProvider>
         <DossierContext.Provider value={dossierData}>
-          {!env.VITE_AUTH_ENABLED ? (
-            <AppContent />
-          ) : (
+          {env.VITE_AUTH_ENABLED ? (
             <>
               <SignedIn>
                 <AppContent />
               </SignedIn>
               <SignedOut>
-                <div className="h-screen w-full flex items-center justify-center bg-[#050505] p-6 relative overflow-hidden">
+                <div className="h-screen w-screen bg-[#050505] flex items-center justify-center p-6 relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.05)_0%,transparent_100%)] pointer-events-none" />
                   <div className="z-10 w-full max-w-md space-y-8 text-center">
                     <div className="space-y-4">
@@ -369,6 +368,8 @@ function App() {
                 </div>
               </SignedOut>
             </>
+          ) : (
+            <AppContent />
           )}
         </DossierContext.Provider>
       </ToastProvider>

@@ -1,5 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { MousePointer2, Square, Circle, Minus, Type, Trash2, RotateCcw, Download } from 'lucide-react';
+import {
+  MousePointer2,
+  Square,
+  Circle,
+  Minus,
+  Type,
+  Trash2,
+  RotateCcw,
+  Download,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePersistentState } from '@/hooks/usePersistentState';
 
@@ -25,13 +34,13 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
   const [tool, setTool] = useState<Element['type']>('pencil');
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentElement, setCurrentElement] = useState<Element | null>(null);
-  const [textInput, setTextInput] = useState<{ x: number, y: number } | null>(null);
+  const [textInput, setTextInput] = useState<{ x: number; y: number } | null>(null);
   const [inputValue, setInputValue] = useState('');
 
   // 🛡️ STAFF STATE: Automated cloud sync via usePersistentState
   const [elements, setElements] = usePersistentState<Element[]>(`whiteboard-${sessionId}`, []);
 
-  const drawElement = (ctx: CanvasRenderingContext2D, element: Element) => {
+  const drawElement = useCallback((ctx: CanvasRenderingContext2D, element: Element) => {
     ctx.strokeStyle = element.color;
     ctx.fillStyle = element.color;
     ctx.lineWidth = 2;
@@ -43,7 +52,7 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
         if (!element.points || element.points.length < 2) return;
         ctx.beginPath();
         ctx.moveTo(element.points[0].x, element.points[0].y);
-        element.points.forEach(p => ctx.lineTo(p.x, p.y));
+        element.points.forEach((p) => ctx.lineTo(p.x, p.y));
         ctx.stroke();
         break;
       case 'rect':
@@ -51,7 +60,13 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
         break;
       case 'circle':
         ctx.beginPath();
-        ctx.arc(element.x! + element.width! / 2, element.y! + element.height! / 2, Math.abs(element.width! / 2), 0, 2 * Math.PI);
+        ctx.arc(
+          element.x! + element.width! / 2,
+          element.y! + element.height! / 2,
+          Math.abs(element.width! / 2),
+          0,
+          2 * Math.PI
+        );
         ctx.stroke();
         break;
       case 'line':
@@ -65,7 +80,7 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
         ctx.fillText(element.text || '', element.x!, element.y!);
         break;
     }
-  };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -73,19 +88,31 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const rect = canvas.parentElement?.getBoundingClientRect();
-    if (rect) {
-      canvas.width = rect.width * window.devicePixelRatio;
-      canvas.height = rect.height * window.devicePixelRatio;
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    }
+    const updateCanvasSize = () => {
+      const rect = canvas.parentElement?.getBoundingClientRect();
+      if (rect) {
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+        // Redraw after resize
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        elements.forEach((el) => drawElement(ctx, el));
+        if (currentElement) drawElement(ctx, currentElement);
+      }
+    };
+
+    updateCanvasSize();
+    window.addEventListener('resize', updateCanvasSize);
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    elements.forEach(el => drawElement(ctx, el));
+    elements.forEach((el) => drawElement(ctx, el));
     if (currentElement) drawElement(ctx, currentElement);
-  }, [elements, currentElement]);
+
+    return () => window.removeEventListener('resize', updateCanvasSize);
+  }, [elements, currentElement, drawElement]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (textInput) return; // Wait for text input to finish
@@ -102,7 +129,7 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
 
     setIsDrawing(true);
     const id = Date.now();
-    
+
     if (tool === 'pencil') {
       setCurrentElement({ id, type: 'pencil', points: [{ x, y }], color: '#22d3ee' });
     } else {
@@ -120,13 +147,13 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
     if (currentElement.type === 'pencil') {
       setCurrentElement({
         ...currentElement,
-        points: [...currentElement.points!, { x, y }]
+        points: [...currentElement.points!, { x, y }],
       });
     } else {
       setCurrentElement({
         ...currentElement,
         width: x - currentElement.x!,
-        height: y - currentElement.y!
+        height: y - currentElement.y!,
       });
     }
   };
@@ -147,7 +174,7 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
         x: textInput.x,
         y: textInput.y,
         text: inputValue,
-        color: '#22d3ee'
+        color: '#22d3ee',
       };
       setElements([...elements, newElement]);
       setTextInput(null);
@@ -186,13 +213,15 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
             { id: 'circle' as const, icon: Circle, label: 'Node' },
             { id: 'line' as const, icon: Minus, label: 'Link' },
             { id: 'text' as const, icon: Type, label: 'Label' },
-          ].map(t => (
+          ].map((t) => (
             <button
               key={t.id}
               onClick={() => setTool(t.id)}
               className={cn(
-                "p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider",
-                tool === t.id ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "text-neutral-500 hover:text-white"
+                'p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider',
+                tool === t.id
+                  ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                  : 'text-neutral-500 hover:text-white'
               )}
             >
               <t.icon size={14} />
@@ -200,15 +229,27 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
             </button>
           ))}
         </div>
-        
+
         <div className="flex items-center gap-2">
-          <button onClick={undo} className="p-2 text-neutral-500 hover:text-white transition-colors" title="Undo">
+          <button
+            onClick={undo}
+            className="p-2 text-neutral-500 hover:text-white transition-colors"
+            title="Undo"
+          >
             <RotateCcw size={14} />
           </button>
-          <button onClick={downloadCanvas} className="p-2 text-neutral-500 hover:text-white transition-colors" title="Export PNG">
+          <button
+            onClick={downloadCanvas}
+            className="p-2 text-neutral-500 hover:text-white transition-colors"
+            title="Export PNG"
+          >
             <Download size={14} />
           </button>
-          <button onClick={clearCanvas} className="p-2 text-neutral-500 hover:text-rose-400 transition-colors" title="Clear All">
+          <button
+            onClick={clearCanvas}
+            className="p-2 text-neutral-500 hover:text-rose-400 transition-colors"
+            title="Clear All"
+          >
             <Trash2 size={14} />
           </button>
         </div>
@@ -223,19 +264,19 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
           onMouseUp={handleMouseUp}
           className="w-full h-full"
         />
-        
+
         {/* TEXT INPUT OVERLAY */}
         {textInput && (
-          <div 
-            className="absolute z-50"
-            style={{ left: textInput.x, top: textInput.y - 10 }}
-          >
+          <div className="absolute z-50" style={{ left: textInput.x, top: textInput.y - 10 }}>
             <input
               autoFocus
               value={inputValue}
-              onChange={e => setInputValue(e.target.value)}
+              onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleTextSubmit}
-              onBlur={() => { setTextInput(null); setInputValue(''); }}
+              onBlur={() => {
+                setTextInput(null);
+                setInputValue('');
+              }}
               className="bg-[#0a0a0a] border border-cyan-500/50 rounded px-2 py-1 text-xs text-cyan-400 outline-none shadow-[0_0_15px_rgba(34,211,238,0.2)] font-mono"
               placeholder="Labeling..."
             />
@@ -244,7 +285,9 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
 
         {elements.length === 0 && !currentElement && !textInput && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <p className="text-neutral-700 font-mono text-[10px] uppercase tracking-[0.2em]">Architect's Drawing Surface</p>
+            <p className="text-neutral-700 font-mono text-[10px] uppercase tracking-[0.2em]">
+              Architect's Drawing Surface
+            </p>
           </div>
         )}
       </div>

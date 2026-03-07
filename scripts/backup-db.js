@@ -65,6 +65,9 @@ async function backup() {
     }
 
     console.log('🎉 Backup Mission Complete.');
+    if (db && typeof db.close === 'function') {
+      await db.close();
+    }
     process.exit(0);
   } catch (err) {
     console.error('💥 Backup Failed:', err.message);

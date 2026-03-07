@@ -250,6 +250,24 @@ router.get(
  *   get:
  *     tags: [Intelligence Engine]
  *     summary: Perform a high-speed keyword search
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *           minLength: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           minimum: 0
  */
 router.get(
   '/search',
@@ -274,6 +292,21 @@ router.get(
  *   post:
  *     tags: [Intelligence Engine]
  *     summary: Deep vector search
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [q]
+ *             properties:
+ *               q:
+ *                 type: string
+ *                 minLength: 1
+ *               limit:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 50
  */
 router.post(
   '/semantic-search',
