@@ -13,7 +13,7 @@ const router = express.Router();
 const adminOnly = (req, res, next) => {
   const AUTH_ENABLED = process.env.AUTH_ENABLED === 'true';
   if (!AUTH_ENABLED || req.isAdmin) return next();
-  res.error('Unauthorized: Elevated privileges required', 403);
+  throw new AppError('Unauthorized: Elevated privileges required', 403);
 };
 
 const rateLimit = require('express-rate-limit');

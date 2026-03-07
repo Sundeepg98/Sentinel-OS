@@ -144,6 +144,9 @@ const allowedOrigins = [
   'http://localhost:5173',
   'https://sentinel-os-staging.onrender.com',
   'https://sentinel-os-bcsv.onrender.com',
+  ...(process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+    : []),
 ];
 
 app.use(
@@ -152,7 +155,7 @@ app.use(
       if (!origin || allowedOrigins.includes(origin) || env.NODE_ENV === 'development') {
         callback(null, true);
       } else {
-        callback(new Error('Strict CORS Policy: Origin not allowed'));
+        callback(new AppError('Strict CORS Policy: Origin not allowed', 403));
       }
     },
     credentials: true,
