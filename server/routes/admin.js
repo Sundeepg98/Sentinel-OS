@@ -145,14 +145,14 @@ router.get(
       let rows;
       if (isPostgres) {
         const dbRes = await db.query(
-          "SELECT * FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT $1 OFFSET $2",
+          "SELECT id, type, category, message, payload, metadata, timestamp, url FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT $1 OFFSET $2",
           [limit, offset]
         );
         rows = dbRes.rows;
       } else {
         rows = db
           .prepare(
-            "SELECT * FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+            "SELECT id, type, category, message, payload, metadata, timestamp, url FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT ? OFFSET ?"
           )
           .all(limit, offset);
       }
@@ -182,14 +182,14 @@ router.get(
       let rows;
       if (isPostgres) {
         const dbRes = await db.query(
-          "SELECT * FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT $1 OFFSET $2",
+          "SELECT id, type, category, message, payload, metadata, timestamp, url FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT $1 OFFSET $2",
           [limit, offset]
         );
         rows = dbRes.rows;
       } else {
         rows = db
           .prepare(
-            "SELECT * FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+            "SELECT id, type, category, message, payload, metadata, timestamp, url FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT ? OFFSET ?"
           )
           .all(limit, offset);
       }

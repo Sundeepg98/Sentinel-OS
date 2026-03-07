@@ -34,14 +34,14 @@ router.get(
       let rows;
       if (isPostgres) {
         const dbRes = await db.query(
-          'SELECT * FROM interaction_history WHERE user_id = $1 ORDER BY timestamp DESC LIMIT $2 OFFSET $3',
+          'SELECT id, type, module_id, question, user_answer, evaluation, score, timestamp FROM interaction_history WHERE user_id = $1 ORDER BY timestamp DESC LIMIT $2 OFFSET $3',
           [req.userId, limit, offset]
         );
         rows = dbRes.rows;
       } else {
         rows = db
           .prepare(
-            'SELECT * FROM interaction_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?'
+            'SELECT id, type, module_id, question, user_answer, evaluation, score, timestamp FROM interaction_history WHERE user_id = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?'
           )
           .all(req.userId, limit, offset);
       }
