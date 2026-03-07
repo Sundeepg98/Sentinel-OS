@@ -137,6 +137,24 @@ app.use((req, res, next) => {
   req.id = req.headers['x-correlation-id'] || uuidv4();
   req.log = logger.child({ requestId: req.id });
   res.setHeader('X-Correlation-ID', req.id);
+
+  // 📡 STAFF BASIC: In-bound request telemetry
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    req.log.info(
+      {
+        method: req.method,
+        url: req.url,
+        status: res.statusCode,
+        duration: `${duration}ms`,
+        contentLength: res.get('Content-Length'),
+        userAgent: req.get('User-Agent'),
+      },
+      '📡 HTTP Request Handled'
+    );
+  });
+
   next();
 });
 
