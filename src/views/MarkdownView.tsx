@@ -10,14 +10,14 @@ interface MarkdownViewProps {
 }
 
 /**
- * 📝 STABILIZED MARKDOWN RENDERER
- * Uses rehype-sanitize for robust XSS protection and custom 
+ * ðŸ“ STABILIZED MARKDOWN RENDERER
+ * Uses rehype-sanitize for robust XSS protection and custom
  * component overrides to fix layout nesting warnings.
  */
 export const MarkdownView: React.FC<MarkdownViewProps> = ({ data, label }) => {
   const content = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-  
-  // ⚡ ENGINEERING BASIC: Dynamic Read Time Calculation
+
+  // âš¡ ENGINEERING BASIC: Dynamic Read Time Calculation
   const wordCount = content.split(/\s+/).length;
   const readTime = Math.max(1, Math.ceil(wordCount / 200));
 
@@ -30,14 +30,16 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({ data, label }) => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">{label}</h1>
-            <div className="flex items-center gap-3 mt-1.5 text-[10px] text-neutral-500 uppercase tracking-widest font-mono">
-              <span className="flex items-center gap-1.5"><Clock size={12} className="text-neutral-600" /> Read Time: ~{readTime} min</span>
+            <div className="flex items-center gap-3 mt-1.5 text-[10px] text-neutral-200 uppercase tracking-widest font-mono">
+              <span className="flex items-center gap-1.5">
+                <Clock size={12} className="text-neutral-600" /> Read Time: ~{readTime} min
+              </span>
               <span className="w-1 h-1 rounded-full bg-neutral-800" />
-              <span className="text-neutral-400">Staff-Level Intelligence</span>
+              <span className="text-neutral-200">Staff-Level Intelligence</span>
             </div>
           </div>
         </div>
-        <button 
+        <button
           aria-label="Open in external viewer"
           className="p-2 hover:bg-white/5 rounded-lg text-neutral-500 transition-colors"
         >
@@ -45,7 +47,8 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({ data, label }) => {
         </button>
       </header>
 
-      <div className="prose prose-invert prose-indigo prose-sm sm:prose-base max-w-none 
+      <div
+        className="prose prose-invert prose-indigo prose-sm sm:prose-base max-w-none 
         prose-headings:text-white prose-headings:font-bold prose-headings:tracking-tight
         prose-p:text-neutral-300 prose-p:leading-relaxed
         prose-strong:text-indigo-300 prose-strong:font-semibold
@@ -55,30 +58,47 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({ data, label }) => {
         prose-table:border prose-table:border-white/5 prose-table:rounded-xl
         prose-th:bg-white/[0.02] prose-th:px-4 prose-th:py-3 prose-th:text-xs prose-th:uppercase prose-th:tracking-widest
         prose-td:px-4 prose-td:py-3 prose-td:border-t prose-td:border-white/5
-      ">
-        <ReactMarkdown 
+      "
+      >
+        <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeSanitize]}
           components={{
-            // 🚀 HYDRATION FIX: Render pre blocks as top-level elements to avoid <p> nesting
+            // ðŸš€ HYDRATION FIX: Render pre blocks as top-level elements to avoid <p> nesting
             pre: ({ node: _node, ...props }) => (
               <div className="my-6 rounded-xl overflow-hidden border border-white/5 shadow-2xl">
                 <pre {...props} className="m-0 p-6 overflow-x-auto custom-scrollbar bg-[#0d0d0d]" />
               </div>
             ),
             // Ensure codes inside paragraphs don't break layout
-            code: ({ node: _node, inline, ...props }: { node?: unknown, inline?: boolean, children?: React.ReactNode }) => 
+            code: ({
+              node: _node,
+              inline,
+              ...props
+            }: {
+              node?: unknown;
+              inline?: boolean;
+              children?: React.ReactNode;
+            }) =>
               inline ? (
-                <code {...props} className="bg-indigo-500/10 text-indigo-300 px-1.5 py-0.5 rounded text-[0.9em]" />
+                <code
+                  {...props}
+                  className="bg-indigo-500/10 text-indigo-300 px-1.5 py-0.5 rounded text-[0.9em]"
+                />
               ) : (
                 <code {...props} />
               ),
             // Custom table wrapper for glassmorphism
             table: ({ node: _node, ...props }) => (
-              <div className="my-8 overflow-x-auto rounded-xl border border-white/5 bg-white/[0.01] custom-scrollbar">
+              <div
+                className="my-8 overflow-x-auto rounded-xl border border-white/5 bg-white/[0.01] custom-scrollbar"
+                tabIndex={0}
+                role="region"
+                aria-label="Technical Data Table"
+              >
                 <table {...props} className="w-full text-left border-collapse min-w-[600px]" />
               </div>
-            )
+            ),
           }}
         >
           {content}

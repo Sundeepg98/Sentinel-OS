@@ -13,7 +13,7 @@ const INTELLIGENCE_DIR = path.join(__dirname, '..', '..', 'intelligence');
 let knowledgeGraph = { concepts: {}, files: {} };
 let searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
 
-// --- 🛡️ DATA INTEGRITY SCHEMA ---
+// --- ðŸ›¡ï¸ DATA INTEGRITY SCHEMA ---
 const dossierFrontmatterSchema = z.object({
   label: z.string().min(1, 'Missing label frontmatter'),
   type: z.enum(['markdown', 'playbook', 'checklist', 'grid', 'map']).default('markdown'),
@@ -112,26 +112,26 @@ async function processFileVectors(fileId, content, metadata) {
             .run(fileId, chunk, JSON.stringify(metadata));
 
           const metaId = Number(info.lastInsertRowid);
-          console.log(`[Sync] Inserted chunk for ${fileId}, metaId: ${metaId}`);
+          logger.debug({ fileId, metaId }, '🧪 [Sync] Inserted chunk');
 
-          // 🛡️ STAFF BASIC: Let sqlite-vec auto-assign ID and update metadata to link them
+          // ðŸ›¡ï¸ STAFF BASIC: Let sqlite-vec auto-assign ID and update metadata to link them
           const vecInfo = db
             .prepare(`INSERT INTO vec_chunks (vector) VALUES (?)`)
             .run(new Float32Array(vector));
           const vecId = Number(vecInfo.lastInsertRowid);
-          console.log(`[Sync] Inserted vector for ${fileId}, vecId: ${vecId}`);
+          logger.debug({ fileId, vecId }, '🧪 [Sync] Inserted vector');
 
           db.prepare(`UPDATE chunks_metadata SET id = ? WHERE id = ?`).run(vecId, metaId);
         }
       })();
     }
   } catch (e) {
-    logger.error({ fileId, error: e.message }, '🧵 Vectorization Error');
+    logger.error({ fileId, error: e.message }, 'ðŸ§µ Vectorization Error');
   }
 }
 
 async function syncIntelligence() {
-  logger.info({ dir: INTELLIGENCE_DIR }, '🔄 Sentinel Intelligence Sync: Scanning...');
+  logger.info({ dir: INTELLIGENCE_DIR }, 'ðŸ”„ Sentinel Intelligence Sync: Scanning...');
   const pLimitMod = await import('p-limit');
   const pLimit = pLimitMod.default || pLimitMod.pLimit || pLimitMod;
   const limit = pLimit(5);
@@ -141,24 +141,24 @@ async function syncIntelligence() {
 
   try {
     const companyFolders = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
-    console.log(`[Sync] Found ${companyFolders.length} items in intelligence dir`);
+    logger.info({ count: companyFolders.length }, '📂 [Sync] Found items in intelligence dir');
     const syncTasks = [];
 
     for (const company of companyFolders.filter((d) => d.isDirectory())) {
-      console.log(`[Sync] Scanning folder: ${company.name}`);
+      logger.debug({ company: company.name }, '🔍 [Sync] Scanning folder');
       const companyPath = path.join(INTELLIGENCE_DIR, company.name);
       const files = await fs.readdir(companyPath);
-      console.log(`[Sync] Found ${files.length} files in ${company.name}`);
+      logger.debug({ company: company.name, count: files.length }, '📂 [Sync] Found files');
 
       for (const fileName of files.filter((f) => f.endsWith('.md'))) {
-        console.log(`[Sync] Queueing file: ${fileName}`);
+        logger.debug({ fileName }, '📥 [Sync] Queueing file');
         syncTasks.push(
           limit(async () => {
-            console.log(`[Sync] Starting processing: ${fileName}`);
+            logger.debug({ fileName }, '🚀 [Sync] Starting processing');
             const filePath = path.join(companyPath, fileName);
             const fileContent = await fs.readFile(filePath, 'utf-8');
             const { content, data } = matter(fileContent);
-            console.log(`[Sync] Read content for: ${fileName}`);
+            logger.debug({ fileName }, '📖 [Sync] Read content');
 
             const validation = dossierFrontmatterSchema.safeParse(data);
             const validatedData = validation.success
@@ -176,11 +176,11 @@ async function syncIntelligence() {
                 .get(fileId);
               if (cached && cached.content_hash === currentHash) shouldProcess = false;
             } catch (e) {
-              console.log(`[Sync] Hash check error for ${fileId}: ${e.message}`);
+              logger.warn({ fileId, error: e.message }, '⚠️ [Sync] Hash check error');
             }
 
             if (shouldProcess) {
-              console.log(`[Sync] Triggering vectorization for: ${fileId}`);
+              logger.info({ fileId }, '⚡ [Sync] Triggering vectorization');
               const label = validatedData.label || fileName;
               const sql = `
               INSERT INTO dossiers (id, company, label, content, metadata, content_hash) 
@@ -200,7 +200,7 @@ async function syncIntelligence() {
                 currentHash
               );
               await processFileVectors(fileId, content, data);
-              console.log(`[Sync] Vectorization complete for: ${fileId}`);
+              logger.info({ fileId }, '✅ [Sync] Vectorization complete');
             }
 
             const finalKeywords = extractKeywords(content);
@@ -243,10 +243,10 @@ async function syncIntelligence() {
         files: Object.keys(knowledgeGraph.files).length,
         concepts: Object.keys(knowledgeGraph.concepts).length,
       },
-      '✅ Intelligence Engine ACTIVE.'
+      'âœ… Intelligence Engine ACTIVE.'
     );
   } catch (e) {
-    logger.error({ error: e.message }, '🧵 Sync Error');
+    logger.error({ error: e.message }, 'ðŸ§µ Sync Error');
   }
 }
 

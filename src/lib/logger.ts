@@ -5,15 +5,17 @@
 
 const REDACTED_KEYS = ['token', 'secret', 'password', 'key', 'authorization', 'cookie'];
 
-function redact(obj: any): any {
+function redact(obj: unknown): unknown {
   if (!obj || typeof obj !== 'object') return obj;
-  
-  const clean = Array.isArray(obj) ? [...obj] : { ...obj };
-  
+
+  const clean: Record<string, unknown> = Array.isArray(obj)
+    ? ([...obj] as unknown as Record<string, unknown>)
+    : { ...(obj as Record<string, unknown>) };
+
   for (const key in clean) {
-    if (REDACTED_KEYS.some(k => key.toLowerCase().includes(k))) {
+    if (REDACTED_KEYS.some((k) => key.toLowerCase().includes(k))) {
       clean[key] = '***REDACTED***';
-    } else if (typeof clean[key] === 'object') {
+    } else if (typeof clean[key] === 'object' && clean[key] !== null) {
       clean[key] = redact(clean[key]);
     }
   }
@@ -30,12 +32,12 @@ export const logger = {
   error: (message: string, error?: unknown, context?: unknown) => {
     const redactedContext = redact(context);
     console.error(`[ERROR] ${message}`, error, redactedContext || '');
-    
+
     // Auto-report critical errors to backend telemetry
     if (error instanceof Error) {
       import('./api').then(({ reportError }) => {
         reportError(error, redactedContext ? JSON.stringify(redactedContext) : undefined);
       });
     }
-  }
+  },
 };

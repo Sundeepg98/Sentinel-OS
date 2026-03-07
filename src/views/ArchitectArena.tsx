@@ -1,5 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Swords, Brain, Loader2, Send, X, ShieldAlert, CheckCircle2, ChevronUp, ChevronDown, Mic, MicOff } from 'lucide-react';
+import {
+  Swords,
+  Brain,
+  Loader2,
+  Send,
+  X,
+  ShieldAlert,
+  CheckCircle2,
+  ChevronUp,
+  ChevronDown,
+  Mic,
+  MicOff,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from '@clerk/clerk-react';
@@ -67,10 +79,10 @@ export const ArchitectArena: React.FC = () => {
   const { data: allModules = [] } = useQuery<ArenaModule[]>({
     queryKey: ['arena-discovery'],
     queryFn: () => fetchWithAuth<ArenaModule[]>('/api/v1/intelligence/search?q=*', getToken),
-    enabled: arenaIds.length > 0
+    enabled: arenaIds.length > 0,
   });
 
-  const selectedModules = allModules.filter(m => arenaIds.includes(m.id));
+  const selectedModules = allModules.filter((m) => arenaIds.includes(m.id));
 
   useEffect(() => {
     if (arenaIds.length > 0) setSessionId(crypto.randomUUID());
@@ -80,23 +92,27 @@ export const ArchitectArena: React.FC = () => {
   const drillMutation = useMutation({
     mutationFn: async () => {
       // 1. SEMANTIC CROSS-POLLINATION
-      const semanticContext = await fetchWithAuth<SemanticResult[]>('/api/v1/intelligence/semantic-search', getToken, {
-        method: 'POST',
-        body: JSON.stringify({ 
-          q: selectedModules.map(m => m.label).join(" and "), 
-          limit: 5 
-        })
-      });
-      const crossDossierContext = semanticContext.map((c) => c.chunk_text).join("\n\n---\n\n");
+      const semanticContext = await fetchWithAuth<SemanticResult[]>(
+        '/api/v1/intelligence/semantic-search',
+        getToken,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            q: selectedModules.map((m) => m.label).join(' and '),
+            limit: 5,
+          }),
+        }
+      );
+      const crossDossierContext = semanticContext.map((c) => c.chunk_text).join('\n\n---\n\n');
 
       // 2. GENERATE DRILL
       return fetchWithAuth<Drill>('/api/v1/intelligence/drill', getToken, {
         method: 'POST',
-        body: JSON.stringify({ 
-          fileId: arenaIds[0], 
-          extraContext: `PRIMARY MODULES:\n${selectedModules.map(m => m.content).join("\n\n")}\n\nSEMANTICALLY RETRIEVED BRIDGING CONTEXT:\n${crossDossierContext}`,
-          isSynthesis: true 
-        })
+        body: JSON.stringify({
+          fileId: arenaIds[0],
+          extraContext: `PRIMARY MODULES:\n${selectedModules.map((m) => m.content).join('\n\n')}\n\nSEMANTICALLY RETRIEVED BRIDGING CONTEXT:\n${crossDossierContext}`,
+          isSynthesis: true,
+        }),
       });
     },
     onSuccess: (data) => {
@@ -104,7 +120,7 @@ export const ArchitectArena: React.FC = () => {
       setEvalData(null);
       setUserAnswer('');
     },
-    onError: (e: Error) => toast(e.message, "error")
+    onError: (e: Error) => toast(e.message, 'error'),
   });
 
   // 3. Evaluation Mutation
@@ -113,32 +129,45 @@ export const ArchitectArena: React.FC = () => {
       if (!drill) throw new Error('No drill active');
       return fetchWithAuth<EvaluationData>('/api/v1/intelligence/evaluate', getToken, {
         method: 'POST',
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           fileId: arenaIds[0],
-          question: drill.question, 
-          idealResponse: drill.idealResponse, 
+          question: drill.question,
+          idealResponse: drill.idealResponse,
           userAnswer,
-          sessionId 
-        })
+          sessionId,
+        }),
       });
     },
     onSuccess: (data) => {
       setEvalData(data);
-      toast("Strategy evaluated.", "success");
+      toast('Strategy evaluated.', 'success');
     },
-    onError: (e: Error) => toast(e.message, "error")
+    onError: (e: Error) => toast(e.message, 'error'),
   });
 
   useEffect(() => {
-    const WindowSpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const WindowSpeechRecognition =
+      (
+        window as unknown as {
+          SpeechRecognition: typeof SpeechRecognition;
+          webkitSpeechRecognition: typeof SpeechRecognition;
+        }
+      ).SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition: typeof SpeechRecognition })
+        .webkitSpeechRecognition;
     if (WindowSpeechRecognition) {
-      recognitionRef.current = new WindowSpeechRecognition() as SpeechRecognition;
+      recognitionRef.current = new WindowSpeechRecognition() as unknown as SpeechRecognition;
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
       recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
         for (let i = event.resultIndex; i < event.results.length; i++) {
           if (event.results[i].isFinal) {
-            setUserAnswer(prev => prev + (prev.length > 0 && !prev.endsWith(' ') ? ' ' : '') + event.results[i][0].transcript);
+            setUserAnswer(
+              (prev) =>
+                prev +
+                (prev.length > 0 && !prev.endsWith(' ') ? ' ' : '') +
+                event.results[i][0].transcript
+            );
           }
         }
       };
@@ -155,7 +184,7 @@ export const ArchitectArena: React.FC = () => {
         recognitionRef.current.start();
         setIsRecording(true);
       } else {
-        toast("Speech recognition unavailable", "error");
+        toast('Speech recognition unavailable', 'error');
       }
     }
   };
@@ -168,14 +197,17 @@ export const ArchitectArena: React.FC = () => {
         </div>
         <div className="max-w-sm">
           <h2 className="text-xl font-semibold text-white mb-2">The Architect's Arena</h2>
-          <p className="text-neutral-500 text-sm leading-relaxed">Pin multiple technical modules from the sidebar to start a cross-dossier synthesis drill.</p>
+          <p className="text-neutral-500 text-sm leading-relaxed">
+            Pin multiple technical modules from the sidebar to start a cross-dossier synthesis
+            drill.
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="max-w-4xl mx-auto space-y-8 pb-20"
@@ -187,11 +219,13 @@ export const ArchitectArena: React.FC = () => {
           </div>
           <div>
             <h2 className="text-2xl font-bold text-white tracking-tight">Architect's Arena</h2>
-            <p className="text-neutral-500 text-sm mt-1 uppercase tracking-widest font-mono">Synthesizing {arenaIds.length} technical domains</p>
+            <p className="text-neutral-500 text-sm mt-1 uppercase tracking-widest font-mono">
+              Synthesizing {arenaIds.length} technical domains
+            </p>
           </div>
         </div>
-        
-        <button 
+
+        <button
           onClick={() => setArenaIds([])}
           className="text-xs text-neutral-500 hover:text-rose-400 transition-colors uppercase tracking-widest flex items-center gap-2"
         >
@@ -200,11 +234,14 @@ export const ArchitectArena: React.FC = () => {
       </div>
 
       <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-        {selectedModules.map(mod => (
-          <div key={mod.id} className="bg-[#0d0d0d] border border-white/[0.08] px-4 py-3 rounded-xl flex items-center gap-3 shrink-0 group">
+        {selectedModules.map((mod) => (
+          <div
+            key={mod.id}
+            className="bg-[#0d0d0d] border border-white/[0.08] px-4 py-3 rounded-xl flex items-center gap-3 shrink-0 group"
+          >
             <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]" />
             <span className="text-sm font-medium text-neutral-300">{mod.label}</span>
-            <button 
+            <button
               onClick={() => setArenaIds(arenaIds.filter((id: string) => id !== mod.id))}
               className="p-1 hover:bg-white/5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
             >
@@ -221,15 +258,22 @@ export const ArchitectArena: React.FC = () => {
             <div className="relative space-y-4 max-w-md mx-auto">
               <h3 className="text-xl font-semibold text-white">Generate Synthesis Drill</h3>
               <p className="text-neutral-500 text-sm leading-relaxed">
-                Gemini will analyze the intersections between these technologies and challenge you with a high-stakes integration scenario.
+                Gemini will analyze the intersections between these technologies and challenge you
+                with a high-stakes integration scenario.
               </p>
-              <button 
+              <button
                 onClick={() => drillMutation.mutate()}
                 disabled={drillMutation.isPending}
                 className="w-full py-4 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-bold transition-all shadow-[0_0_30px_rgba(99,102,241,0.2)] flex items-center justify-center gap-3 disabled:opacity-50"
               >
-                {drillMutation.isPending ? <Loader2 className="animate-spin" /> : <Brain size={20} />}
-                {drillMutation.isPending ? 'Analyzing Architectural Intersections...' : 'Commence Drill'}
+                {drillMutation.isPending ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <Brain size={20} />
+                )}
+                {drillMutation.isPending
+                  ? 'Analyzing Architectural Intersections...'
+                  : 'Commence Drill'}
               </button>
             </div>
           </div>
@@ -245,7 +289,7 @@ export const ArchitectArena: React.FC = () => {
             {!evalData ? (
               <div className="space-y-4">
                 <div className="relative">
-                  <textarea 
+                  <textarea
                     value={userAnswer}
                     onChange={(e) => setUserAnswer(e.target.value)}
                     placeholder="Speak or type your architectural approach, trade-offs, and integration logic..."
@@ -254,20 +298,24 @@ export const ArchitectArena: React.FC = () => {
                   <button
                     onClick={toggleRecording}
                     className={`absolute top-4 right-4 p-3 rounded-full transition-all ${
-                      isRecording 
-                        ? 'bg-rose-500/20 text-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.4)] animate-pulse' 
+                      isRecording
+                        ? 'bg-rose-500/20 text-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.4)] animate-pulse'
                         : 'bg-white/[0.02] text-neutral-500 hover:bg-white/[0.05] hover:text-white border border-white/[0.05]'
                     }`}
                   >
                     {isRecording ? <Mic size={20} /> : <MicOff size={20} />}
                   </button>
                 </div>
-                <button 
+                <button
                   onClick={() => evalMutation.mutate()}
                   disabled={evalMutation.isPending || !userAnswer.trim()}
                   className="w-full py-4 bg-white text-black hover:bg-neutral-200 rounded-xl font-bold transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                 >
-                  {evalMutation.isPending ? <Loader2 className="animate-spin" /> : <Send size={18} />}
+                  {evalMutation.isPending ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <Send size={18} />
+                  )}
                   Submit Proposal for Evaluation
                 </button>
               </div>
@@ -275,11 +323,17 @@ export const ArchitectArena: React.FC = () => {
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-xl text-center">
-                    <span className="block text-[10px] uppercase tracking-widest text-emerald-500 font-bold mb-1">Architecture Score</span>
-                    <span className="text-3xl font-mono font-bold text-white">{evalData.score}</span>
+                    <span className="block text-[10px] uppercase tracking-widest text-emerald-500 font-bold mb-1">
+                      Architecture Score
+                    </span>
+                    <span className="text-3xl font-mono font-bold text-white">
+                      {evalData.score}
+                    </span>
                   </div>
                   <div className="md:col-span-2 bg-[#0d0d0d] border border-white/[0.05] p-6 rounded-xl flex items-center">
-                    <p className="text-[13px] text-neutral-300 leading-relaxed italic">"{evalData.feedback}"</p>
+                    <p className="text-[13px] text-neutral-300 leading-relaxed italic">
+                      "{evalData.feedback}"
+                    </p>
                   </div>
                 </div>
 
@@ -292,8 +346,11 @@ export const ArchitectArena: React.FC = () => {
                   </p>
                 </div>
 
-                <button 
-                  onClick={() => { setEvalData(null); setDrill(null); }}
+                <button
+                  onClick={() => {
+                    setEvalData(null);
+                    setDrill(null);
+                  }}
                   className="w-full py-3 text-neutral-500 hover:text-white transition-colors uppercase tracking-widest text-[10px] font-bold"
                 >
                   Return to Arena Briefing
@@ -301,23 +358,27 @@ export const ArchitectArena: React.FC = () => {
               </div>
             )}
 
-            <button 
+            <button
               onClick={() => setRevealed(!revealed)}
               className="w-full flex items-center justify-between py-3 px-6 bg-white/[0.02] border border-white/[0.05] rounded-xl text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
             >
-              <span>{revealed ? 'Hide Evaluation Criteria' : 'View Ideal Integration Response'}</span>
+              <span>
+                {revealed ? 'Hide Evaluation Criteria' : 'View Ideal Integration Response'}
+              </span>
               {revealed ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
 
             <AnimatePresence>
               {revealed && drill && (
-                <motion.div 
+                <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
                   className="bg-white/[0.01] border-l-2 border-indigo-500/30 pl-6 py-2 overflow-hidden"
                 >
-                  <p className="text-sm text-neutral-400 leading-relaxed italic">{drill.idealResponse}</p>
+                  <p className="text-sm text-neutral-400 leading-relaxed italic">
+                    {drill.idealResponse}
+                  </p>
                 </motion.div>
               )}
             </AnimatePresence>

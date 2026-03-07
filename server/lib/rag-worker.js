@@ -1,9 +1,10 @@
 const { parentPort } = require('worker_threads');
-console.log('--- RAG WORKER STARTING ---');
 const chokidar = require('chokidar');
 const path = require('path');
 const { syncIntelligence, getKnowledgeGraph, INTELLIGENCE_DIR } = require('./harvester');
 const logger = require('./logger');
+
+logger.info('--- 🤖 RAG WORKER STARTING ---');
 
 /**
  * RAG WORKER THREAD

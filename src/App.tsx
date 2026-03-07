@@ -122,7 +122,10 @@ function AppContent() {
   };
 
   return (
-    <div className="flex h-screen font-sans text-neutral-200 overflow-hidden bg-[#050505] selection:bg-cyan-500/30">
+    <div
+      data-testid="app-shell"
+      className="flex h-screen font-sans text-neutral-200 overflow-hidden bg-[#050505] selection:bg-cyan-500/30"
+    >
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -147,7 +150,10 @@ function AppContent() {
 
       <main className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
         {/* MOBILE HEADER */}
-        <header className="md:hidden flex items-center justify-between p-4 border-b border-white/[0.05] bg-[#0a0a0a]/80 backdrop-blur-lg z-30">
+        <header
+          data-testid="mobile-header"
+          className="md:hidden flex items-center justify-between p-4 border-b border-white/[0.05] bg-[#0a0a0a]/80 backdrop-blur-lg z-30"
+        >
           <button
             onClick={() => setSidebarOpen(true)}
             className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors"
@@ -161,7 +167,10 @@ function AppContent() {
         </header>
 
         {/* TOP NAVIGATION & SEARCH */}
-        <div className="p-4 md:p-6 border-b border-white/[0.05] bg-[#080808]/50 flex flex-wrap items-center justify-between gap-4 z-20">
+        <div
+          data-testid="desktop-nav"
+          className="p-4 md:p-6 border-b border-white/[0.05] bg-[#080808]/50 flex flex-wrap items-center justify-between gap-4 z-20"
+        >
           <div className="flex items-center gap-3">
             <select
               value={dossierData.companyId}
@@ -181,9 +190,15 @@ function AppContent() {
 
             <button
               onClick={() => setIsGraphOpen(true)}
+              title="Open 3D Knowledge Graph"
+              data-testid="graph-toggle"
               className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-lg text-[10px] font-bold text-indigo-400 uppercase tracking-widest transition-all group"
             >
-              <Network size={14} className="group-hover:rotate-12 transition-transform" />
+              <Network
+                size={14}
+                className="group-hover:rotate-12 transition-transform"
+                aria-hidden="true"
+              />
               <span className="hidden sm:inline">Open 3D Knowledge Graph</span>
             </button>
 
@@ -193,6 +208,7 @@ function AppContent() {
                 setWarRoomMode(false);
                 setDiagnosticsMode(false);
               }}
+              data-testid="arena-toggle"
               className={cn(
                 'flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border',
                 isArenaOpen
