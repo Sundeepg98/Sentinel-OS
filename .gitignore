@@ -42,3 +42,5 @@ coverage/
 bundle-analysis.html
 playwright-report/
 test-results/
+dev-dist/
+virtual:pwa-register
