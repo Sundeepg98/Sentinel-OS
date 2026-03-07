@@ -15,8 +15,10 @@ We welcome contributions from technical architects and infrastructure engineers.
    - **Formatting**: `prettier` is enforced on commit.
 
 3. **Database & Persistence**:
-   - If you change the schema, update `server/migrations/001_base_schema.sql`.
-   - Run `npm run backup` before major migrations.
+   - Schema changes must use versioned migrations in `server/migrations/`.
+   - Use the next available sequence (e.g., `008_feature_name.sql`).
+   - Standardize on SQLite syntax; the migration engine handles Postgres translation.
+   - Run `npm run backup` before applying major migrations.
 
 4. **Testing**:
    - New features require a Playwright E2E test in `/tests`.

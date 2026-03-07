@@ -147,32 +147,30 @@ export const ArchitectArena: React.FC = () => {
 
   useEffect(() => {
     const WindowSpeechRecognition =
-      (
-        window as unknown as {
-          SpeechRecognition: typeof SpeechRecognition;
-          webkitSpeechRecognition: typeof SpeechRecognition;
-        }
-      ).SpeechRecognition ||
-      (window as unknown as { webkitSpeechRecognition: typeof SpeechRecognition })
-        .webkitSpeechRecognition;
+      (window as unknown as Record<string, typeof SpeechRecognition>).SpeechRecognition ||
+      (window as unknown as Record<string, typeof SpeechRecognition>).webkitSpeechRecognition;
+
     if (WindowSpeechRecognition) {
-      recognitionRef.current = new WindowSpeechRecognition() as unknown as SpeechRecognition;
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            setUserAnswer(
-              (prev) =>
-                prev +
-                (prev.length > 0 && !prev.endsWith(' ') ? ' ' : '') +
-                event.results[i][0].transcript
-            );
+      recognitionRef.current = new WindowSpeechRecognition();
+      const rec = recognitionRef.current;
+      if (rec) {
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.onresult = (event: SpeechRecognitionEvent) => {
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              setUserAnswer(
+                (prev) =>
+                  prev +
+                  (prev.length > 0 && !prev.endsWith(' ') ? ' ' : '') +
+                  event.results[i][0].transcript
+              );
+            }
           }
-        }
-      };
-      recognitionRef.current.onerror = () => setIsRecording(false);
-      recognitionRef.current.onend = () => setIsRecording(false);
+        };
+        rec.onerror = () => setIsRecording(false);
+        rec.onend = () => setIsRecording(false);
+      }
     }
   }, []);
 

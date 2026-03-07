@@ -1,5 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import ForceGraph3D from 'react-force-graph-3d';
+import ForceGraph3D, {
+  type ForceGraphMethods,
+  type NodeObject,
+  type LinkObject,
+} from 'react-force-graph-3d';
 import { useDossierContext } from '@/lib/context';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -58,23 +62,9 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const { setCompany } = useDossierContext();
   const { getToken } = useAuth();
   const { toast: showToast } = useToast();
-  const graphRef = useRef<{
-    scene: () => THREE.Scene;
-    camera: () => THREE.PerspectiveCamera;
-    renderer: () => THREE.WebGLRenderer;
-    cameraPosition: (
-      pos: { x?: number; y?: number; z?: number },
-      target?: { x: number; y: number; z: number },
-      duration?: number
-    ) => void;
-    controls: () => {
-      minDistance: number;
-      maxDistance: number;
-      enableDamping: boolean;
-      dampingFactor: number;
-    };
-    graph2ScreenCoords: (x: number, y: number, z: number) => { x: number; y: number };
-  } | null>(null);
+  const graphRef = useRef<
+    ForceGraphMethods<NodeObject<GraphNode>, LinkObject<GraphNode, GraphLink>> | undefined
+  >(undefined);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
@@ -211,7 +201,12 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       setTimeout(() => {
         if (graphRef.current) {
           graphRef.current.cameraPosition({ z: 180 }, undefined, 800);
-          const controls = graphRef.current.controls();
+          const controls = graphRef.current.controls() as unknown as {
+            minDistance: number;
+            maxDistance: number;
+            enableDamping: boolean;
+            dampingFactor: number;
+          };
           if (controls) {
             controls.minDistance = 80;
             controls.maxDistance = 450;
@@ -296,7 +291,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
       if (graphRef.current) {
         graphRef.current.cameraPosition(
           { x: (node.x || 0) * 1.2, y: (node.y || 0) * 1.2, z: (node.z || 0) * 1.2 },
-          node,
+          node as { x: number; y: number; z: number },
           800
         );
       }
@@ -396,7 +391,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         if (graphRef.current) {
           graphRef.current.cameraPosition(
             { x: (node.x || 0) * 1.5, y: (node.y || 0) * 1.5, z: (node.z || 0) * 1.5 },
-            node,
+            node as { x: number; y: number; z: number },
             800
           );
         }

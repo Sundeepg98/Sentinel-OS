@@ -43,6 +43,8 @@ interface SidebarProps {
   setActiveModuleId: (id: string) => void;
   onDiagnosticsClick: () => void;
   diagnosticsActive: boolean;
+  warRoomActive: boolean;
+  onWarRoomClick: () => void;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -52,6 +54,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActiveModuleId,
   onDiagnosticsClick,
   diagnosticsActive,
+  warRoomActive,
+  onWarRoomClick,
   isOpen = true,
   onClose,
 }) => {
@@ -212,7 +216,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        <div className="p-4 border-t border-white/[0.05] space-y-4">
+        <div className="p-4 border-t border-white/[0.05] space-y-2">
+          <button
+            onClick={() => {
+              onWarRoomClick();
+              if (window.innerWidth < 768 && onClose) onClose();
+            }}
+            className={cn(
+              'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border',
+              warRoomActive
+                ? 'bg-rose-600 border-rose-500 text-white shadow-[0_0_20px_rgba(225,29,72,0.15)]'
+                : 'bg-white/[0.02] border-white/[0.05] text-neutral-300 hover:text-white hover:border-white/10'
+            )}
+          >
+            <Terminal size={16} />
+            War Room
+          </button>
+
           <button
             onClick={handleDiagnosticsClick}
             className={cn(
