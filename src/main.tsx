@@ -9,7 +9,16 @@ import './index.css';
 import App from './App.tsx';
 
 // --- 🛠️ ENGINEERING BASIC: PWA REGISTRATION ---
-registerSW({ immediate: true });
+const updateSW = registerSW({
+  onNeedRefresh() {
+    if (confirm('A new neural update is available. Reload now to synchronize?')) {
+      updateSW(true);
+    }
+  },
+  onOfflineReady() {
+    console.log('📡 [PWA] Offline Mode Ready.');
+  },
+});
 
 // --- 🛰️ ENGINEERING BASIC: GLOBAL TELEMETRY ---
 window.addEventListener('error', (event) => {

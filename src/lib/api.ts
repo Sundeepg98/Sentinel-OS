@@ -6,8 +6,8 @@
 import { env, APP_VERSION } from './env';
 
 export async function fetchWithAuth<T = unknown>(
-  url: string, 
-  getToken: () => Promise<string | null>, 
+  url: string,
+  getToken: () => Promise<string | null>,
   options: RequestInit = {}
 ): Promise<T> {
   const AUTH_ENABLED = env.VITE_AUTH_ENABLED;
@@ -15,7 +15,7 @@ export async function fetchWithAuth<T = unknown>(
 
   const headers = new Headers(options.headers);
   headers.set('X-Correlation-ID', correlationId);
-  headers.set('x-sentinel-bypass', 'sentinel_staff_2026'); // Staff bypass for intelligence access
+  headers.set('x-sentinel-bypass', env.VITE_DEV_BYPASS_TOKEN); // Staff bypass for intelligence access
 
   if (AUTH_ENABLED) {
     const token = await getToken();
@@ -43,36 +43,45 @@ export async function fetchWithAuth<T = unknown>(
       const response = await fetch(url, {
         ...options,
         headers,
-        signal: controller.signal
+        signal: controller.signal,
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData?.error?.message || errorData.error || `HTTP Error: ${response.status}`);
+        throw new Error(
+          errorData?.error?.message || errorData.error || `HTTP Error: ${response.status}`
+        );
       }
 
       const result = await response.json();
-      
+
       // 🛡️ ENGINEERING BASIC: VERSION PARITY CHECK
       if (result.meta?.version && result.meta.version !== APP_VERSION) {
-        console.warn(`📡 [Version Mismatch] Client: ${APP_VERSION} | Server: ${result.meta.version}. A reload may be required.`);
+        console.warn(
+          `📡 [Version Mismatch] Client: ${APP_VERSION} | Server: ${result.meta.version}. A reload may be required.`
+        );
       }
 
       // Unwrap the standardized API envelope if present
       if (result && result.status === 'success' && 'data' in result) {
         return result.data as T;
       }
-      
+
       return result as T;
     } catch (err: unknown) {
       // 🔄 ENGINEERING BASIC: UNIVERSAL RETRY LOGIC (Max 2 retries)
       // Safe because backend implements Idempotency via Correlation ID
       const message = err instanceof Error ? err.message : String(err);
       const name = err instanceof Error ? err.name : '';
-      
-      if (attempt < 3 && (name === 'TypeError' || message.includes('Failed to fetch') || message.includes('Load failed'))) {
+
+      if (
+        attempt < 3 &&
+        (name === 'TypeError' ||
+          message.includes('Failed to fetch') ||
+          message.includes('Load failed'))
+      ) {
         const delay = 1000 * attempt;
-        await new Promise(res => setTimeout(res, delay));
+        await new Promise((res) => setTimeout(res, delay));
         return performFetch(attempt + 1);
       }
       throw err;
@@ -97,9 +106,9 @@ export async function reportError(error: Error, componentStack?: string) {
     const correlationId = crypto.randomUUID(); // New ID for the reporting request itself
     await fetch('/api/v1/admin/error-logs', {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
-        'X-Correlation-ID': correlationId
+        'X-Correlation-ID': correlationId,
       },
       body: JSON.stringify({
         message: error.message,
@@ -109,10 +118,10 @@ export async function reportError(error: Error, componentStack?: string) {
         url: window.location.href,
         metadata: {
           userAgent: navigator.userAgent,
-          platform: (navigator as any).platform,
+          platform: (navigator as unknown as { platform: string }).platform,
           language: navigator.language,
           screen: `${window.screen.width}x${window.screen.height}`,
-        }
+        },
       }),
     });
   } catch (e: unknown) {

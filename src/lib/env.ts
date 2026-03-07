@@ -15,6 +15,7 @@ const frontendEnvSchema = z.object({
     .optional()
     .transform((v) => v === 'true'),
   VITE_API_URL: z.string().optional().default(''),
+  VITE_DEV_BYPASS_TOKEN: z.string().optional().default('sentinel_staff_2026'),
 });
 
 export const validateFrontendEnv = () => {
@@ -28,10 +29,17 @@ export const validateFrontendEnv = () => {
       return {
         VITE_CLERK_PUBLISHABLE_KEY: '',
         VITE_AUTH_ENABLED: false,
+        VITE_API_URL: '',
+        VITE_DEV_BYPASS_TOKEN: 'sentinel_staff_2026',
         error: `Missing: ${missing}`,
       };
     }
-    return { VITE_CLERK_PUBLISHABLE_KEY: '', VITE_AUTH_ENABLED: false };
+    return {
+      VITE_CLERK_PUBLISHABLE_KEY: '',
+      VITE_AUTH_ENABLED: false,
+      VITE_API_URL: '',
+      VITE_DEV_BYPASS_TOKEN: 'sentinel_staff_2026',
+    };
   }
 };
 

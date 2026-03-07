@@ -13,6 +13,8 @@ const dbFile = isTest ? ':memory:' : path.join(__dirname, '..', 'sentinel.db');
 
 const db = new Database(dbFile);
 db.pragma('journal_mode = WAL'); // 🚀 PERFORMANCE BASIC: Non-blocking writes
+db.pragma('synchronous = NORMAL'); // 🚀 PERFORMANCE: Reduced disk sync frequency
+db.pragma('cache_size = 2000'); // 🚀 PERFORMANCE: 2MB Cache
 db.pragma('foreign_keys = ON'); // 🛡️ INTEGRITY BASIC
 sqliteVec.load(db);
 
