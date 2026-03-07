@@ -58,7 +58,24 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const { setCompany } = useDossierContext();
   const { getToken } = useAuth();
   const { toast: showToast } = useToast();
-  const graphRef = useRef<any>(null);
+  const graphRef = useRef<{
+    scene: () => THREE.Scene;
+    camera: () => THREE.PerspectiveCamera;
+    renderer: () => THREE.WebGLRenderer;
+    cameraPosition: (
+      pos: { x?: number; y?: number; z?: number },
+      target?: { x: number; y: number; z: number },
+      duration?: number
+    ) => void;
+    controls: () => {
+      minDistance: number;
+      maxDistance: number;
+      enableDamping: boolean;
+      dampingFactor: number;
+    };
+    graph2ScreenCoords: (x: number, y: number, z: number) => { x: number; y: number };
+  } | null>(null);
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [graphData, setGraphData] = useState<GraphData>({ nodes: [], links: [] });
@@ -291,8 +308,9 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     (node: GraphNode) => {
       // 🛡️ STAFF BASIC: Object Reuse & Memoization
       // We check if the node already has an assigned object to avoid expensive recreation
-      if ((node as any).__threeObj && !isSimActive && highlightNodes.size === 0) {
-        return (node as any).__threeObj;
+      const cachedObj = (node as unknown as Record<string, THREE.Group>).__threeObj;
+      if (cachedObj && !isSimActive && highlightNodes.size === 0) {
+        return cachedObj;
       }
 
       const group = new THREE.Group();
@@ -357,7 +375,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
 
       // Cache the object on the node for future reuse
       if (!isSimActive) {
-        (node as any).__threeObj = group;
+        (node as unknown as Record<string, THREE.Group>).__threeObj = group;
       }
 
       return group;
@@ -623,7 +641,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
                   <Zap size={10} className="text-amber-400" /> Neural Impact Analyzer
                 </div>
                 <div className="flex items-center gap-2 text-[9px] font-bold text-neutral-500 uppercase tracking-widest">
-                  <Cpu size={10} className="text-indigo-400" /> High-Justice V2.0
+                  <Cpu size={10} className="text-indigo-400" /> High-Justice V2.8
                 </div>
               </div>
             </div>

@@ -228,7 +228,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <div className="bg-gradient-to-r from-neutral-900 to-neutral-950 p-4 rounded-xl border border-white/[0.05]">
             <p className="text-xs text-neutral-300 leading-relaxed">
-              Engineering Dossier v2.6.0
+              Engineering Dossier v2.8.0
               <br />
               <span className="text-neutral-600 font-mono text-[9px]">ARCHITECT_MODE: ENABLED</span>
             </p>

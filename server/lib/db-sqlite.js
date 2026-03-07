@@ -53,8 +53,10 @@ async function initDB() {
 
         const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
         try {
-          db.exec(sql);
-          db.prepare('INSERT INTO schema_migrations (version) VALUES (?)').run(file);
+          db.transaction(() => {
+            db.exec(sql);
+            db.prepare('INSERT INTO schema_migrations (version) VALUES (?)').run(file);
+          })();
         } catch (e) {
           logger.error({ migration: file, error: e.message }, '❌ Migration Failed');
         }

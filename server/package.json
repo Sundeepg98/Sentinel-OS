@@ -1,6 +1,9 @@
 {
   "name": "sentinel-os-backend",
-  "version": "1.0.0",
+  "version": "2.8.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "description": "Industrial Intelligence Engine for Sentinel-OS",
   "main": "index.js",
   "type": "commonjs",
