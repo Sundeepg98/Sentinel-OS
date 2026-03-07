@@ -1,10 +1,10 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const LRUCache = require('lru-cache');
 const logger = require('./logger');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const DEFAULT_MODEL = "gemini-2.5-flash"; 
-const EMBEDDING_MODEL = "gemini-embedding-001";
+const DEFAULT_MODEL = 'gemini-2.5-flash';
+const EMBEDDING_MODEL = 'gemini-embedding-001';
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || '');
 
@@ -20,7 +20,7 @@ const AI_CIRCUIT = {
   failures: 0,
   threshold: 5,
   cooldown: 30000,
-  lastFailureTime: null
+  lastFailureTime: null,
 };
 
 function checkCircuit() {
@@ -28,14 +28,20 @@ function checkCircuit() {
     const elapsed = Date.now() - AI_CIRCUIT.lastFailureTime;
     if (elapsed > AI_CIRCUIT.cooldown) {
       AI_CIRCUIT.state = 'HALF_OPEN';
+      logger.info('🛡️ AI CIRCUIT HALF-OPEN: Permitting probe request...');
       return true;
     }
     return false;
   }
+  // In HALF_OPEN state, we only want one concurrent request to probe.
+  // This simple check works well for low-concurrency or as a baseline.
   return true;
 }
 
 function recordAiSuccess() {
+  if (AI_CIRCUIT.state === 'HALF_OPEN') {
+    logger.info('✅ AI CIRCUIT CLOSED: Probe successful, system restored.');
+  }
   AI_CIRCUIT.failures = 0;
   AI_CIRCUIT.state = 'CLOSED';
 }
@@ -52,49 +58,49 @@ function recordAiFailure() {
 // --- 🛡️ ENGINEERING BASIC: CONTEXT BUDGETING ---
 function truncateToBudget(text, limit = 15000) {
   if (!text || text.length <= limit) return text;
-  return text.substring(0, limit) + "... [Truncated for Token Budget]";
+  return text.substring(0, limit) + '... [Truncated for Token Budget]';
 }
 
 // SCHEMAS
 const DRILL_SCHEMA = {
-  type: "object",
+  type: 'object',
   properties: {
-    question: { type: "string" },
-    idealResponse: { type: "string" }
+    question: { type: 'string' },
+    idealResponse: { type: 'string' },
   },
-  required: ["question", "idealResponse"]
+  required: ['question', 'idealResponse'],
 };
 
 const INCIDENT_SCHEMA = {
-  type: "object",
+  type: 'object',
   properties: {
-    title: { type: "string" },
-    description: { type: "string" },
-    logs: { type: "array", items: { type: "string" } },
-    rootCause: { type: "string" },
-    idealMitigation: { type: "string" }
+    title: { type: 'string' },
+    description: { type: 'string' },
+    logs: { type: 'array', items: { type: 'string' } },
+    rootCause: { type: 'string' },
+    idealMitigation: { type: 'string' },
   },
-  required: ["title", "description", "logs", "rootCause", "idealMitigation"]
+  required: ['title', 'description', 'logs', 'rootCause', 'idealMitigation'],
 };
 
 const EVAL_SCHEMA = {
-  type: "object",
+  type: 'object',
   properties: {
-    score: { type: "string" },
-    feedback: { type: "string" },
-    followUp: { type: "string" }
+    score: { type: 'string' },
+    feedback: { type: 'string' },
+    followUp: { type: 'string' },
   },
-  required: ["score", "feedback"]
+  required: ['score', 'feedback'],
 };
 
 const POST_MORTEM_SCHEMA = {
-  type: "object",
+  type: 'object',
   properties: {
-    score: { type: "string" },
-    feedback: { type: "string" },
-    missedSteps: { type: "array", items: { type: "string" } }
+    score: { type: 'string' },
+    feedback: { type: 'string' },
+    missedSteps: { type: 'array', items: { type: 'string' } },
   },
-  required: ["score", "feedback"]
+  required: ['score', 'feedback'],
 };
 
 async function logAiFailure(type, prompt, error, userId = null) {
@@ -106,20 +112,20 @@ async function logAiFailure(type, prompt, error, userId = null) {
       message: error.message || String(error),
       payload: truncateToBudget(prompt, 1000),
       stack: error.stack,
-      userId
+      userId,
     };
     if (isPostgres) {
       await db.query(
-        "INSERT INTO system_logs (type, category, message, payload, stack, user_id) VALUES ($1, $2, $3, $4, $5, $6)", 
+        'INSERT INTO system_logs (type, category, message, payload, stack, user_id) VALUES ($1, $2, $3, $4, $5, $6)',
         [entry.type, entry.category, entry.message, entry.payload, entry.stack, entry.userId]
       );
     } else {
       db.prepare(
-        "INSERT INTO system_logs (type, category, message, payload, stack, user_id) VALUES (?, ?, ?, ?, ?, ?)"
+        'INSERT INTO system_logs (type, category, message, payload, stack, user_id) VALUES (?, ?, ?, ?, ?, ?)'
       ).run(entry.type, entry.category, entry.message, entry.payload, entry.stack, entry.userId);
     }
   } catch (e) {
-    logger.error({ error: e.message }, "❌ Failed to write AI failure log to DB");
+    logger.error({ error: e.message }, '❌ Failed to write AI failure log to DB');
   }
 }
 
@@ -133,20 +139,20 @@ async function generateStructuredContent(prompt, schema) {
 
   // 2. Check Circuit
   if (!checkCircuit()) {
-    throw new Error("AI Intelligence Engine is temporarily offline (Circuit Breaker Active).");
+    throw new Error('AI Intelligence Engine is temporarily offline (Circuit Breaker Active).');
   }
 
   // 3. Enforce Token Budget
   const budgetedPrompt = truncateToBudget(prompt);
 
-  const model = genAI.getGenerativeModel({ 
+  const model = genAI.getGenerativeModel({
     model: DEFAULT_MODEL,
     generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: schema
-    }
+      responseMimeType: 'application/json',
+      responseSchema: schema,
+    },
   });
-  
+
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
@@ -157,28 +163,28 @@ async function generateStructuredContent(prompt, schema) {
       return text;
     } catch (error) {
       lastError = error;
-      logger.warn({ attempt, error: error.message }, "⚠️ AI Generation Attempt Failed");
-      if (attempt < 3) await new Promise(res => setTimeout(res, 1000 * attempt));
+      logger.warn({ attempt, error: error.message }, '⚠️ AI Generation Attempt Failed');
+      if (attempt < 3) await new Promise((res) => setTimeout(res, 1000 * attempt));
     }
   }
 
   recordAiFailure();
-  await logAiFailure("generation", budgetedPrompt, lastError);
+  await logAiFailure('generation', budgetedPrompt, lastError);
   throw lastError;
 }
 
 async function getEmbedding(text) {
   if (!GEMINI_API_KEY) return new Array(3072).fill(0);
-  
+
   const cacheKey = `emb:${text}`;
   if (aiCache.has(cacheKey)) return aiCache.get(cacheKey);
 
   try {
-    const budgetedText = truncateToBudget(text, 5000); 
+    const budgetedText = truncateToBudget(text, 5000);
     const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
     const result = await model.embedContent({
       content: { parts: [{ text: budgetedText }] },
-      taskType: "RETRIEVAL_DOCUMENT"
+      taskType: 'RETRIEVAL_DOCUMENT',
     });
     const vector = result.embedding.values;
     aiCache.set(cacheKey, vector);
@@ -189,8 +195,8 @@ async function getEmbedding(text) {
   }
 }
 
-module.exports = { 
-  getEmbedding, 
+module.exports = {
+  getEmbedding,
   generateStructuredContent,
   truncateToBudget,
   logAiFailure,
@@ -198,10 +204,10 @@ module.exports = {
   INCIDENT_SCHEMA,
   EVAL_SCHEMA,
   POST_MORTEM_SCHEMA,
-  DEFAULT_MODEL, 
+  DEFAULT_MODEL,
   EMBEDDING_MODEL,
   GEMINI_API_KEY,
   getCircuitState: () => AI_CIRCUIT.state,
   recordAiSuccess,
-  recordAiFailure
+  recordAiFailure,
 };

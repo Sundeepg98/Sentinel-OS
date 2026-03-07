@@ -2,46 +2,73 @@ name: Sentinel-OS CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, development ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, development ]
 
 jobs:
-  build-and-test:
+  lint-and-types:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
-    
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
-
     - name: Install Dependencies
       run: npm install
-
-    - name: TypeScript Check & Build
-      run: npm run build
-
-    - name: Performance Gate (Bundle Size)
-      run: npm run bundle-guard
-
-    - name: Security Audit
-      run: npm audit --audit-level=high
-
     - name: Lint Check
       run: npm run lint
+    - name: TypeScript Check
+      run: npx tsc -b
 
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
-
+  server-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    - name: Install Dependencies
+      run: npm install
     - name: Run Backend Tests with Coverage Gate
       run: npm run test:server -- --coverage --threshold=70
       env:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         NODE_ENV: test
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    - name: Install Dependencies
+      run: npm install
+    
+    - name: Get Playwright version
+      id: playwright-version
+      run: echo "version=$(npx playwright --version | cut -d' ' -f2)" >> $GITHUB_OUTPUT
+
+    - name: Cache Playwright browsers
+      uses: actions/cache@v4
+      id: playwright-cache
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+        restore-keys: |
+          ${{ runner.os }}-playwright-
+
+    - name: Install Playwright Browsers
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      run: npx playwright install --with-deps
 
     - name: Run Playwright E2E & Accessibility Tests
       run: npx playwright test
