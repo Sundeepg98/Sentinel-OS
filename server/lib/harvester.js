@@ -146,12 +146,8 @@ async function syncIntelligence() {
           // --- CLOUD CACHE CHECK ---
           let shouldProcess = true;
           if (isPostgres) {
-            // Fix: Store and check the content hash in Postgres too for hot-reloading support
-            const cached = await db.query("SELECT id, content FROM dossiers WHERE id = $1", [fileId]);
-            if (cached.rows[0]) {
-              const dbHash = getFileHash(cached.rows[0].content);
-              if (dbHash === currentHash) shouldProcess = false;
-            }
+            const cached = await db.prepare("SELECT content_hash FROM dossiers WHERE id = ?").get(fileId);
+            if (cached && cached.content_hash === currentHash) shouldProcess = false;
           } else {
             const cached = db.prepare("SELECT content_hash FROM intelligence_cache WHERE file_id = ?").get(fileId);
             if (cached && cached.content_hash === currentHash) shouldProcess = false;
@@ -161,8 +157,8 @@ async function syncIntelligence() {
             const label = validatedData.label || fileName;
             if (isPostgres) {
               await db.query(
-                "INSERT INTO dossiers (id, company, label, content, metadata) VALUES ($1, $2, $3, $4, $5) ON CONFLICT(id) DO UPDATE SET content=excluded.content, metadata=excluded.metadata, label=excluded.label",
-                [fileId, company.name, label, content, JSON.stringify(data)]
+                "INSERT INTO dossiers (id, company, label, content, metadata, content_hash) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT(id) DO UPDATE SET content=excluded.content, metadata=excluded.metadata, label=excluded.label, content_hash=excluded.content_hash",
+                [fileId, company.name, label, content, JSON.stringify(data), currentHash]
               );
             } else {
               const keywords = extractKeywords(content + ' ' + (validatedData.label || ''));

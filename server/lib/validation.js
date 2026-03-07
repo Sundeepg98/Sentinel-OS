@@ -49,6 +49,7 @@ const paginationSchema = z.object({
 
 const pathParamsSchema = z.object({
   companyId: z.string().regex(/^[a-zA-Z0-9_-]+$/).optional(),
+  id: z.string().regex(/^[a-zA-Z0-9_-]+$/).optional(),
   filename: z.string().regex(/^[a-zA-Z0-9._-]+$/).optional(),
   key: z.string().regex(/^[a-zA-Z0-9._-]+$/).optional(),
 });

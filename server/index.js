@@ -213,7 +213,8 @@ app.use(responseEnvelope);
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-const { validateBody, schemas } = require('./lib/validation');
+const { validateBody, validateParams, schemas } = require('./lib/validation');
+const { AppError, asyncHandler } = require('./lib/errors');
 
 // 🛰️ PUBLIC TELEMETRY ENDPOINT
 // Allows reporting frontend crashes even before auth is established
@@ -392,8 +393,8 @@ v1Router.get('/companies', (req, res) => {
  *         schema:
  *           type: string
  */
-v1Router.get('/dossier/:id', (req, res) => {
-  const companyId = req.params.id.toLowerCase();
+v1Router.get('/dossier/:id', validateParams(schemas.pathParamsSchema), asyncHandler(async (req, res) => {
+  const companyId = (req.params.id || req.params.companyId).toLowerCase();
   const companyModules = Object.entries(globalState.knowledgeGraph.files)
     .filter(([_, data]) => data.company.toLowerCase() === companyId)
     .map(([id, data]) => ({
@@ -405,7 +406,7 @@ v1Router.get('/dossier/:id', (req, res) => {
     }));
 
   if (companyModules.length === 0) {
-    return res.error(`Technical dossier for ${companyId} not found`, 404);
+    throw new AppError(`Technical dossier for ${companyId} not found`, 404);
   }
 
   res.success({
@@ -415,7 +416,7 @@ v1Router.get('/dossier/:id', (req, res) => {
     brandColor: companyId === 'mailin' ? 'cyan' : 'indigo',
     modules: companyModules
   });
-});
+}));
 
 // --- MOUNT MODULAR ROUTES ---
 v1Router.use('/admin', require('./routes/admin'));

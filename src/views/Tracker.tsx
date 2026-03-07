@@ -11,34 +11,25 @@ interface TrackerProps {
   moduleId: string;
 }
 
+/**
+ * 🛰️ TASK TRACKER (Staff Edition)
+ * Leverages usePersistentState for automated cloud-sync and local redundancy.
+ * Ensures the technical preparation roadmap is preserved across all devices.
+ */
 export const Tracker: React.FC<TrackerProps> = ({ data, label, moduleId }) => {
   const { dossier } = useDossierContext();
-  const [tasks, setTasks] = usePersistentState<Task[]>(dossier ? `tracker-${dossier.id}-${moduleId}` : `temp-tracker-${moduleId}`, data || []);
-
-  const dossierId = dossier?.id;
-
-  // Sync with backend on mount
-  React.useEffect(() => {
-    if (!dossierId) return;
-    fetch(`/api/v1/state/tracker-${dossierId}-${moduleId}`)
-      .then(res => res.json())
-      .then(dbData => {
-        if (dbData.value) setTasks(dbData.value);
-      });
-  }, [dossierId, moduleId, setTasks]);
+  
+  // 🛡️ STAFF STATE: Automated cloud sync via usePersistentState
+  const [tasks, setTasks] = usePersistentState<Task[]>(
+    dossier ? `tracker-${dossier.id}-${moduleId}` : `temp-tracker-${moduleId}`, 
+    data || []
+  );
 
   if (!dossier) return null;
 
   const toggle = (id: number) => {
     const newTasks = tasks.map(t => t.id === id ? { ...t, done: !t.done } : t);
     setTasks(newTasks);
-    
-    // Persist to backend for Heatmap
-    fetch(`/api/v1/state/tracker-${dossier.id}-${moduleId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value: newTasks })
-    });
   };
 
   const progress = tasks.length > 0 ? Math.round((tasks.filter(t => t.done).length / tasks.length) * 100) : 0;

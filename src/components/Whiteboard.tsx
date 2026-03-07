@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { MousePointer2, Square, Circle, Minus, Type, Trash2, RotateCcw, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePersistentState } from '@/hooks/usePersistentState';
 
 interface Element {
   id: number;
@@ -14,32 +15,21 @@ interface Element {
   color: string;
 }
 
+/**
+ * 🎨 ARCHITECTURAL WHITEBOARD
+ * Features real-time state persistence and cinematic 2D drawing primitives.
+ * Utilizes usePersistentState for industrial-grade data integrity and cloud sync.
+ */
 export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [elements, setElements] = useState<Element[]>([]);
   const [tool, setTool] = useState<Element['type']>('pencil');
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentElement, setCurrentElement] = useState<Element | null>(null);
   const [textInput, setTextInput] = useState<{ x: number, y: number } | null>(null);
   const [inputValue, setInputValue] = useState('');
 
-  // --- PERSISTENCE: LOAD ---
-  useEffect(() => {
-    fetch(`/api/v1/state/whiteboard-${sessionId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.value) setElements(data.value);
-      });
-  }, [sessionId]);
-
-  // --- PERSISTENCE: SAVE ---
-  const saveWhiteboard = (newElements: Element[]) => {
-    fetch(`/api/v1/state/whiteboard-${sessionId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value: newElements })
-    });
-  };
+  // 🛡️ STAFF STATE: Automated cloud sync via usePersistentState
+  const [elements, setElements] = usePersistentState<Element[]>(`whiteboard-${sessionId}`, []);
 
   const drawElement = (ctx: CanvasRenderingContext2D, element: Element) => {
     ctx.strokeStyle = element.color;
@@ -143,9 +133,7 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
 
   const handleMouseUp = () => {
     if (currentElement) {
-      const newElements = [...elements, currentElement];
-      setElements(newElements);
-      saveWhiteboard(newElements);
+      setElements([...elements, currentElement]);
     }
     setIsDrawing(false);
     setCurrentElement(null);
@@ -161,9 +149,7 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
         text: inputValue,
         color: '#22d3ee'
       };
-      const newElements = [...elements, newElement];
-      setElements(newElements);
-      saveWhiteboard(newElements);
+      setElements([...elements, newElement]);
       setTextInput(null);
       setInputValue('');
     } else if (e.key === 'Escape') {
@@ -183,13 +169,10 @@ export const Whiteboard = ({ sessionId = 'default' }: { sessionId?: string }) =>
 
   const clearCanvas = () => {
     setElements([]);
-    saveWhiteboard([]);
   };
 
   const undo = () => {
-    const newElements = elements.slice(0, -1);
-    setElements(newElements);
-    saveWhiteboard(newElements);
+    setElements(elements.slice(0, -1));
   };
 
   return (
