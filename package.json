@@ -33,7 +33,9 @@
     "test": "npm run test:server && npm run test:frontend && npm run test:e2e",
     "verify": "node scripts/verify-environments.js",
     "backup": "node scripts/backup-db.js",
+    "restore": "node scripts/restore-db.js",
     "bundle-guard": "node scripts/bundle-guard.cjs",
+
     "prepare": "husky"
   },
   "lint-staged": {

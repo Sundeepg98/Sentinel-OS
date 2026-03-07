@@ -30,11 +30,19 @@ const db = {
     return pool.query(text, params);
   },
   async exec(sql) {
-    // 🛡️ SECURITY: Postgres doesn't support multiple statements in one query easily
-    // We split by semicolon for base setup
-    const statements = sql.split(';').filter((s) => s.trim());
-    for (const s of statements) {
-      await pool.query(s);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const statements = sql.split(';').filter((s) => s.trim());
+      for (const s of statements) {
+        await client.query(s);
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
     }
   },
   prepare(sql) {

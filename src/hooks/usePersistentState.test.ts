@@ -12,7 +12,7 @@ vi.mock('@clerk/clerk-react', () => ({
 // Mock API
 const fetchWithAuthMock = vi.fn();
 vi.mock('@/lib/api', () => ({
-  fetchWithAuth: (...args: any[]) => fetchWithAuthMock(...args),
+  fetchWithAuth: (...args: unknown[]) => fetchWithAuthMock(...args),
 }));
 
 describe('usePersistentState hook', () => {
@@ -20,9 +20,15 @@ describe('usePersistentState hook', () => {
     let store: Record<string, string> = {};
     return {
       getItem: (key: string) => store[key] || null,
-      setItem: (key: string, value: string) => { store[key] = value.toString(); },
-      clear: () => { store = {}; },
-      removeItem: (key: string) => { delete store[key]; }
+      setItem: (key: string, value: string) => {
+        store[key] = value.toString();
+      },
+      clear: () => {
+        store = {};
+      },
+      removeItem: (key: string) => {
+        delete store[key];
+      },
     };
   })();
 
@@ -35,34 +41,34 @@ describe('usePersistentState hook', () => {
 
   it('initializes with value from localStorage if present', async () => {
     localStorageMock.setItem('test-key', JSON.stringify('local-val'));
-    
-    let result: any;
+
+    let result: { current: readonly [unknown, (val: unknown) => void] } | null = null;
     await act(async () => {
       const hook = renderHook(() => usePersistentState('test-key', 'default'));
-      result = hook.result;
+      result = hook.result as unknown as { current: readonly [unknown, (val: unknown) => void] };
     });
 
-    expect(result.current[0]).toBe('local-val');
+    expect(result?.current[0]).toBe('local-val');
   });
 
   it('initializes with default value if localStorage is empty', async () => {
-    let result: any;
+    let result: { current: readonly [unknown, (val: unknown) => void] } | null = null;
     await act(async () => {
       const hook = renderHook(() => usePersistentState('test-key', 'default'));
-      result = hook.result;
+      result = hook.result as unknown as { current: readonly [unknown, (val: unknown) => void] };
     });
-    expect(result.current[0]).toBe('default');
+    expect(result?.current[0]).toBe('default');
   });
 
   it('updates localStorage on value change', async () => {
-    let result: any;
+    let result: { current: readonly [unknown, (val: unknown) => void] } | null = null;
     await act(async () => {
       const hook = renderHook(() => usePersistentState('test-key', 'default'));
-      result = hook.result;
+      result = hook.result as unknown as { current: readonly [unknown, (val: unknown) => void] };
     });
-    
+
     await act(async () => {
-      result.current[1]('new-val');
+      if (result) result.current[1]('new-val');
     });
 
     expect(localStorageMock.getItem('test-key')).toBe(JSON.stringify('new-val'));

@@ -1,3 +1,5 @@
+import { reportError } from './telemetry';
+
 /**
  * 📡 STAFF-LEVEL FRONTEND LOGGER
  * Standardized logging utility with secret redaction and correlation mapping.
@@ -35,9 +37,7 @@ export const logger = {
 
     // Auto-report critical errors to backend telemetry
     if (error instanceof Error) {
-      import('./api').then(({ reportError }) => {
-        reportError(error, redactedContext ? JSON.stringify(redactedContext) : undefined);
-      });
+      reportError(error, redactedContext ? JSON.stringify(redactedContext) : undefined);
     }
   },
 };

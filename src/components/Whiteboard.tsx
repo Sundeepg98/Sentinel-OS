@@ -256,13 +256,19 @@ export const Whiteboard = React.memo(({ sessionId = 'default' }: { sessionId?: s
       </div>
 
       {/* CANVAS */}
-      <div className="flex-1 relative cursor-crosshair">
+      <div
+        className="flex-1 relative cursor-crosshair"
+        role="region"
+        aria-label="Architectural drawing surface"
+      >
         <canvas
           ref={canvasRef}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           className="w-full h-full"
+          tabIndex={0}
+          aria-label="Design canvas. Use mouse or touch to draw architectural diagrams."
         />
 
         {/* TEXT INPUT OVERLAY */}

@@ -67,6 +67,7 @@ const DeepSearchComponent: React.FC<DeepSearchProps> = ({ onSelect }) => {
     isFetching: isSearching,
     isError,
     error,
+    refetch,
   } = useQuery<SearchResult[]>({
     queryKey: ['search', debouncedQuery, searchMode],
     queryFn: async ({ signal }) => {
@@ -205,10 +206,16 @@ const DeepSearchComponent: React.FC<DeepSearchProps> = ({ onSelect }) => {
                       <X className="w-5 h-5 text-rose-500" />
                     </div>
                     <p className="text-rose-400 text-[14px]">Search Engine Connectivity Failure</p>
-                    <p className="text-neutral-600 text-[12px] max-w-xs mx-auto">
+                    <p className="text-neutral-600 text-[12px] max-w-xs mx-auto mb-2">
                       {(error as Error)?.message ||
                         'An unexpected error occurred while communicating with the intelligence backend.'}
                     </p>
+                    <button
+                      onClick={() => refetch()}
+                      className="px-4 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all"
+                    >
+                      Retry Connection
+                    </button>
                   </div>
                 ) : mappedResults.length > 0 ? (
                   <div className="space-y-1">

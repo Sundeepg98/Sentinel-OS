@@ -26,7 +26,7 @@ interface FrontendEnv {
   error?: string;
 }
 
-export const validateFrontendEnv = (): FrontendEnv => {
+const validateFrontendEnv = (): FrontendEnv => {
   try {
     return frontendEnvSchema.parse(import.meta.env);
   } catch (err) {
@@ -54,4 +54,4 @@ export const validateFrontendEnv = (): FrontendEnv => {
 export const env = validateFrontendEnv();
 export const APP_VERSION = '2.8.0';
 export const API_VERSION = 'v1';
-export const API_BASE = `${env.VITE_API_URL}/api/${API_VERSION}`;
+export const API_BASE = `${import.meta.env.VITE_API_URL || ''}/api/${API_VERSION}`;

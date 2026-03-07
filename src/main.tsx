@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ClerkProvider } from '@clerk/clerk-react';
 import { registerSW } from 'virtual:pwa-register';
 import { env } from './lib/env';
-import { reportError } from './lib/api';
+import { reportError } from './lib/telemetry';
 import './index.css';
 import App from './App.tsx';
 

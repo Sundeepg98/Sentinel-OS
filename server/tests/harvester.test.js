@@ -40,4 +40,15 @@ describe('Intelligence Harvester', () => {
     const check = db.prepare('SELECT 1 FROM dossiers WHERE id = ?').get('stale/dossier.md');
     expect(check).toBeUndefined();
   }, 15000);
+
+  test('syncIntelligence should parse structured types correctly', async () => {
+    const graph = getKnowledgeGraph();
+
+    // Find a checklist if it exists
+    const checklist = Object.values(graph.files).find((f) => f.type === 'checklist');
+    if (checklist) {
+      expect(Array.isArray(checklist.content)).toBe(true);
+      expect(checklist.content[0]).toHaveProperty('text');
+    }
+  });
 });

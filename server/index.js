@@ -252,6 +252,11 @@ app.get(
       db: dbStatus,
       version: '2.8.0',
       timestamp: new Date().toISOString(),
+      system: {
+        uptime: process.uptime(),
+        memory: process.memoryUsage().rss,
+        cpuLoad: process.cpuUsage(),
+      },
       aiEngine: {
         activeWorker: !!globalState.activeWorker,
         workerStatus: workerHung ? 'HUNG' : 'OK',
@@ -359,7 +364,7 @@ v1Router.use('/intelligence/history', require('./routes/history'));
 v1Router.use('/state', require('./routes/state'));
 
 v1Router.use((req, res) => res.error('API Endpoint Not Found', 404));
-app.use('/api/v1', v1Router);
+app.use(`/api/${config.API.VERSION}`, v1Router);
 
 // 🛡️ STAFF BASIC: Static asset caching
 app.use(
@@ -402,6 +407,22 @@ async function startServer() {
     await fs.mkdir(logsDir, { recursive: true });
   } catch {
     /* Logs dir exists */
+  }
+
+  // 🧹 STAFF BASIC: Automated DB Log Pruning
+  try {
+    const pruneDate = new Date();
+    pruneDate.setDate(pruneDate.getDate() - config.SYSTEM.LOG_RETENTION_DAYS);
+    const isoDate = pruneDate.toISOString();
+
+    if (isPostgres) {
+      await db.query('DELETE FROM system_logs WHERE timestamp < $1', [isoDate]);
+    } else {
+      db.prepare('DELETE FROM system_logs WHERE timestamp < ?').run(isoDate);
+    }
+    logger.info({ retentionDays: config.SYSTEM.LOG_RETENTION_DAYS }, '🧹 System logs pruned.');
+  } catch (e) {
+    logger.warn({ error: e.message }, '⚠️ Log pruning failed.');
   }
 
   const server = app.listen(PORT, () => {

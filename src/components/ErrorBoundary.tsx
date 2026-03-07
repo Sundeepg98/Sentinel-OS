@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { reportError } from '@/lib/api';
+import { reportError } from '@/lib/telemetry';
 
 interface Props {
   children: ReactNode;
@@ -34,7 +34,9 @@ export class ErrorBoundary extends Component<Props, State> {
             <AlertTriangle className="w-12 h-12 text-rose-500" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-xl font-bold text-white uppercase tracking-widest">Component Crash Detected</h2>
+            <h2 className="text-xl font-bold text-white uppercase tracking-widest">
+              Component Crash Detected
+            </h2>
             <p className="text-neutral-500 text-sm max-w-md mx-auto">
               The UI thread encountered an unhandled exception in this section.
             </p>

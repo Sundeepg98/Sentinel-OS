@@ -31,6 +31,7 @@ const config = {
     },
   },
   API: {
+    VERSION: 'v1',
     TIMEOUT_MS: 15000,
     RATE_LIMIT: {
       GLOBAL_WINDOW_MS: 15 * 60 * 1000,
@@ -38,6 +39,10 @@ const config = {
       ADMIN_MAX: 50,
       AI_MAX: 15,
     },
+  },
+  SYSTEM: {
+    HEALTH_CHECK_INTERVAL_MS: 60000,
+    LOG_RETENTION_DAYS: 7,
   },
 };
 
