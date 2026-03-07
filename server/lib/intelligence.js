@@ -147,19 +147,24 @@ async function generateStructuredContent(prompt, schema) {
     }
   });
   
-  try {
-    const result = await model.generateContent(budgetedPrompt);
-    const text = (await result.response).text();
-    recordAiSuccess();
-    
-    // 4. Update Cache
-    aiCache.set(cacheKey, text);
-    return text;
-  } catch (error) {
-    recordAiFailure();
-    await logAiFailure("generation", budgetedPrompt, error);
-    throw error;
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const result = await model.generateContent(budgetedPrompt);
+      const text = (await result.response).text();
+      recordAiSuccess();
+      aiCache.set(cacheKey, text);
+      return text;
+    } catch (error) {
+      lastError = error;
+      logger.warn({ attempt, error: error.message }, "⚠️ AI Generation Attempt Failed");
+      if (attempt < 3) await new Promise(res => setTimeout(res, 1000 * attempt));
+    }
   }
+
+  recordAiFailure();
+  await logAiFailure("generation", budgetedPrompt, lastError);
+  throw lastError;
 }
 
 async function getEmbedding(text) {

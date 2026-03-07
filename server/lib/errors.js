@@ -22,8 +22,17 @@ class AuthError extends AppError {
   }
 }
 
+/**
+ * 🛰️ ASYNC WRAPPER
+ * Standardizes async error handling by passing errors to the centralized middleware.
+ */
+const asyncHandler = (fn) => (req, res, next) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
 module.exports = {
   AppError,
   ValidationError,
-  AuthError
+  AuthError,
+  asyncHandler
 };

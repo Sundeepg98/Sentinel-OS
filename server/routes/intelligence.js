@@ -2,6 +2,7 @@ const express = require('express');
 const { db, isPostgres } = require('../lib/db');
 const { validateBody, validateQuery, schemas } = require('../lib/validation');
 const { globalState } = require('../lib/state');
+const { AppError, asyncHandler } = require('../lib/errors');
 const { 
   DEFAULT_MODEL, 
   generateStructuredContent, 
@@ -56,7 +57,7 @@ router.get('/stream', (req, res) => {
  *     tags: [Intelligence Engine]
  *     summary: Retrieve system-wide intelligence telemetry
  */
-router.get('/stats', async (req, res) => {
+router.get('/stats', asyncHandler(async (req, res) => {
   let chunksCount, historyCount, learnedCount;
   
   if (isPostgres) {
@@ -87,7 +88,7 @@ router.get('/stats', async (req, res) => {
     },
     isSyncing: globalState.isSyncing
   });
-});
+}));
 
 /**
  * @openapi
@@ -96,7 +97,7 @@ router.get('/stats', async (req, res) => {
  *     tags: [Intelligence Engine]
  *     summary: Generate the 3D Architectural Nervous System data
  */
-router.get('/graph', async (req, res) => {
+router.get('/graph', asyncHandler(async (req, res) => {
   const nodes = []; const links = [];
   let userRows;
   
@@ -130,7 +131,7 @@ router.get('/graph', async (req, res) => {
     }
   });
   res.success({ nodes, links });
-});
+}));
 
 /**
  * @openapi
@@ -145,7 +146,7 @@ router.get('/graph', async (req, res) => {
  *         schema:
  *           type: string
  */
-router.get('/insights', validateQuery(schemas.insightsQuerySchema), async (req, res) => {
+router.get('/insights', validateQuery(schemas.insightsQuerySchema), asyncHandler(async (req, res) => {
   const { fileId: rawFileId } = req.query;
   const fileId = String(rawFileId).toLowerCase();
   const file = globalState.knowledgeGraph.files[fileId];
@@ -168,7 +169,7 @@ router.get('/insights', validateQuery(schemas.insightsQuerySchema), async (req, 
   } catch { 
     res.success({ keywords: file.keywords, related: [] }); 
   }
-});
+}));
 
 /**
  * @openapi
@@ -191,7 +192,7 @@ router.get('/insights', validateQuery(schemas.insightsQuerySchema), async (req, 
  *         schema:
  *           type: integer
  */
-router.get('/search', validateQuery(schemas.searchQuerySchema), (req, res) => {
+router.get('/search', validateQuery(schemas.searchQuerySchema), asyncHandler(async (req, res) => {
   const { q } = req.query;
   const limit = Math.min(parseInt(req.query.limit) || 10, 50);
   const offset = Math.max(parseInt(req.query.offset) || 0, 0);
@@ -202,7 +203,7 @@ router.get('/search', validateQuery(schemas.searchQuerySchema), (req, res) => {
   const paginatedResults = results.slice(offset);
   
   res.success(paginatedResults.map(id => ({ id, ...globalState.knowledgeGraph.files[id] })));
-});
+}));
 
 /**
  * @openapi
@@ -222,23 +223,23 @@ router.get('/search', validateQuery(schemas.searchQuerySchema), (req, res) => {
  *               limit:
  *                 type: integer
  */
-router.post('/semantic-search', validateBody(schemas.semanticSearchSchema), async (req, res) => {
+router.post('/semantic-search', validateBody(schemas.semanticSearchSchema), asyncHandler(async (req, res) => {
   const { q, limit } = req.body;
   try {
     const vector = await getEmbedding(q);
     let results;
     if (isPostgres) {
       const dbRes = await db.query(
-        "SELECT m.file_id, m.chunk_text, (m.embedding <=> $1) as distance FROM chunks_metadata m ORDER BY distance LIMIT $2",
-        [JSON.stringify(vector), limit]
+        "SELECT m.file_id, m.chunk_text, (m.embedding <=> $1) as distance FROM chunks_metadata m WHERE m.file_id != $2 ORDER BY distance LIMIT $3",
+        [JSON.stringify(vector), 'none', limit]
       );
       results = dbRes.rows;
     } else {
       results = db.prepare(`SELECT m.file_id, m.chunk_text, v.distance FROM vec_chunks v JOIN chunks_metadata m ON v.id = m.id WHERE v.vector MATCH ? AND k = ? ORDER BY distance`).all(new Float32Array(vector), limit);
     }
     res.success(results);
-  } catch (e) { res.error(e.message, 500); }
-});
+  } catch (e) { throw new AppError(e.message, 500); }
+}));
 
 /**
  * @openapi
@@ -256,9 +257,9 @@ router.post('/semantic-search', validateBody(schemas.semanticSearchSchema), asyn
  *               fileId:
  *                 type: string
  */
-router.post('/drill', aiRateLimiter, validateBody(schemas.drillRequestSchema), async (req, res) => {
+router.post('/drill', aiRateLimiter, validateBody(schemas.drillRequestSchema), asyncHandler(async (req, res) => {
   const { fileId, extraContext = "" } = req.body;
-  if (!GEMINI_API_KEY) return res.error("AI Intelligence Engine Offline", 503);
+  if (!GEMINI_API_KEY) throw new AppError("AI Intelligence Engine Offline", 503);
   
   try {
     const context = extraContext || globalState.knowledgeGraph.files[fileId.toLowerCase()]?.content.slice(0, 3000) || "General System Architecture";
@@ -266,9 +267,9 @@ router.post('/drill', aiRateLimiter, validateBody(schemas.drillRequestSchema), a
     const text = await generateStructuredContent(prompt, DRILL_SCHEMA);
     res.success(JSON.parse(text));
   } catch (error) { 
-    res.error(error.message, 500); 
+    throw new AppError(error.message, 500); 
   }
-});
+}));
 
 /**
  * @openapi
@@ -277,9 +278,9 @@ router.post('/drill', aiRateLimiter, validateBody(schemas.drillRequestSchema), a
  *     tags: [Intelligence Engine]
  *     summary: Simulate a critical production incident
  */
-router.post('/incident', aiRateLimiter, validateBody(schemas.incidentRequestSchema), async (req, res) => {
+router.post('/incident', aiRateLimiter, validateBody(schemas.incidentRequestSchema), asyncHandler(async (req, res) => {
   const { moduleIds = [] } = req.body;
-  if (!GEMINI_API_KEY) return res.error("AI Intelligence Engine Offline", 503);
+  if (!GEMINI_API_KEY) throw new AppError("AI Intelligence Engine Offline", 503);
   
   let context = moduleIds.map(id => globalState.knowledgeGraph.files[id.toLowerCase()]?.content.slice(0, 1000)).join('\n\n') || "General System Architecture";
 
@@ -288,9 +289,9 @@ router.post('/incident', aiRateLimiter, validateBody(schemas.incidentRequestSche
     const text = await generateStructuredContent(prompt, INCIDENT_SCHEMA);
     res.success(JSON.parse(text));
   } catch (error) { 
-    res.error(error.message, 500); 
+    throw new AppError(error.message, 500); 
   }
-});
+}));
 
 /**
  * @openapi
@@ -299,7 +300,7 @@ router.post('/incident', aiRateLimiter, validateBody(schemas.incidentRequestSche
  *     tags: [Intelligence Engine]
  *     summary: AI-driven evaluation of candidate response
  */
-router.post('/evaluate', aiRateLimiter, validateBody(schemas.evaluateRequestSchema), async (req, res) => {
+router.post('/evaluate', aiRateLimiter, validateBody(schemas.evaluateRequestSchema), asyncHandler(async (req, res) => {
   const { userAnswer, question, idealResponse, fileId } = req.body;
   try {
     const prompt = `Staff Interview Evaluation. Q: ${question}\nIdeal: ${idealResponse}\nCandidate: "${userAnswer}"`;
@@ -318,7 +319,7 @@ router.post('/evaluate', aiRateLimiter, validateBody(schemas.evaluateRequestSche
       }
     }
     res.success(json);
-  } catch (error) { res.error(error.message, 500); }
-});
+  } catch (error) { throw new AppError(error.message, 500); }
+}));
 
 module.exports = router;

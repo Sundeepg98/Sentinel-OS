@@ -1,6 +1,7 @@
 const express = require('express');
 const { db, isPostgres } = require('../lib/db');
 const { validateQuery, schemas } = require('../lib/validation');
+const { asyncHandler } = require('../lib/errors');
 
 const router = express.Router();
 
@@ -22,7 +23,7 @@ const router = express.Router();
  *           type: integer
  *           default: 0
  */
-router.get('/', validateQuery(schemas.paginationSchema), async (req, res) => {
+router.get('/', validateQuery(schemas.paginationSchema), asyncHandler(async (req, res) => {
   const limit = Math.min(req.query.limit || 50, 100);
   const offset = Math.max(req.query.offset || 0, 0);
 
@@ -44,6 +45,6 @@ router.get('/', validateQuery(schemas.paginationSchema), async (req, res) => {
   } catch (e) {
     res.error("Failed to retrieve history", 500, e.message);
   }
-});
+}));
 
 module.exports = router;

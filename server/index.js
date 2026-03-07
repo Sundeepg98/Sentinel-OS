@@ -311,20 +311,20 @@ v1Router.use((req, res, next) => {
   next();
 });
 
+// 🛡️ ENGINEERING BASIC: GLOBAL TIMEOUT
+app.use((req, res, next) => {
+  res.setTimeout(10000, () => {
+    req.log.warn({ path: req.path }, "⚠️ Request Timeout Triggered");
+    res.status(408).error("Request Timeout", 408);
+  });
+  next();
+});
+
 // Alias health in API v1
 v1Router.get('/health', (req, res) => res.redirect('/health'));
 
 // 🛰️ RESTORED MISSION CRITICAL ROUTES
 v1Router.get('/companies', (req, res) => {
-  console.log('--- COMPANIES DEBUG START ---');
-  console.log('globalState keys:', Object.keys(globalState));
-  console.log('knowledgeGraph files count:', Object.keys(globalState.knowledgeGraph?.files || {}).length);
-  console.log('--- COMPANIES DEBUG END ---');
-  
-  req.log.info({ 
-    fileCount: Object.keys(globalState.knowledgeGraph.files).length,
-    conceptCount: Object.keys(globalState.knowledgeGraph.concepts).length
-  }, '🏢 [API] Fetching company list');
   const companies = [...new Set(Object.values(globalState.knowledgeGraph.files).map(f => f.company))]
     .map(id => ({ id, name: id.charAt(0).toUpperCase() + id.slice(1) }));
   res.success(companies);

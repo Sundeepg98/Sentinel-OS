@@ -5,6 +5,7 @@ const multer = require('multer');
 const { db, isPostgres } = require('../lib/db');
 const { INTELLIGENCE_DIR } = require('../lib/harvester');
 const { validateParams, validateQuery, schemas } = require('../lib/validation');
+const { AppError, asyncHandler } = require('../lib/errors');
 
 const router = express.Router();
 
@@ -61,10 +62,10 @@ const upload = multer({
  *         schema:
  *           type: string
  */
-router.post('/upload/:companyId', adminRateLimiter, validateParams(schemas.pathParamsSchema), upload.single('file'), (req, res) => {
+router.post('/upload/:companyId', adminRateLimiter, validateParams(schemas.pathParamsSchema), upload.single('file'), asyncHandler(async (req, res) => {
   if (!req.file) return res.error("No file uploaded", 400);
   res.success({ success: true, filename: req.file.filename });
-});
+}));
 
 /**
  * @openapi
@@ -79,7 +80,7 @@ router.post('/upload/:companyId', adminRateLimiter, validateParams(schemas.pathP
  *         schema:
  *           type: string
  */
-router.post('/companies/:companyId', adminRateLimiter, validateParams(schemas.pathParamsSchema), async (req, res) => {
+router.post('/companies/:companyId', adminRateLimiter, validateParams(schemas.pathParamsSchema), asyncHandler(async (req, res) => {
   const { companyId } = req.params;
   const companyPath = path.join(INTELLIGENCE_DIR, companyId.toLowerCase());
   try {
@@ -87,10 +88,9 @@ router.post('/companies/:companyId', adminRateLimiter, validateParams(schemas.pa
     req.log.info({ companyId }, "🏢 [Admin] Company context created");
     res.success({ success: true });
   } catch (e) {
-    req.log.error({ companyId, error: e.message }, "❌ [Admin] Failed to create company context");
-    res.error("Failed to create company context", 500, e.message);
+    throw new AppError("Failed to create company context", 500, e.message);
   }
-});
+}));
 
 /**
  * @openapi
@@ -110,7 +110,7 @@ router.post('/companies/:companyId', adminRateLimiter, validateParams(schemas.pa
  *         schema:
  *           type: string
  */
-router.delete('/files/:companyId/:filename', adminRateLimiter, validateParams(schemas.pathParamsSchema), async (req, res) => {
+router.delete('/files/:companyId/:filename', adminRateLimiter, validateParams(schemas.pathParamsSchema), asyncHandler(async (req, res) => {
   const { companyId, filename } = req.params;
   const filePath = path.join(INTELLIGENCE_DIR, companyId, filename);
   try {
@@ -118,10 +118,9 @@ router.delete('/files/:companyId/:filename', adminRateLimiter, validateParams(sc
     req.log.info({ companyId, filename }, "🗑️ [Admin] File deleted");
     res.success({ success: true });
   } catch (e) {
-    req.log.error({ companyId, filename, error: e.message }, "❌ [Admin] Failed to delete technical dossier");
-    res.error("Failed to delete technical dossier", 500, e.message);
+    throw new AppError("Failed to delete technical dossier", 500, e.message);
   }
-});
+}));
 
 /**
  * @openapi
@@ -139,7 +138,7 @@ router.delete('/files/:companyId/:filename', adminRateLimiter, validateParams(sc
  *         schema:
  *           type: integer
  */
-router.get('/ai-logs', validateQuery(schemas.paginationSchema), async (req, res) => {
+router.get('/ai-logs', validateQuery(schemas.paginationSchema), asyncHandler(async (req, res) => {
   const limit = Math.min(req.query.limit || 100, 200);
   const offset = Math.max(req.query.offset || 0, 0);
 
@@ -158,7 +157,7 @@ router.get('/ai-logs', validateQuery(schemas.paginationSchema), async (req, res)
   } catch {
     res.success([]); 
   }
-});
+}));
 
 /**
  * @openapi
@@ -176,7 +175,7 @@ router.get('/ai-logs', validateQuery(schemas.paginationSchema), async (req, res)
  *         schema:
  *           type: integer
  */
-router.get('/ui-logs', validateQuery(schemas.paginationSchema), async (req, res) => {
+router.get('/ui-logs', validateQuery(schemas.paginationSchema), asyncHandler(async (req, res) => {
   const limit = Math.min(req.query.limit || 100, 200);
   const offset = Math.max(req.query.offset || 0, 0);
 
@@ -195,7 +194,7 @@ router.get('/ui-logs', validateQuery(schemas.paginationSchema), async (req, res)
   } catch {
     res.success([]); 
   }
-});
+}));
 
 /**
  * @openapi
@@ -204,9 +203,9 @@ router.get('/ui-logs', validateQuery(schemas.paginationSchema), async (req, res)
  *     tags: [Admin Management]
  *     summary: Export the physical SQLite database (Local only)
  */
-router.get('/export-db', adminRateLimiter, (req, res) => {
+router.get('/export-db', adminRateLimiter, asyncHandler(async (req, res) => {
   const dbPath = path.join(__dirname, '..', 'sentinel.db');
   res.download(dbPath, `sentinel-backup-${new Date().toISOString().split('T')[0]}.db`);
-});
+}));
 
 module.exports = router;

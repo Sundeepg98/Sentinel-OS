@@ -1,6 +1,7 @@
 const express = require('express');
 const { db, isPostgres } = require('../lib/db');
 const { validateParams, validateBody, schemas } = require('../lib/validation');
+const { asyncHandler } = require('../lib/errors');
 
 const router = express.Router();
 
@@ -41,7 +42,7 @@ const router = express.Router();
  *       200:
  *         description: Success
  */
-router.get('/:key', validateParams(schemas.pathParamsSchema), async (req, res) => {
+router.get('/:key', validateParams(schemas.pathParamsSchema), asyncHandler(async (req, res) => {
   let row;
   if (isPostgres) {
     const dbRes = await db.query("SELECT value FROM user_state WHERE user_id = $1 AND key = $2", [req.userId, req.params.key]);
@@ -51,15 +52,15 @@ router.get('/:key', validateParams(schemas.pathParamsSchema), async (req, res) =
   }
   const val = row ? (typeof row.value === 'string' ? JSON.parse(row.value) : row.value) : null;
   res.success({ value: val });
-});
+}));
 
-router.post('/:key', validateParams(schemas.pathParamsSchema), validateBody(schemas.userStateSchema), async (req, res) => {
+router.post('/:key', validateParams(schemas.pathParamsSchema), validateBody(schemas.userStateSchema), asyncHandler(async (req, res) => {
   if (isPostgres) {
     await db.query("INSERT INTO user_state (user_id, key, value) VALUES ($1, $2, $3) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP", [req.userId, req.params.key, JSON.stringify(req.body.value)]);
   } else {
     db.prepare(`INSERT INTO user_state (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`).run(req.userId, req.params.key, JSON.stringify(req.body.value));
   }
   res.success({ success: true });
-});
+}));
 
 module.exports = router;
