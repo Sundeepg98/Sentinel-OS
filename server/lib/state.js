@@ -9,7 +9,8 @@ const globalState = {
   searchIndex: new Index({ preset: 'score', tokenize: 'forward' }),
   clients: [],
   isSyncing: false,
-  activeWorker: null
+  activeWorker: null,
+  lastSyncAt: null,
 };
 
 module.exports = { globalState };

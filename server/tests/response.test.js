@@ -7,7 +7,8 @@ describe('API Response Standards', () => {
     req = { id: 'test-id' };
     res = {
       status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis()
+      json: jest.fn().mockReturnThis(),
+      setHeader: jest.fn().mockReturnThis(),
     };
     next = jest.fn();
   });
@@ -23,13 +24,15 @@ describe('API Response Standards', () => {
     responseEnvelope(req, res, next);
     res.success({ foo: 'bar' });
 
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      status: 'success',
-      data: { foo: 'bar' },
-      meta: expect.objectContaining({
-        requestId: 'test-id'
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'success',
+        data: { foo: 'bar' },
+        meta: expect.objectContaining({
+          requestId: 'test-id',
+        }),
       })
-    }));
+    );
   });
 
   test('res.error should return structured error JSON', () => {
@@ -37,12 +40,14 @@ describe('API Response Standards', () => {
     res.error('Mission failed', 400, { code: 'ERR_1' });
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      status: 'fail',
-      error: expect.objectContaining({
-        message: 'Mission failed',
-        details: { code: 'ERR_1' }
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'fail',
+        error: expect.objectContaining({
+          message: 'Mission failed',
+          details: { code: 'ERR_1' },
+        }),
       })
-    }));
+    );
   });
 });

@@ -62,15 +62,22 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
     };
   }, []);
 
-  const { data: results = [], isFetching: isSearching } = useQuery<SearchResult[]>({
+  const {
+    data: results = [],
+    isFetching: isSearching,
+    isError,
+    error,
+  } = useQuery<SearchResult[]>({
     queryKey: ['search', debouncedQuery, searchMode],
-    queryFn: async () => {
+    // ... (queryFn remains same)
+    queryFn: async ({ signal }) => {
       if (debouncedQuery.length < 2) return [];
 
       if (searchMode === 'keyword') {
         return fetchWithAuth<SearchResult[]>(
           `/api/v1/intelligence/search?q=${encodeURIComponent(debouncedQuery)}`,
-          getToken
+          getToken,
+          { signal }
         );
       } else {
         const rawData = await fetchWithAuth<SemanticSearchResult[]>(
@@ -79,6 +86,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
           {
             method: 'POST',
             body: JSON.stringify({ q: debouncedQuery, limit: 10 }),
+            signal,
           }
         );
         return rawData.map((item: SemanticSearchResult) => ({
@@ -192,7 +200,18 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
                 role="region"
                 aria-live="polite"
               >
-                {results.length > 0 ? (
+                {isError ? (
+                  <div className="p-10 text-center flex flex-col items-center justify-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center border border-rose-500/20">
+                      <X className="w-5 h-5 text-rose-500" />
+                    </div>
+                    <p className="text-rose-400 text-[14px]">Search Engine Connectivity Failure</p>
+                    <p className="text-neutral-600 text-[12px] max-w-xs mx-auto">
+                      {(error as Error)?.message ||
+                        'An unexpected error occurred while communicating with the intelligence backend.'}
+                    </p>
+                  </div>
+                ) : results.length > 0 ? (
                   <div className="space-y-1">
                     {results.map((res, i) => (
                       <button

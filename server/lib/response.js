@@ -7,6 +7,11 @@
 const responseEnvelope = (req, res, next) => {
   const start = process.hrtime();
 
+  // 🛡️ STAFF BASIC: Prevent stale API responses
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   // Standard Success Formatter
   res.success = (data, statusCode = 200) => {
     const diff = process.hrtime(start);

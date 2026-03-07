@@ -236,6 +236,7 @@ app.get(
       aiEngine: {
         activeWorker: !!globalState.activeWorker,
         isSyncing: globalState.isSyncing,
+        lastSyncAt: globalState.lastSyncAt,
         circuitState: getCircuitState(),
       },
     });
@@ -262,9 +263,20 @@ app.use((req, res, next) => {
 v1Router.get(
   '/companies',
   asyncHandler(async (req, res) => {
-    const companies = [
-      ...new Set(Object.values(globalState.knowledgeGraph.files).map((f) => f.company)),
-    ].map((id) => ({ id, name: id.charAt(0).toUpperCase() + id.slice(1) }));
+    let companies;
+    if (isPostgres) {
+      const dbRes = await db.query('SELECT DISTINCT company FROM dossiers ORDER BY company ASC');
+      companies = dbRes.rows.map((r) => ({
+        id: r.company,
+        name: r.company.charAt(0).toUpperCase() + r.company.slice(1),
+      }));
+    } else {
+      const rows = db.prepare('SELECT DISTINCT company FROM dossiers ORDER BY company ASC').all();
+      companies = rows.map((r) => ({
+        id: r.company,
+        name: r.company.charAt(0).toUpperCase() + r.company.slice(1),
+      }));
+    }
     res.success(companies);
   })
 );

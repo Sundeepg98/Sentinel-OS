@@ -28,6 +28,7 @@ function spawnRAGWorker() {
       });
       globalState.searchIndex = newIndex;
       globalState.isSyncing = false;
+      globalState.lastSyncAt = new Date().toISOString();
 
       logger.info(
         {
@@ -48,6 +49,12 @@ function spawnRAGWorker() {
     logger.warn({ code }, '🧵 RAG Worker Thread Exited');
     globalState.isSyncing = false;
     globalState.activeWorker = null;
+
+    // 🛡️ STAFF BASIC: Auto-restart on crash (non-zero exit)
+    if (code !== 0) {
+      logger.info('🔄 RAG Worker crashed. Attempting restart in 5s...');
+      setTimeout(spawnRAGWorker, 5000);
+    }
   });
 }
 
