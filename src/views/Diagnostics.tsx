@@ -99,9 +99,10 @@ export const Diagnostics: React.FC = () => {
   };
 
   const formatUptime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
+    const d = Math.floor(seconds / (3600 * 24));
+    const h = Math.floor((seconds % (3600 * 24)) / 3600);
     const m = Math.floor((seconds % 3600) / 60);
-    return `${h}h ${m}m`;
+    return d > 0 ? `${d}d ${h}h ${m}m` : `${h}h ${m}m`;
   };
 
   return (

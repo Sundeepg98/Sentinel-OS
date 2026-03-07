@@ -14,8 +14,9 @@ const responseEnvelope = (req, res, next) => {
 
     const meta = {
       timestamp: new Date().toISOString(),
-      requestId: req.id, // Injected by pino-http/morgan
+      requestId: req.id,
       latencyMs,
+      version: '2.7.0'
     };
 
     // 📊 ENGINEERING BASIC: Pagination Metadata
@@ -48,6 +49,7 @@ const responseEnvelope = (req, res, next) => {
         timestamp: new Date().toISOString(),
         requestId: req.id,
         latencyMs,
+        version: '2.7.0'
       }
     });
   };

@@ -60,15 +60,15 @@ export async function fetchWithAuth<T = unknown>(
       
       return result as T;
     } catch (err: unknown) {
-      // 🔄 ENGINEERING BASIC: RETRY LOGIC (GET only, max 2 retries)
-      if (options.method === 'GET' || !options.method) {
-        const message = err instanceof Error ? err.message : String(err);
-        const name = err instanceof Error ? err.name : '';
-        
-        if (attempt < 3 && (name === 'TypeError' || message.includes('Failed to fetch'))) {
-          await new Promise(res => setTimeout(res, 1000 * attempt));
-          return performFetch(attempt + 1);
-        }
+      // 🔄 ENGINEERING BASIC: UNIVERSAL RETRY LOGIC (Max 2 retries)
+      // Safe because backend implements Idempotency via Correlation ID
+      const message = err instanceof Error ? err.message : String(err);
+      const name = err instanceof Error ? err.name : '';
+      
+      if (attempt < 3 && (name === 'TypeError' || message.includes('Failed to fetch') || message.includes('Load failed'))) {
+        const delay = 1000 * attempt;
+        await new Promise(res => setTimeout(res, delay));
+        return performFetch(attempt + 1);
       }
       throw err;
     }

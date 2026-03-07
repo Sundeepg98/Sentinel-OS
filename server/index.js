@@ -10,10 +10,9 @@ const compression = require('compression');
 const hpp = require('hpp');
 const { v4: uuidv4 } = require('uuid');
 const { z } = require('zod');
-const morgan = require('morgan');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
-const { db, initDB, isPostgres } = require('./lib/db');
+const { db, initDB, pool, isPostgres } = require('./lib/db');
 const { globalState } = require('./lib/state');
 
 // --- 🛠️ ENGINEERING BASIC: API DOCUMENTATION ---
@@ -168,19 +167,36 @@ app.use((req, res, next) => {
   next();
 });
 
-morgan.token('id', (req) => req.id);
-app.use(morgan(':id :method :url :status :res[content-length] - :response-time ms'));
+// --- 🛰️ STAFF-LEVEL REQUEST LOGGING ---
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const log = req.log || logger;
+    log.info({
+      method: req.method,
+      url: req.originalUrl,
+      status: res.statusCode,
+      duration: `${duration}ms`,
+      contentLength: res.get('content-length'),
+      userAgent: req.headers['user-agent']
+    }, '📡 HTTP Request Handled');
+  });
+  next();
+});
 
-const allowedOrigins = [
-  'http://localhost:5173',
-  'https://sentinel-os-staging.onrender.com',
-  'https://sentinel-os-bcsv.onrender.com'
-];
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',') 
+  : [
+      'http://localhost:5173',
+      'https://sentinel-os-staging.onrender.com',
+      'https://sentinel-os-bcsv.onrender.com'
+    ];
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || env.NODE_ENV === 'development') {
+    if (allowedOrigins.includes(origin) || env.NODE_ENV === 'development') {
       callback(null, true);
     } else {
       callback(new Error('Strict CORS Policy: Origin not allowed'));
@@ -426,31 +442,41 @@ const server = app.listen(PORT, () => {
   spawnRAGWorker();
 });
 
-function gracefulShutdown() {
-  logger.info("🛑 Signal received. Shutting down gracefully...");
+function gracefulShutdown(signal) {
+  logger.info(`🛑 Signal ${signal} received. Shutting down gracefully...`);
+  
+  // Force exit after 5s if cleanup hangs
+  const forceExit = setTimeout(() => {
+    logger.error("💀 Graceful shutdown timed out. Forcing exit.");
+    process.exit(1);
+  }, 5000);
+  forceExit.unref();
+
   if (globalState.activeWorker) {
     logger.info("🧵 Terminating RAG Worker...");
     globalState.activeWorker.terminate();
   }
+
   server.close(async () => { 
     logger.info("📡 Express server closed."); 
     try {
       if (!isPostgres) db.close(); 
-      else if (db.close) await db.close();
+      else if (pool && pool.end) await pool.end();
       logger.info("🗄️ Database connection closed."); 
     } catch (e) {
       logger.error("Failed to close database:", e);
     }
+    clearTimeout(forceExit);
     process.exit(0); 
   });
 }
 
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('unhandledRejection', (reason, promise) => {
   logger.error({ reason, promise }, '💥 Unhandled Rejection at Promise');
 });
 process.on('uncaughtException', (err) => {
   logger.error(err, '💥 Uncaught Exception thrown');
-  gracefulShutdown();
+  gracefulShutdown('uncaughtException');
 });
