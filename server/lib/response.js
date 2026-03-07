@@ -16,21 +16,21 @@ const responseEnvelope = (req, res, next) => {
       timestamp: new Date().toISOString(),
       requestId: req.id,
       latencyMs,
-      version: '2.7.0'
+      version: '2.8.0',
     };
 
     // 📊 ENGINEERING BASIC: Pagination Metadata
     if (req.query && (req.query.limit || req.query.offset)) {
       meta.pagination = {
         limit: parseInt(req.query.limit) || null,
-        offset: parseInt(req.query.offset) || 0
+        offset: parseInt(req.query.offset) || 0,
       };
     }
 
     res.status(statusCode).json({
       status: 'success',
       data: data,
-      meta
+      meta,
     });
   };
 
@@ -49,8 +49,8 @@ const responseEnvelope = (req, res, next) => {
         timestamp: new Date().toISOString(),
         requestId: req.id,
         latencyMs,
-        version: '2.7.0'
-      }
+        version: '2.8.0',
+      },
     });
   };
 
