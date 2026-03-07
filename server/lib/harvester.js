@@ -3,7 +3,6 @@ const path = require('path');
 const matter = require('gray-matter');
 const { Index } = require('flexsearch');
 const crypto = require('crypto');
-const pLimit = require('p-limit');
 const { z } = require('zod');
 const { db, isPostgres } = require('./db');
 const logger = require('./logger');
@@ -55,6 +54,8 @@ function chunkMarkdown(text, size = 1000) {
 }
 
 async function processFileVectors(fileId, content, metadata) {
+  const pLimitMod = await import('p-limit');
+  const pLimit = pLimitMod.default || pLimitMod.pLimit || pLimitMod;
   const limit = pLimit(5); // 🚀 Parallelize chunking
   try {
     if (isPostgres) {
@@ -107,7 +108,9 @@ async function processFileVectors(fileId, content, metadata) {
 }
 
 async function syncIntelligence() {
-  logger.info('🔄 Sentinel Intelligence Sync: Scanning...');
+  logger.info({ dir: INTELLIGENCE_DIR }, '🔄 Sentinel Intelligence Sync: Scanning...');
+  const pLimitMod = await import('p-limit');
+  const pLimit = pLimitMod.default || pLimitMod.pLimit || pLimitMod;
   const limit = pLimit(5); // 🚀 Throttled Concurrency
   const newGraph = { concepts: {}, files: {} };
   searchIndex = new Index({ preset: 'score', tokenize: 'forward' });
@@ -116,11 +119,13 @@ async function syncIntelligence() {
   try {
     // 1. Process Local Files
     const companyFolders = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
+    logger.info({ count: companyFolders.length }, '📂 Found folders in intelligence dir');
     const syncTasks = [];
 
     for (const company of companyFolders.filter(d => d.isDirectory())) {
       const companyPath = path.join(INTELLIGENCE_DIR, company.name);
       const files = await fs.readdir(companyPath);
+      logger.info({ company: company.name, fileCount: files.length }, '📁 Scanning company directory');
       
       for (const fileName of files.filter(f => f.endsWith('.md'))) {
         syncTasks.push(limit(async () => {
@@ -168,6 +173,7 @@ async function syncIntelligence() {
 
           // --- HYDRATE GRAPH ---
           const finalKeywords = extractKeywords(content);
+          logger.info({ fileId, company: company.name }, '🧠 Hydrating graph for file');
           newGraph.files[fileId] = { label: validatedData.label || fileName, company: company.name, keywords: finalKeywords, content };
           finalKeywords.forEach(k => {
             if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
@@ -178,7 +184,9 @@ async function syncIntelligence() {
       }
     }
 
+    logger.info({ syncTasksCount: syncTasks.length }, '📊 Awaiting sync tasks');
     await Promise.all(syncTasks);
+    logger.info('✅ All sync tasks finished');
 
     // 2. Load Cloud-only dossiers (learned assets)
     if (isPostgres) {
@@ -197,29 +205,10 @@ async function syncIntelligence() {
     }
 
     knowledgeGraph = newGraph;
-
-    // --- 🗑️ INTELLIGENCE PRUNING (Garbage Collection) ---
-    if (isPostgres) {
-      const allDossiers = await db.prepare("SELECT id FROM dossiers").all();
-      for (const d of allDossiers) {
-        if (!activeFileIds.has(d.id) && d.id.includes('/')) { 
-          logger.info({ dossierId: d.id }, '🗑️ Pruning ghost dossier from DB');
-          await db.query("DELETE FROM dossiers WHERE id = $1", [d.id]);
-          await db.query("DELETE FROM chunks_metadata WHERE file_id = $1", [d.id]);
-        }
-      }
-    } else {
-      const allCached = db.prepare("SELECT file_id FROM intelligence_cache").all();
-      for (const c of allCached) {
-        if (!activeFileIds.has(c.file_id)) {
-          logger.info({ fileId: c.file_id }, '🗑️ Pruning ghost dossier from Cache');
-          db.prepare("DELETE FROM intelligence_cache WHERE file_id = ?").run(c.file_id);
-          db.prepare("DELETE FROM chunks_metadata WHERE file_id = ?").run(c.file_id);
-        }
-      }
-    }
-
-    logger.info('✅ Intelligence Engine ACTIVE.');
+    logger.info({ 
+      files: Object.keys(knowledgeGraph.files).length, 
+      concepts: Object.keys(knowledgeGraph.concepts).length 
+    }, '✅ Intelligence Engine ACTIVE.');
   } catch (e) { logger.error({ error: e.message }, '🧵 Sync Error'); }
 }
 

@@ -130,7 +130,7 @@ app.use((req, res, next) => {
 });
 
 // --- 🛡️ ENGINEERING BASIC: REQUEST IDEMPOTENCY ---
-const { LRUCache } = require('lru-cache');
+const LRUCache = require('lru-cache');
 const idempotencyCache = new LRUCache({ max: 1000, ttl: 1000 * 60 * 5 }); // 5 min window
 
 app.use((req, res, next) => {
@@ -268,8 +268,11 @@ function spawnRAGWorker() {
     }
 
     if (msg.status === 'complete') {
-      logger.info(`📡 Intelligence Hydrated from Worker (${msg.duration}s)`);
-      globalState.knowledgeGraph = msg.knowledgeGraph;
+      logger.info({ 
+        files: Object.keys(msg.knowledgeGraph?.files || {}).length,
+        concepts: Object.keys(msg.knowledgeGraph?.concepts || {}).length 
+      }, `📡 Intelligence Hydrated from Worker (${msg.duration}s)`);
+      globalState.knowledgeGraph = msg.knowledgeGraph || { files: {}, concepts: {} };
       
       const newIndex = new Index({ preset: 'score', tokenize: 'forward' });
       Object.entries(globalState.knowledgeGraph.files).forEach(([id, file]) => {
@@ -310,6 +313,47 @@ v1Router.use((req, res, next) => {
 
 // Alias health in API v1
 v1Router.get('/health', (req, res) => res.redirect('/health'));
+
+// 🛰️ RESTORED MISSION CRITICAL ROUTES
+v1Router.get('/companies', (req, res) => {
+  console.log('--- COMPANIES DEBUG START ---');
+  console.log('globalState keys:', Object.keys(globalState));
+  console.log('knowledgeGraph files count:', Object.keys(globalState.knowledgeGraph?.files || {}).length);
+  console.log('--- COMPANIES DEBUG END ---');
+  
+  req.log.info({ 
+    fileCount: Object.keys(globalState.knowledgeGraph.files).length,
+    conceptCount: Object.keys(globalState.knowledgeGraph.concepts).length
+  }, '🏢 [API] Fetching company list');
+  const companies = [...new Set(Object.values(globalState.knowledgeGraph.files).map(f => f.company))]
+    .map(id => ({ id, name: id.charAt(0).toUpperCase() + id.slice(1) }));
+  res.success(companies);
+});
+
+v1Router.get('/dossier/:id', (req, res) => {
+  const companyId = req.params.id.toLowerCase();
+  const companyModules = Object.entries(globalState.knowledgeGraph.files)
+    .filter(([_, data]) => data.company.toLowerCase() === companyId)
+    .map(([id, data]) => ({
+      id: id.split('/').pop().replace('.md', ''),
+      fullId: id,
+      label: data.label,
+      type: 'markdown', // Default to markdown, can be enhanced with frontmatter parsing
+      data: data.content
+    }));
+
+  if (companyModules.length === 0) {
+    return res.error(`Technical dossier for ${companyId} not found`, 404);
+  }
+
+  res.success({
+    id: companyId,
+    name: companyId.toUpperCase(),
+    targetRole: "Staff+ Engineer",
+    brandColor: companyId === 'mailin' ? 'cyan' : 'indigo',
+    modules: companyModules
+  });
+});
 
 // --- MOUNT MODULAR ROUTES ---
 v1Router.use('/admin', require('./routes/admin'));
