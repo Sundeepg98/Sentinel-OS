@@ -20,12 +20,11 @@ export function useDossier() {
     const handlePopState = () => setSearchParams(new URLSearchParams(window.location.search));
     window.addEventListener('popstate', handlePopState);
     
-    // Initial sync if missing
+    // Initial sync if missing (Update URL for consistency without triggering redundant render)
     if (!window.location.search.includes('company=')) {
       const url = new URL(window.location.href);
       url.searchParams.set('company', 'mailin');
       window.history.replaceState({}, '', url.toString());
-      setSearchParams(new URLSearchParams(url.search));
     }
 
     return () => window.removeEventListener('popstate', handlePopState);

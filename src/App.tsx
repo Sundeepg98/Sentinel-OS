@@ -232,6 +232,7 @@ const MainView = () => {
                 </div>
                 <div className="hidden xl:block w-80 shrink-0 border-l border-white/[0.05] bg-[#080808]/50 overflow-y-auto">
                   <InsightPanel
+                    key={activeModule.fullId || activeModule.id}
                     fullId={activeModule.fullId || ''}
                     brandColor={dossierData.dossier?.brandColor}
                   />

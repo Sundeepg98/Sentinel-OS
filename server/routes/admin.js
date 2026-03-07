@@ -4,7 +4,7 @@ const fs = require('fs').promises;
 const multer = require('multer');
 const { db, isPostgres } = require('../lib/db');
 const { INTELLIGENCE_DIR } = require('../lib/harvester');
-const { validateParams, validateBody, schemas } = require('../lib/validation');
+const { validateParams, validateQuery, schemas } = require('../lib/validation');
 
 const router = express.Router();
 
@@ -139,9 +139,9 @@ router.delete('/files/:companyId/:filename', adminRateLimiter, validateParams(sc
  *         schema:
  *           type: integer
  */
-router.get('/ai-logs', async (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 100, 200);
-  const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+router.get('/ai-logs', validateQuery(schemas.paginationSchema), async (req, res) => {
+  const limit = Math.min(req.query.limit || 100, 200);
+  const offset = Math.max(req.query.offset || 0, 0);
 
   try {
     let rows;
@@ -155,7 +155,7 @@ router.get('/ai-logs', async (req, res) => {
       rows = db.prepare("SELECT * FROM system_logs WHERE type = 'AI' ORDER BY timestamp DESC LIMIT ? OFFSET ?").all(limit, offset);
     }
     res.success(rows);
-  } catch (_e) {
+  } catch {
     res.success([]); 
   }
 });
@@ -176,9 +176,9 @@ router.get('/ai-logs', async (req, res) => {
  *         schema:
  *           type: integer
  */
-router.get('/ui-logs', async (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 100, 200);
-  const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+router.get('/ui-logs', validateQuery(schemas.paginationSchema), async (req, res) => {
+  const limit = Math.min(req.query.limit || 100, 200);
+  const offset = Math.max(req.query.offset || 0, 0);
 
   try {
     let rows;
@@ -192,7 +192,7 @@ router.get('/ui-logs', async (req, res) => {
       rows = db.prepare("SELECT * FROM system_logs WHERE type = 'UI' ORDER BY timestamp DESC LIMIT ? OFFSET ?").all(limit, offset);
     }
     res.success(rows);
-  } catch (_e) {
+  } catch {
     res.success([]); 
   }
 });
@@ -204,7 +204,7 @@ router.get('/ui-logs', async (req, res) => {
  *     tags: [Admin Management]
  *     summary: Export the physical SQLite database (Local only)
  */
-router.get('/export-db', (req, res) => {
+router.get('/export-db', adminRateLimiter, (req, res) => {
   const dbPath = path.join(__dirname, '..', 'sentinel.db');
   res.download(dbPath, `sentinel-backup-${new Date().toISOString().split('T')[0]}.db`);
 });

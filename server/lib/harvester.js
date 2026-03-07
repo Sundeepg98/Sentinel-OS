@@ -55,6 +55,7 @@ function chunkMarkdown(text, size = 1000) {
 }
 
 async function processFileVectors(fileId, content, metadata) {
+  const limit = pLimit(5); // 🚀 Parallelize chunking
   try {
     if (isPostgres) {
       // 🐘 POSTGRES LOGIC (Atomic Transaction)
@@ -63,13 +64,14 @@ async function processFileVectors(fileId, content, metadata) {
         await client.query('BEGIN');
         await client.query("DELETE FROM chunks_metadata WHERE file_id = $1", [fileId]);
         const chunks = chunkMarkdown(content);
-        for (const chunk of chunks) {
+        const chunkTasks = chunks.map(chunk => limit(async () => {
           const vector = await getEmbedding(chunk);
           await client.query(
             "INSERT INTO chunks_metadata (file_id, chunk_text, metadata, embedding) VALUES ($1, $2, $3, $4)",
             [fileId, chunk, JSON.stringify(metadata), JSON.stringify(vector)]
           );
-        }
+        }));
+        await Promise.all(chunkTasks);
         await client.query('COMMIT');
       } catch (e) {
         await client.query('ROLLBACK');
@@ -81,10 +83,11 @@ async function processFileVectors(fileId, content, metadata) {
       // 🗄️ SQLITE LOGIC (Atomic Transaction)
       const chunks = chunkMarkdown(content);
       const chunkVectors = [];
-      for (const chunk of chunks) {
+      const chunkTasks = chunks.map(chunk => limit(async () => {
         const vector = await getEmbedding(chunk);
         chunkVectors.push({ chunk, vector });
-      }
+      }));
+      await Promise.all(chunkTasks);
 
       db.transaction(() => {
         const oldChunks = db.prepare("SELECT id FROM chunks_metadata WHERE file_id = ?").all(fileId);
@@ -125,7 +128,6 @@ async function syncIntelligence() {
           const fileContent = await fs.readFile(filePath, 'utf-8');
           const { content, data } = matter(fileContent);
           
-          // 🛡️ ENGINEERING BASIC: DATA QUALITY VALIDATION
           const validation = dossierFrontmatterSchema.safeParse(data);
           if (!validation.success) {
             logger.warn({ file: fileName, errors: validation.error.format() }, '⚠️ Invalid frontmatter in technical dossier');
@@ -139,23 +141,26 @@ async function syncIntelligence() {
           // --- CLOUD CACHE CHECK ---
           let shouldProcess = true;
           if (isPostgres) {
-            const cached = await db.prepare("SELECT id FROM dossiers WHERE id = $1").get(fileId);
-            if (cached) shouldProcess = false; 
+            // Fix: Store and check the content hash in Postgres too for hot-reloading support
+            const cached = await db.query("SELECT id, content FROM dossiers WHERE id = $1", [fileId]);
+            if (cached.rows[0]) {
+              const dbHash = getFileHash(cached.rows[0].content);
+              if (dbHash === currentHash) shouldProcess = false;
+            }
           } else {
             const cached = db.prepare("SELECT content_hash FROM intelligence_cache WHERE file_id = ?").get(fileId);
             if (cached && cached.content_hash === currentHash) shouldProcess = false;
           }
 
           if (shouldProcess) {
-            const keywords = extractKeywords(content + ' ' + (validatedData.label || ''));
             const label = validatedData.label || fileName;
-            
             if (isPostgres) {
               await db.query(
-                "INSERT INTO dossiers (id, company, label, content, metadata) VALUES ($1, $2, $3, $4, $5) ON CONFLICT(id) DO UPDATE SET content=excluded.content, metadata=excluded.metadata",
+                "INSERT INTO dossiers (id, company, label, content, metadata) VALUES ($1, $2, $3, $4, $5) ON CONFLICT(id) DO UPDATE SET content=excluded.content, metadata=excluded.metadata, label=excluded.label",
                 [fileId, company.name, label, content, JSON.stringify(data)]
               );
             } else {
+              const keywords = extractKeywords(content + ' ' + (validatedData.label || ''));
               db.prepare(`INSERT INTO intelligence_cache (file_id, content_hash, label, company, keywords) VALUES (?, ?, ?, ?, ?) ON CONFLICT(file_id) DO UPDATE SET content_hash=excluded.content_hash`).run(fileId, currentHash, label, company.name, JSON.stringify(keywords));
             }
             await processFileVectors(fileId, content, data);

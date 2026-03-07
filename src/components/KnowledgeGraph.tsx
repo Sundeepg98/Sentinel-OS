@@ -72,19 +72,6 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   const hasInitialZoomed = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!isOpen) {
-      hasInitialZoomed.current = false;
-      setHoveredNode(null);
-      setHighlightNodes(new Set());
-      setHighlightLinks(new Set());
-      setIsSimActive(false);
-      setSimNode(null);
-      setBlastImpacts(new Map());
-      setAiAdvisory(null);
-    }
-  }, [isOpen]);
-
 // Properly type the graph data fetch
   useEffect(() => {
     if (isOpen) {
@@ -222,7 +209,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
   }, []);
 
   // --- RECURSIVE FAILURE PROPAGATION (BFS) ---
-  const triggerBlastRadius = (node: GraphNode) => {
+  const triggerBlastRadius = useCallback((node: GraphNode) => {
     const impacts = new Map<string, 1 | 2 | 3>();
     const queue = [{ n: node, depth: 0 }];
     impacts.set(node.id, 1);
@@ -250,7 +237,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
     if (graphRef.current) {
       graphRef.current.cameraPosition({ x: node.x! * 1.2, y: node.y! * 1.2, z: node.z! * 1.2 }, node, 800);
     }
-  };
+  }, [generateImpactAdvisory]);
 
   const nodeThreeObject = useCallback((node: GraphNode) => {
     const group = new THREE.Group();
@@ -328,7 +315,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({ isOpen, onClose,
         onClose();
       }, 850);
     }
-  }, [isSimActive, setCompany, onSelectModule, onClose]);
+  }, [isSimActive, triggerBlastRadius, setCompany, onSelectModule, onClose]);
 
   const impactedModules = useMemo(() => {
     return Array.from(blastImpacts.entries())

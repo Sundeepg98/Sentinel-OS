@@ -42,6 +42,11 @@ const insightsQuerySchema = z.object({
   fileId: z.string().min(3).max(255)
 });
 
+const paginationSchema = z.object({
+  limit: z.string().optional().transform(v => parseInt(v)),
+  offset: z.string().optional().transform(v => parseInt(v))
+});
+
 const pathParamsSchema = z.object({
   companyId: z.string().regex(/^[a-zA-Z0-9_-]+$/).optional(),
   filename: z.string().regex(/^[a-zA-Z0-9._-]+$/).optional(),
@@ -100,6 +105,7 @@ module.exports = {
     semanticSearchSchema,
     searchQuerySchema,
     insightsQuerySchema,
+    paginationSchema,
     pathParamsSchema,
     errorLogSchema,
     userStateSchema

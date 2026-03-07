@@ -38,7 +38,9 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({ online, syncing }) =
         if (data.type === 'SYNC_COMPLETE') {
           setInternalSyncing(false);
         }
-      } catch (err) {}
+      } catch {
+        // SSE Parse Error ignored
+      }
     };
 
     eventSource.onerror = () => {

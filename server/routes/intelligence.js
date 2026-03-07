@@ -165,7 +165,7 @@ router.get('/insights', validateQuery(schemas.insightsQuerySchema), async (req, 
       related = semanticMatches.map(m => ({ fileId: m.file_id, company: m.file_id.split('/')[0], sharedKeyword: 'semantic similarity' }));
     }
     res.success({ keywords: file.keywords, related });
-  } catch (_e) { 
+  } catch { 
     res.success({ keywords: file.keywords, related: [] }); 
   }
 });

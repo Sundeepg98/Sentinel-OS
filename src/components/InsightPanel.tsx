@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Brain, Hash, Loader2, Search, Sparkles } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@clerk/clerk-react';
@@ -31,12 +31,6 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
     enabled: !!fullId,
     staleTime: 1000 * 60 * 5,
   });
-
-  useEffect(() => {
-    setDrill(null);
-    setEvalData(null);
-    setUserAnswer('');
-  }, [fullId]);
 
   const generateDrill = useMutation({
     mutationFn: () => fetchWithAuth('/api/v1/intelligence/drill', getToken, {

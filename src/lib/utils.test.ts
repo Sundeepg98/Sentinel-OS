@@ -7,7 +7,9 @@ describe('cn utility', () => {
   });
 
   it('handles conditional classes', () => {
-    expect(cn('p-4', true && 'm-2', false && 'hidden')).toBe('p-4 m-2');
+    const isTrue = true;
+    const isFalse = false;
+    expect(cn('p-4', isTrue && 'm-2', isFalse && 'hidden')).toBe('p-4 m-2');
   });
 
   it('merges conflicting tailwind classes (tw-merge)', () => {

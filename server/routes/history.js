@@ -1,5 +1,6 @@
 const express = require('express');
 const { db, isPostgres } = require('../lib/db');
+const { validateQuery, schemas } = require('../lib/validation');
 
 const router = express.Router();
 
@@ -21,9 +22,9 @@ const router = express.Router();
  *           type: integer
  *           default: 0
  */
-router.get('/', async (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 50, 100);
-  const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+router.get('/', validateQuery(schemas.paginationSchema), async (req, res) => {
+  const limit = Math.min(req.query.limit || 50, 100);
+  const offset = Math.max(req.query.offset || 0, 0);
 
   try {
     let rows;

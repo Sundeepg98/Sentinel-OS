@@ -15,15 +15,17 @@ export const Tracker: React.FC<TrackerProps> = ({ data, label, moduleId }) => {
   const { dossier } = useDossierContext();
   const [tasks, setTasks] = useLocalStorage<Task[]>(dossier ? `tracker-${dossier.id}-${moduleId}` : `temp-tracker-${moduleId}`, data || []);
 
+  const dossierId = dossier?.id;
+
   // Sync with backend on mount
   React.useEffect(() => {
-    if (!dossier) return;
-    fetch(`/api/v1/state/tracker-${dossier.id}-${moduleId}`)
+    if (!dossierId) return;
+    fetch(`/api/v1/state/tracker-${dossierId}-${moduleId}`)
       .then(res => res.json())
       .then(dbData => {
         if (dbData.value) setTasks(dbData.value);
       });
-  }, [dossier?.id, moduleId, setTasks]);
+  }, [dossierId, moduleId, setTasks]);
 
   if (!dossier) return null;
 

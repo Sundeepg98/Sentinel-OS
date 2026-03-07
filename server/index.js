@@ -174,9 +174,11 @@ app.use(responseEnvelope);
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+const { validateBody, schemas } = require('./lib/validation');
+
 // 🛰️ PUBLIC TELEMETRY ENDPOINT
 // Allows reporting frontend crashes even before auth is established
-app.post('/api/v1/admin/error-logs', globalRateLimiter, validateBody(require('./lib/validation').schemas.errorLogSchema), async (req, res) => {
+app.post('/api/v1/admin/error-logs', globalRateLimiter, validateBody(schemas.errorLogSchema), async (req, res) => {
   const { message, stack, componentStack, url } = req.body;
   const { db, isPostgres } = require('./lib/db');
   
@@ -261,7 +263,7 @@ function spawnRAGWorker() {
     if (msg.status === 'syncing') {
       const payload = JSON.stringify({ type: 'SYNC_START' });
       globalState.clients.forEach(c => {
-        try { c.res.write(`data: ${payload}\n\n`); } catch (_e) {}
+        try { c.res.write(`data: ${payload}\n\n`); } catch { /* Ignore */ }
       });
     }
 
@@ -277,7 +279,7 @@ function spawnRAGWorker() {
       
       const payload = JSON.stringify({ type: 'SYNC_COMPLETE', hotReload: !!msg.isHotReload });
       globalState.clients.forEach(c => {
-        try { c.res.write(`data: ${payload}\n\n`); } catch (_e) {}
+        try { c.res.write(`data: ${payload}\n\n`); } catch { /* Ignore */ }
       });
 
       logger.info(`🔍 Search Index Synchronized. Notified ${globalState.clients.length} clients.`);
@@ -330,7 +332,7 @@ app.use(express.static(FRONTEND_DIST, {
 
 app.get(/(.*)/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
 
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   const statusCode = err.statusCode || 500;
   const isOperational = err.isOperational || false;
 
