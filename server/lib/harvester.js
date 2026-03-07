@@ -257,6 +257,17 @@ async function syncIntelligence() {
     }
 
     knowledgeGraph = newGraph;
+
+    // 🛡️ STAFF BASIC: Periodic Database Maintenance
+    if (!isPostgres) {
+      try {
+        db.prepare('VACUUM').run();
+        logger.info('🧹 SQLite maintenance (VACUUM) complete');
+      } catch (e) {
+        logger.warn({ error: e.message }, '⚠️ Database maintenance failed');
+      }
+    }
+
     logger.info(
       {
         files: Object.keys(knowledgeGraph.files).length,

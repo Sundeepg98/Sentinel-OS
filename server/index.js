@@ -361,7 +361,18 @@ v1Router.use('/state', require('./routes/state'));
 v1Router.use((req, res) => res.error('API Endpoint Not Found', 404));
 app.use('/api/v1', v1Router);
 
-app.use(express.static(FRONTEND_DIST));
+// 🛡️ STAFF BASIC: Static asset caching
+app.use(
+  express.static(FRONTEND_DIST, {
+    maxAge: '1y',
+    setHeaders: (res, path) => {
+      if (path.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    },
+  })
+);
+
 app.get(/.*/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')));
 
 app.use((err, req, res, _next) => {

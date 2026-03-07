@@ -29,7 +29,7 @@ const responseEnvelope = (req, res, next) => {
   }
 
   // Standard Success Formatter
-  res.success = (data, statusCode = 200) => {
+  res.success = (data, statusCode = 200, extraMeta = {}) => {
     const diff = process.hrtime(start);
     const latencyMs = Math.round((diff[0] * 1e9 + diff[1]) / 1e6);
 
@@ -41,6 +41,7 @@ const responseEnvelope = (req, res, next) => {
         requestId: req.id,
         latencyMs,
         version: '2.8.0',
+        ...extraMeta,
       },
     };
 

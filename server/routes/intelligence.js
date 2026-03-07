@@ -300,7 +300,9 @@ router.get(
           snippet = (first.q || first.text || '').substring(0, 150) + '...';
         }
         return { id, label: file.label, company: file.company, snippet };
-      })
+      }),
+      200,
+      { total: results.length } // 🛡️ STAFF BASIC: Total results count
     );
   })
 );
