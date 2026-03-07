@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.0] - 2026-03-07
+### Added
+- **Full-Stack Correlation**: Injected child loggers into every request lifecycle, linking all server logs to the Correlation ID.
+- **Background Re-Indexing Sync**: Automated QueryClient invalidation on background neural re-indexing completion.
+- **Root Error Boundaries**: Implemented industrial-grade component crash recovery at the root of the React application.
+- **Experimental API Hardening**: Standardized Web Speech API types, eliminating the final `any` types in the interaction engine.
+- **Browser Connectivity API**: Real-time internet connectivity status tracking in the UI StatusBanner.
+- **Staff-Level Health Telemetry**: Enhanced /health with CPU, Memory, and AI Circuit Breaker state.
+- **JSend Contract Perfection**: Standardized all validation failures to flow through the centralized structural logging pipeline.
+
+### Fixed
+- **Multi-Engine Consistency**: Hardened the database export utility to correctly handle cloud vs local persistence.
+- **Telemetry Traceability**: Included Request Correlation IDs in all automated frontend error reports.
+- **Security**: Enabled Proxy Trust for correct IP-based rate limiting behind load balancers.
+
 ## [2.6.0] - 2026-03-06
 ### Added
 - **AI Engine Layer 2 Caching**: High-performance LRU memoization for generation and embeddings.

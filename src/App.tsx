@@ -1,4 +1,5 @@
 import { useState, Suspense, lazy, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { SignedIn, SignedOut, SignIn, UserButton } from '@clerk/clerk-react';
 import { Sidebar } from '@/components/Sidebar';
 import { InsightPanel } from '@/components/InsightPanel';
@@ -11,6 +12,7 @@ import { StatusBanner } from '@/components/ui/StatusBanner';
 import { cn } from '@/lib/utils';
 import { DossierContext } from '@/lib/context';
 import { env } from '@/lib/env';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import type { DashboardData, Task } from '@/types';
 import type { DesignPattern } from '@/views/SystemDesign';
 import type { PlaybookItem } from '@/views/Internals';
@@ -38,6 +40,7 @@ function AppContent() {
   const [isDiagnosticsOpen, setDiagnosticsMode] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const dossierData = useDossier();
+  const queryClient = useQueryClient(); // 🛡️ STAFF STATE: Cache management
 
   // Optimized derived state
   const activeModule = useMemo(() => 
@@ -181,7 +184,7 @@ function AppContent() {
         )}
       </Suspense>
 
-      <StatusBanner />
+      <StatusBanner onSyncComplete={() => queryClient.invalidateQueries()} />
     </div>
   );
 }
@@ -190,36 +193,38 @@ function App() {
   const dossierData = useDossier();
 
   return (
-    <ToastProvider>
-      <DossierContext.Provider value={dossierData}>
-        {!env.VITE_AUTH_ENABLED ? (
-          <AppContent />
-        ) : (
-          <>
-            <SignedIn>
-              <AppContent />
-            </SignedIn>
-            <SignedOut>
-              <div className="h-screen w-full flex items-center justify-center bg-[#050505] p-6 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.05)_0%,transparent_100%)] pointer-events-none" />
-                <div className="z-10 w-full max-w-md space-y-8 text-center">
-                  <div className="space-y-4">
-                    <div className="inline-flex p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mb-2">
-                      <Terminal size={32} />
+    <ErrorBoundary>
+      <ToastProvider>
+        <DossierContext.Provider value={dossierData}>
+          {!env.VITE_AUTH_ENABLED ? (
+            <AppContent />
+          ) : (
+            <>
+              <SignedIn>
+                <AppContent />
+              </SignedIn>
+              <SignedOut>
+                <div className="h-screen w-full flex items-center justify-center bg-[#050505] p-6 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.05)_0%,transparent_100%)] pointer-events-none" />
+                  <div className="z-10 w-full max-w-md space-y-8 text-center">
+                    <div className="space-y-4">
+                      <div className="inline-flex p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mb-2">
+                        <Terminal size={32} />
+                      </div>
+                      <h1 className="text-3xl font-black text-white tracking-tighter uppercase">Sentinel-OS Access</h1>
+                      <p className="text-neutral-500 text-sm font-medium uppercase tracking-widest">Authorized Personnel Only</p>
                     </div>
-                    <h1 className="text-3xl font-black text-white tracking-tighter uppercase">Sentinel-OS Access</h1>
-                    <p className="text-neutral-500 text-sm font-medium uppercase tracking-widest">Authorized Personnel Only</p>
-                  </div>
-                  <div className="bg-[#0a0a0a] border border-white/[0.05] p-8 rounded-3xl shadow-2xl space-y-6">
-                    <SignIn routing="hash" />
+                    <div className="bg-[#0a0a0a] border border-white/[0.05] p-8 rounded-3xl shadow-2xl space-y-6">
+                      <SignIn routing="hash" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </SignedOut>
-          </>
-        )}
-      </DossierContext.Provider>
-    </ToastProvider>
+              </SignedOut>
+            </>
+          )}
+        </DossierContext.Provider>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }
 

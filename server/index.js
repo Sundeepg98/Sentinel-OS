@@ -146,6 +146,7 @@ app.use(compression({
 
 app.use((req, res, next) => {
   req.id = req.headers['x-correlation-id'] || uuidv4();
+  req.log = logger.child({ requestId: req.id }); // 🛡️ STAFF LOGGING: Child logger injection
   res.setHeader('X-Request-ID', req.id);
   res.setHeader('X-Correlation-ID', req.id);
   next();
@@ -233,7 +234,7 @@ app.get('/health', async (req, res) => {
   
   // 🛡️ SECURITY BASIC: Restrict deep telemetry to admin/bypass
   const hasBypass = req.headers['x-sentinel-bypass'] === env.DEV_BYPASS_TOKEN;
-  const isDeep = hasBypass || req.userId; // Simplified check for this refactor
+  const isDeep = hasBypass || req.userId;
 
   try {
     const dbStatus = isPostgres ? 'cloud' : 'local';
@@ -246,32 +247,35 @@ app.get('/health', async (req, res) => {
     const payload = { 
       status: 'healthy', 
       db: dbStatus,
-      worker: {
-        active: !!globalState.activeWorker,
-        syncing: globalState.isSyncing
-      },
-      aiEngine: {
-        circuitState: getCircuitState()
-      },
-      version: '2.6.0'
+      version: '2.6.0',
+      timestamp: new Date().toISOString()
     };
 
     if (isDeep) {
-      const mem = process.memoryUsage();
-      payload.resources = {
-        memory: {
-          rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
-          heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)}MB`
+      Object.assign(payload, {
+        resources: {
+          uptime: Math.round(process.uptime()),
+          memory: {
+            rss: `${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`,
+            heapTotal: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB`,
+          },
+          cpuLoad: os.loadavg(),
         },
-        loadAvg: os.loadavg(),
-        uptime: `${Math.round(process.uptime())}s`
-      };
-      payload.auth = process.env.AUTH_ENABLED === 'true' ? 'enabled' : 'disabled';
+        aiEngine: {
+          circuitState: getCircuitState(),
+          activeWorker: !!globalState.activeWorker,
+        }
+      });
     }
 
     res.success(payload);
   } catch (err) {
-    res.error("System Unstable", 500, { db: "DOWN", message: err.message });
+    logger.error({ err }, '🏥 Health Check Failed');
+    res.status(503).json({ 
+      status: 'unhealthy', 
+      error: 'Database connection failed',
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
@@ -401,9 +405,9 @@ app.get(/(.*)/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html'
 app.use((err, req, res, _next) => {
   const statusCode = err.statusCode || 500;
   const isOperational = err.isOperational || false;
+  const log = req.log || logger; // Fallback to global logger if middleware hasn't run
 
-  logger.error({ 
-    id: req.id, 
+  log.error({ 
     path: req.path, 
     message: err.message, 
     stack: env.NODE_ENV !== 'production' ? err.stack : undefined,

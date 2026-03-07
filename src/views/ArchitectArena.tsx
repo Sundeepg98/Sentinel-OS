@@ -19,11 +19,41 @@ interface EvaluationData {
   followUp: string;
 }
 
+interface Drill {
+  question: string;
+  idealResponse: string;
+}
+
+interface SemanticResult {
+  chunk_text: string;
+  file_id: string;
+}
+
+// --- 🛰️ TYPE DEFINITIONS FOR EXPERIMENTAL SPEECH API ---
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+  onend: () => void;
+  start: () => void;
+  stop: () => void;
+}
+
 export const ArchitectArena: React.FC = () => {
   const { toast } = useToast();
   const { getToken } = useAuth();
   const [arenaIds, setArenaIds] = useLocalStorage<string[]>('architect_arena_selection', []);
-  const [drill, setDrill] = useState<{question: string, idealResponse: string} | null>(null);
+  const [drill, setDrill] = useState<Drill | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
   const [evalData, setEvalData] = useState<EvaluationData | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -31,7 +61,7 @@ export const ArchitectArena: React.FC = () => {
 
   // --- VOICE ARTICULATION LAYER ---
   const [isRecording, setIsRecording] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   // 1. Fetch All Modules for filtering
   const { data: allModules = [] } = useQuery<ArenaModule[]>({
@@ -57,7 +87,7 @@ export const ArchitectArena: React.FC = () => {
           limit: 5 
         })
       });
-      const crossDossierContext = (semanticContext as any[]).map((c) => c.chunk_text).join("\n\n---\n\n");
+      const crossDossierContext = (semanticContext as SemanticResult[]).map((c) => c.chunk_text).join("\n\n---\n\n");
 
       // 2. GENERATE DRILL
       return fetchWithAuth('/api/v1/intelligence/drill', getToken, {
@@ -70,7 +100,7 @@ export const ArchitectArena: React.FC = () => {
       });
     },
     onSuccess: (data) => {
-      setDrill(data);
+      setDrill(data as Drill);
       setEvalData(null);
       setUserAnswer('');
     },
@@ -98,28 +128,6 @@ export const ArchitectArena: React.FC = () => {
     },
     onError: (e: Error) => toast(e.message, "error")
   });
-
-// --- 🛰️ TYPE DEFINITIONS FOR EXPERIMENTAL SPEECH API ---
-interface SpeechRecognitionEvent extends Event {
-  resultIndex: number;
-  results: SpeechRecognitionResultList;
-}
-
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-}
-
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  onresult: (event: SpeechRecognitionEvent) => void;
-  onerror: (event: SpeechRecognitionErrorEvent) => void;
-  onend: () => void;
-  start: () => void;
-  stop: () => void;
-}
-
-// ...
 
   useEffect(() => {
     const WindowSpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -197,7 +205,7 @@ interface SpeechRecognition extends EventTarget {
             <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]" />
             <span className="text-sm font-medium text-neutral-300">{mod.label}</span>
             <button 
-              onClick={() => setArenaIds(arenaIds.filter(id => id !== mod.id))}
+              onClick={() => setArenaIds(arenaIds.filter((id: string) => id !== mod.id))}
               className="p-1 hover:bg-white/5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
             >
               <X size={12} className="text-neutral-600 hover:text-rose-400" />
@@ -302,7 +310,7 @@ interface SpeechRecognition extends EventTarget {
             </button>
 
             <AnimatePresence>
-              {revealed && (
+              {revealed && drill && (
                 <motion.div 
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}

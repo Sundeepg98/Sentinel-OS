@@ -5,13 +5,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface StatusBannerProps {
   online?: boolean;
   syncing?: boolean;
+  onSyncComplete?: () => void;
 }
 
 /**
  * 🛰️ NERVOUS SYSTEM HEALTH BANNER
  * Notifies the user of backend connectivity status in real-time.
  */
-export const StatusBanner: React.FC<StatusBannerProps> = ({ online, syncing }) => {
+export const StatusBanner: React.FC<StatusBannerProps> = ({ online, syncing, onSyncComplete }) => {
   const [internalOnline, setInternalOnline] = useState(navigator.onLine);
   const [internalSyncing, setInternalSyncing] = useState(false);
 
@@ -49,6 +50,7 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({ online, syncing }) =
         }
         if (data.type === 'SYNC_COMPLETE') {
           setInternalSyncing(false);
+          if (onSyncComplete) onSyncComplete();
         }
       } catch {
         // SSE Parse Error ignored
@@ -60,7 +62,7 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({ online, syncing }) =
     };
 
     return () => eventSource.close();
-  }, [online, syncing]);
+  }, [online, syncing, onSyncComplete]);
 
   return (
     <AnimatePresence>

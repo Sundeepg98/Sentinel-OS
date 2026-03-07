@@ -16,11 +16,16 @@ interface EvaluationData {
   feedback: string;
 }
 
+interface Drill {
+  question: string;
+  idealResponse: string;
+}
+
 export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
   const { getToken } = useAuth();
   const { toast: showToast } = useToast();
   const queryClient = useQueryClient();
-  const [drill, setDrill] = useState<any>(null);
+  const [drill, setDrill] = useState<Drill | null>(null);
   const [evalData, setEvalData] = useState<EvaluationData | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
 
@@ -37,22 +42,26 @@ export const InsightPanel: React.FC<InsightPanelProps> = ({ fullId }) => {
       method: 'POST',
       body: JSON.stringify({ fileId: fullId })
     }),
-    onSuccess: (data) => setDrill(data),
+    onSuccess: (data) => setDrill(data as Drill),
     onError: () => showToast('Failed to generate technical drill', 'error')
   });
 
+  // 3. Evaluation Mutation
   const evaluateDrill = useMutation({
-    mutationFn: () => fetchWithAuth('/api/v1/intelligence/evaluate', getToken, {
-      method: 'POST',
-      body: JSON.stringify({
-        fileId: fullId,
-        question: drill.question,
-        idealResponse: drill.idealResponse,
-        userAnswer
-      })
-    }),
+    mutationFn: () => {
+      if (!drill) throw new Error("No drill active");
+      return fetchWithAuth('/api/v1/intelligence/evaluate', getToken, {
+        method: 'POST',
+        body: JSON.stringify({ 
+          fileId: fullId,
+          question: drill.question, 
+          idealResponse: drill.idealResponse, 
+          userAnswer 
+        })
+      });
+    },
     onSuccess: (data) => {
-      setEvalData(data);
+      setEvalData(data as EvaluationData);
       queryClient.invalidateQueries({ queryKey: ['graph'] });
     },
     onError: () => showToast('Evaluation failed', 'error')
