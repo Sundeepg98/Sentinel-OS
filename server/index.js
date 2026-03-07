@@ -21,7 +21,7 @@ const swaggerOptions = {
     openapi: '3.0.0',
     info: {
       title: 'Sentinel-OS API',
-      version: '2.6.0',
+      version: '2.7.0',
       description: 'Technical Intelligence & RAG Engine API',
     },
     servers: [{ url: '/api/v1' }],
@@ -81,16 +81,16 @@ initDB();
 
 // Ensure Logs Directory Exists
 const ensureLogsDir = async () => {
-  const logDir = path.join(__dirname, 'logs');
+  const logsDir = path.join(__dirname, 'logs');
   try {
-    await fs.mkdir(logDir, { recursive: true });
-  } catch (err) {
-    logger.error({ err }, 'Failed to create logs directory');
+    await fs.mkdir(logsDir, { recursive: true });
+  } catch {
+    // Already exists
   }
 };
 ensureLogsDir();
 
-// --- 🛡️ ENGINEERING BASIC: GLOBAL SECURITY & RATE LIMITING ---
+// --- SECURITY & PERFORMANCE MIDDLEWARE ---
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -217,84 +217,77 @@ const { validateBody, validateParams, schemas } = require('./lib/validation');
 const { AppError, asyncHandler } = require('./lib/errors');
 
 // 🛰️ PUBLIC TELEMETRY ENDPOINT
-// Allows reporting frontend crashes even before auth is established
-app.post('/api/v1/admin/error-logs', globalRateLimiter, validateBody(schemas.errorLogSchema), async (req, res) => {
-  const { message, stack, componentStack, url } = req.body;
+/**
+ * @openapi
+ * /admin/error-logs:
+ *   post:
+ *     tags: [Audit & Telemetry]
+ *     summary: Report a frontend crash or component error
+ *     security: [] # Public endpoint
+ */
+app.post('/api/v1/admin/error-logs', globalRateLimiter, validateBody(schemas.errorLogSchema), asyncHandler(async (req, res) => {
+  const { message, stack, componentStack, url, metadata } = req.body;
   const { db, isPostgres } = require('./lib/db');
-  
-  // Try to get user identity from bypass or correlation if any
-  const userId = req.headers['x-sentinel-bypass'] ? 'local-admin' : null;
 
-  try {
-    const payload = componentStack ? `Component: ${componentStack}` : null;
-    if (isPostgres) {
-      await db.query(
-        "INSERT INTO system_logs (type, category, message, payload, stack, url, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-        ['UI', 'CRASH', message, payload, stack, url, userId]
-      );
-    } else {
-      db.prepare(
-        "INSERT INTO system_logs (type, category, message, payload, stack, url, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
-      ).run('UI', 'CRASH', message, payload, stack, url, userId);
-    }
-    res.success({ logged: true });
-  } catch (err) {
-    logger.error({ err }, "Failed to persist UI error log");
-    res.error("Failed to persist UI error log", 500);
+  const userId = req.headers['x-sentinel-bypass'] ? 'local-admin' : (req.userId || null);
+
+  const payload = componentStack ? `Component: ${componentStack}` : null;
+  const metadataStr = metadata ? JSON.stringify(metadata) : null;
+
+  if (isPostgres) {
+    await db.query(
+      "INSERT INTO system_logs (type, category, message, payload, metadata, stack, url, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+      ['UI', 'CRASH', message, payload, metadataStr, stack, url, userId]
+    );
+  } else {
+    db.prepare(
+      "INSERT INTO system_logs (type, category, message, payload, metadata, stack, url, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    ).run('UI', 'CRASH', message, payload, metadataStr, stack, url, userId);
   }
-});
+  res.success({ logged: true });
+}));
 
 // --- 🏥 HEALTH CHECK ---
-app.get('/health', async (req, res) => {
+app.get('/health', asyncHandler(async (req, res) => {
   const { getCircuitState } = require('./lib/intelligence');
   const os = require('os');
   
-  // 🛡️ SECURITY BASIC: Restrict deep telemetry to admin/bypass
   const hasBypass = req.headers['x-sentinel-bypass'] === env.DEV_BYPASS_TOKEN;
   const isDeep = hasBypass || req.userId;
 
-  try {
-    const dbStatus = isPostgres ? 'cloud' : 'local';
-    if (isPostgres) {
-      await db.query('SELECT 1');
-    } else {
-      db.prepare('SELECT 1').get();
-    }
+  const dbStatus = isPostgres ? 'cloud' : 'local';
+  if (isPostgres) {
+    await db.query('SELECT 1');
+  } else {
+    db.prepare('SELECT 1').get();
+  }
 
-    const payload = { 
-      status: 'healthy', 
-      db: dbStatus,
-      version: '2.6.0',
-      timestamp: new Date().toISOString()
-    };
+  const payload = { 
+    status: 'healthy', 
+    db: dbStatus,
+    version: '2.7.0',
+    timestamp: new Date().toISOString()
+  };
 
-    if (isDeep) {
-      Object.assign(payload, {
-        resources: {
-          uptime: Math.round(process.uptime()),
-          memory: {
-            rss: `${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`,
-            heapTotal: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB`,
-          },
-          cpuLoad: os.loadavg(),
+  if (isDeep) {
+    Object.assign(payload, {
+      resources: {
+        uptime: Math.round(process.uptime()),
+        memory: {
+          rss: `${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`,
+          heapTotal: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB`,
         },
-        aiEngine: {
-          circuitState: getCircuitState(),
-          activeWorker: !!globalState.activeWorker,
-        }
-      });
-    }
-
-    res.success(payload);
-  } catch (err) {
-    logger.error({ err }, '🏥 Health Check Failed');
-    res.status(503).json({ 
-      status: 'unhealthy', 
-      error: 'Database connection failed',
-      timestamp: new Date().toISOString()
+        cpuLoad: os.loadavg(),
+      },
+      aiEngine: {
+        circuitState: getCircuitState(),
+        activeWorker: !!globalState.activeWorker,
+      }
     });
   }
-});
+
+  res.success(payload);
+}));
 
 function spawnRAGWorker() {
   if (globalState.isSyncing) return;
@@ -322,12 +315,11 @@ function spawnRAGWorker() {
         newIndex.add(id, file.content);
       });
       globalState.searchIndex = newIndex;
-      
-      const payload = JSON.stringify({ type: 'SYNC_COMPLETE', hotReload: !!msg.isHotReload });
-      globalState.clients.forEach(c => {
-        try { c.res.write(`data: ${payload}\n\n`); } catch { /* Ignore */ }
-      });
 
+      const completePayload = JSON.stringify({ type: 'SYNC_COMPLETE' });
+      globalState.clients.forEach(c => {
+        try { c.res.write(`data: ${completePayload}\n\n`); } catch { /* Ignore */ }
+      });
       logger.info(`🔍 Search Index Synchronized. Notified ${globalState.clients.length} clients.`);
       globalState.isSyncing = false;
     }
@@ -374,11 +366,11 @@ v1Router.get('/health', (req, res) => res.redirect('/health'));
  *     tags: [Technical Intelligence]
  *     summary: Discover available company intelligence profiles
  */
-v1Router.get('/companies', (req, res) => {
+v1Router.get('/companies', asyncHandler(async (req, res) => {
   const companies = [...new Set(Object.values(globalState.knowledgeGraph.files).map(f => f.company))]
     .map(id => ({ id, name: id.charAt(0).toUpperCase() + id.slice(1) }));
   res.success(companies);
-});
+}));
 
 /**
  * @openapi
@@ -401,7 +393,7 @@ v1Router.get('/dossier/:id', validateParams(schemas.pathParamsSchema), asyncHand
       id: id.split('/').pop().replace('.md', ''),
       fullId: id,
       label: data.label,
-      type: 'markdown', // Default to markdown, can be enhanced with frontmatter parsing
+      type: 'markdown', 
       data: data.content
     }));
 
@@ -442,7 +434,7 @@ app.get(/(.*)/, (req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html'
 app.use((err, req, res, _next) => {
   const statusCode = err.statusCode || 500;
   const isOperational = err.isOperational || false;
-  const log = req.log || logger; // Fallback to global logger if middleware hasn't run
+  const log = req.log || logger; 
 
   log.error({ 
     path: req.path, 
@@ -466,7 +458,6 @@ const server = app.listen(PORT, () => {
 function gracefulShutdown(signal) {
   logger.info(`🛑 Signal ${signal} received. Shutting down gracefully...`);
   
-  // Force exit after 5s if cleanup hangs
   const forceExit = setTimeout(() => {
     logger.error("💀 Graceful shutdown timed out. Forcing exit.");
     process.exit(1);

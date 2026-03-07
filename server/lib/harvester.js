@@ -119,13 +119,11 @@ async function syncIntelligence() {
   try {
     // 1. Process Local Files
     const companyFolders = await fs.readdir(INTELLIGENCE_DIR, { withFileTypes: true });
-    logger.info({ count: companyFolders.length }, '📂 Found folders in intelligence dir');
     const syncTasks = [];
 
     for (const company of companyFolders.filter(d => d.isDirectory())) {
       const companyPath = path.join(INTELLIGENCE_DIR, company.name);
       const files = await fs.readdir(companyPath);
-      logger.info({ company: company.name, fileCount: files.length }, '📁 Scanning company directory');
       
       for (const fileName of files.filter(f => f.endsWith('.md'))) {
         syncTasks.push(limit(async () => {
@@ -134,42 +132,33 @@ async function syncIntelligence() {
           const { content, data } = matter(fileContent);
           
           const validation = dossierFrontmatterSchema.safeParse(data);
-          if (!validation.success) {
-            logger.warn({ file: fileName, errors: validation.error.format() }, '⚠️ Invalid frontmatter in technical dossier');
-          }
-          
           const validatedData = validation.success ? validation.data : { label: fileName, type: 'markdown' };
           const fileId = `${company.name}/${fileName}`.toLowerCase(); 
           activeFileIds.add(fileId);
           const currentHash = getFileHash(fileContent);
 
-          // --- CLOUD CACHE CHECK ---
+          // --- CHANGE DETECTION LOGIC ---
           let shouldProcess = true;
-          if (isPostgres) {
-            const cached = await db.prepare("SELECT content_hash FROM dossiers WHERE id = ?").get(fileId);
-            if (cached && cached.content_hash === currentHash) shouldProcess = false;
-          } else {
-            const cached = db.prepare("SELECT content_hash FROM intelligence_cache WHERE file_id = ?").get(fileId);
-            if (cached && cached.content_hash === currentHash) shouldProcess = false;
-          }
+          const cached = await db.prepare("SELECT content_hash FROM dossiers WHERE id = ?").get(fileId);
+          if (cached && cached.content_hash === currentHash) shouldProcess = false;
 
           if (shouldProcess) {
             const label = validatedData.label || fileName;
-            if (isPostgres) {
-              await db.query(
-                "INSERT INTO dossiers (id, company, label, content, metadata, content_hash) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT(id) DO UPDATE SET content=excluded.content, metadata=excluded.metadata, label=excluded.label, content_hash=excluded.content_hash",
-                [fileId, company.name, label, content, JSON.stringify(data), currentHash]
-              );
-            } else {
-              const keywords = extractKeywords(content + ' ' + (validatedData.label || ''));
-              db.prepare(`INSERT INTO intelligence_cache (file_id, content_hash, label, company, keywords) VALUES (?, ?, ?, ?, ?) ON CONFLICT(file_id) DO UPDATE SET content_hash=excluded.content_hash`).run(fileId, currentHash, label, company.name, JSON.stringify(keywords));
-            }
+            const sql = `
+              INSERT INTO dossiers (id, company, label, content, metadata, content_hash) 
+              VALUES (?, ?, ?, ?, ?, ?) 
+              ON CONFLICT(id) DO UPDATE SET 
+                content=excluded.content, 
+                metadata=excluded.metadata, 
+                label=excluded.label, 
+                content_hash=excluded.content_hash
+            `;
+            await db.prepare(sql).run(fileId, company.name, label, content, JSON.stringify(data), currentHash);
             await processFileVectors(fileId, content, data);
           }
 
           // --- HYDRATE GRAPH ---
           const finalKeywords = extractKeywords(content);
-          logger.info({ fileId, company: company.name }, '🧠 Hydrating graph for file');
           newGraph.files[fileId] = { label: validatedData.label || fileName, company: company.name, keywords: finalKeywords, content };
           finalKeywords.forEach(k => {
             if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
@@ -180,25 +169,21 @@ async function syncIntelligence() {
       }
     }
 
-    logger.info({ syncTasksCount: syncTasks.length }, '📊 Awaiting sync tasks');
     await Promise.all(syncTasks);
-    logger.info('✅ All sync tasks finished');
 
     // 2. Load Cloud-only dossiers (learned assets)
-    if (isPostgres) {
-      const cloudDossiers = await db.prepare("SELECT id, company, label, content, metadata FROM dossiers").all();
-      cloudDossiers.forEach(d => {
-        if (!activeFileIds.has(d.id)) {
-          const keywords = extractKeywords(d.content);
-          newGraph.files[d.id] = { label: d.label, company: d.company, keywords, content: d.content };
-          keywords.forEach(k => {
-            if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
-            newGraph.concepts[k].push({ fileId: d.id, company: d.company });
-          });
-          searchIndex.add(d.id, d.content);
-        }
-      });
-    }
+    const cloudDossiers = await db.prepare("SELECT id, company, label, content, metadata FROM dossiers").all();
+    cloudDossiers.forEach(d => {
+      if (!activeFileIds.has(d.id)) {
+        const keywords = extractKeywords(d.content);
+        newGraph.files[d.id] = { label: d.label, company: d.company, keywords, content: d.content };
+        keywords.forEach(k => {
+          if (!newGraph.concepts[k]) newGraph.concepts[k] = [];
+          newGraph.concepts[k].push({ fileId: d.id, company: d.company });
+        });
+        searchIndex.add(d.id, d.content);
+      }
+    });
 
     knowledgeGraph = newGraph;
     logger.info({ 

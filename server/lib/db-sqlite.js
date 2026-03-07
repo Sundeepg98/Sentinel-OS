@@ -13,11 +13,15 @@ const dbFile = isTest ? ':memory:' : path.join(__dirname, '..', 'sentinel.db');
 
 const db = new Database(dbFile);
 db.pragma('journal_mode = WAL'); // 🚀 PERFORMANCE BASIC: Non-blocking writes
+db.pragma('foreign_keys = ON'); // 🛡️ INTEGRITY BASIC
 sqliteVec.load(db);
 
 async function initDB() {
   logger.info({ db: dbFile }, '🛠️ Initializing Local Database Engine (SQLite)');
   
+  // Initialize Vector Extension Table
+  db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(id INTEGER PRIMARY KEY, vector FLOAT[3072])`);
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       version TEXT PRIMARY KEY,
