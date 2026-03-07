@@ -4,7 +4,7 @@
  * Ensures every API response follows a strict { status, data, meta } shape.
  */
 
-const LRUCache = require('lru-cache');
+const { LRUCache } = require('lru-cache');
 const pkg = require('../../package.json');
 const APP_VERSION = pkg.version;
 
