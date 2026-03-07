@@ -12,14 +12,24 @@ const responseEnvelope = (req, res, next) => {
     const diff = process.hrtime(start);
     const latencyMs = Math.round((diff[0] * 1e9 + diff[1]) / 1e6);
 
+    const meta = {
+      timestamp: new Date().toISOString(),
+      requestId: req.id, // Injected by pino-http/morgan
+      latencyMs,
+    };
+
+    // 📊 ENGINEERING BASIC: Pagination Metadata
+    if (req.query && (req.query.limit || req.query.offset)) {
+      meta.pagination = {
+        limit: parseInt(req.query.limit) || null,
+        offset: parseInt(req.query.offset) || 0
+      };
+    }
+
     res.status(statusCode).json({
       status: 'success',
       data: data,
-      meta: {
-        timestamp: new Date().toISOString(),
-        requestId: req.id, // Injected by pino-http/morgan
-        latencyMs,
-      }
+      meta
     });
   };
 

@@ -179,17 +179,21 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.post('/api/v1/admin/error-logs', globalRateLimiter, validateBody(require('./lib/validation').schemas.errorLogSchema), async (req, res) => {
   const { message, stack, componentStack, url } = req.body;
   const { db, isPostgres } = require('./lib/db');
+  
+  // Try to get user identity from bypass or correlation if any
+  const userId = req.headers['x-sentinel-bypass'] ? 'local-admin' : null;
+
   try {
     const payload = componentStack ? `Component: ${componentStack}` : null;
     if (isPostgres) {
       await db.query(
-        "INSERT INTO system_logs (type, category, message, payload, stack, url) VALUES ($1, $2, $3, $4, $5, $6)",
-        ['UI', 'CRASH', message, payload, stack, url]
+        "INSERT INTO system_logs (type, category, message, payload, stack, url, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        ['UI', 'CRASH', message, payload, stack, url, userId]
       );
     } else {
       db.prepare(
-        "INSERT INTO system_logs (type, category, message, payload, stack, url) VALUES (?, ?, ?, ?, ?, ?)"
-      ).run('UI', 'CRASH', message, payload, stack, url);
+        "INSERT INTO system_logs (type, category, message, payload, stack, url, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
+      ).run('UI', 'CRASH', message, payload, stack, url, userId);
     }
     res.success({ logged: true });
   } catch (err) {

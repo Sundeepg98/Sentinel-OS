@@ -98,7 +98,7 @@ const POST_MORTEM_SCHEMA = {
   required: ["score", "feedback"]
 };
 
-async function logAiFailure(type, prompt, error) {
+async function logAiFailure(type, prompt, error, userId = null) {
   const { db, isPostgres } = require('./db');
   try {
     const entry = {
@@ -106,12 +106,18 @@ async function logAiFailure(type, prompt, error) {
       category: type,
       message: error.message || String(error),
       payload: truncateToBudget(prompt, 1000),
-      stack: error.stack
+      stack: error.stack,
+      userId
     };
     if (isPostgres) {
-      await db.query("INSERT INTO system_logs (type, category, message, payload, stack) VALUES ($1, $2, $3, $4, $5)", [entry.type, entry.category, entry.message, entry.payload, entry.stack]);
+      await db.query(
+        "INSERT INTO system_logs (type, category, message, payload, stack, user_id) VALUES ($1, $2, $3, $4, $5, $6)", 
+        [entry.type, entry.category, entry.message, entry.payload, entry.stack, entry.userId]
+      );
     } else {
-      db.prepare("INSERT INTO system_logs (type, category, message, payload, stack) VALUES (?, ?, ?, ?, ?)").run(entry.type, entry.category, entry.message, entry.payload, entry.stack);
+      db.prepare(
+        "INSERT INTO system_logs (type, category, message, payload, stack, user_id) VALUES (?, ?, ?, ?, ?, ?)"
+      ).run(entry.type, entry.category, entry.message, entry.payload, entry.stack, entry.userId);
     }
   } catch (e) {
     logger.error({ error: e.message }, "❌ Failed to write AI failure log to DB");

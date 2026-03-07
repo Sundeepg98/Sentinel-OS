@@ -6,6 +6,7 @@ import { useAuth } from '@clerk/clerk-react';
 import { useDossierContext } from '@/lib/context';
 import { cn } from '@/lib/utils';
 import { fetchWithAuth } from '@/lib/api';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface SearchResult {
   id: string; // "company/module.md"
@@ -26,6 +27,7 @@ interface SemanticSearchResult {
 export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const debouncedQuery = useDebounce(query, 300); // 🚀 ENGINEERING BASIC: DEBOUNCE
   const [searchMode, setSearchMode] = useState<'keyword' | 'semantic'>('keyword');
   const { setCompany } = useDossierContext();
   const { getToken } = useAuth();
@@ -55,16 +57,16 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
   }, []);
 
   const { data: results = [], isFetching: isSearching } = useQuery<SearchResult[]>({
-    queryKey: ['search', query, searchMode],
+    queryKey: ['search', debouncedQuery, searchMode],
     queryFn: async () => {
-      if (query.length < 2) return [];
+      if (debouncedQuery.length < 2) return [];
       
       if (searchMode === 'keyword') {
-        return fetchWithAuth(`/api/v1/intelligence/search?q=${encodeURIComponent(query)}`, getToken);
+        return fetchWithAuth(`/api/v1/intelligence/search?q=${encodeURIComponent(debouncedQuery)}`, getToken);
       } else {
         const rawData = await fetchWithAuth('/api/v1/intelligence/semantic-search', getToken, {
           method: 'POST',
-          body: JSON.stringify({ q: query, limit: 10 })
+          body: JSON.stringify({ q: debouncedQuery, limit: 10 })
         });
         return rawData.map((item: SemanticSearchResult) => ({
           id: item.file_id,
@@ -74,7 +76,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
         }));
       }
     },
-    enabled: query.length >= 2,
+    enabled: debouncedQuery.length >= 2,
     placeholderData: (previousData) => previousData,
   });
 
@@ -104,7 +106,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
 
       <AnimatePresence>
         {isOpen && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4">
+          <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4" role="dialog" aria-modal="true" aria-label="Global Search">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -124,7 +126,7 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
                 <input 
                   autoFocus
                   placeholder={searchMode === 'keyword' ? "Search keywords (e.g., 'Redis', 'V8')..." : "Search by meaning (e.g., 'How to handle high traffic?')..."}
-                  className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-neutral-600 text-[15px]"
+                  className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-neutral-700 text-[15px]"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
@@ -150,12 +152,12 @@ export const DeepSearch: React.FC<DeepSearchProps> = ({ onSelect }) => {
                   </button>
                 </div>
 
-                <button onClick={() => setIsOpen(false)} className="ml-2 p-1 hover:bg-white/[0.05] rounded-md transition-colors">
+                <button onClick={() => setIsOpen(false)} className="ml-2 p-1 hover:bg-white/[0.05] rounded-md transition-colors" aria-label="Close search">
                   <X className="text-neutral-500 hover:text-white" size={18} />
                 </button>
               </div>
 
-              <div className="max-h-[60vh] overflow-y-auto p-2">
+              <div className="max-h-[60vh] overflow-y-auto p-2 custom-scrollbar">
                 {results.length > 0 ? (
                   <div className="space-y-1">
                     {results.map((res, i) => (

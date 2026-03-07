@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS interaction_history (
 
 CREATE TABLE IF NOT EXISTS system_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT, -- 📡 Traceability
   type TEXT,
   category TEXT,
   message TEXT,
